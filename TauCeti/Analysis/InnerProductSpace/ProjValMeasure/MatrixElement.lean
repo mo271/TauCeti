@@ -33,6 +33,10 @@ against `μ_(ξ,ξ)` gives the Bochner integral against `P.diag ξ`.
   `⟪ψ, (∫ f dP) ξ⟫` is the integral of `f` against `μ_(ψ,ξ)`.
 * `ProjValMeasure.integral_polarizedComplexMeasure_self`: integration of any `f : X → ℂ` against
   `μ_(ξ,ξ)` is the Bochner integral against `P.diag ξ`.
+* `ProjValMeasure.polarizedComplexMeasure_integral_right`,
+  `ProjValMeasure.polarizedComplexMeasure_integral_left`, and `ProjValMeasure.diag_integral`:
+  applying `P.integral f` multiplies the polarized complex measure by density `f` (or `star f` in
+  the first slot) and multiplies `P.diag ξ` by density `‖f ·‖ₑ ^ 2`.
 
 ## References
 
@@ -44,7 +48,7 @@ against `μ_(ξ,ξ)` gives the Bochner integral against `P.diag ξ`.
 public section
 
 open MeasureTheory Filter Topology
-open scoped InnerProductSpace
+open scoped InnerProductSpace ENNReal
 
 namespace TauCeti
 namespace ProjValMeasure
@@ -109,6 +113,54 @@ theorem integral_polarizedComplexMeasure_self (P : ProjValMeasure X H) (f : X �
     ∫ᵛ x, f x ∂[ContinuousLinearMap.mul ℝ ℂ; P.polarizedComplexMeasure ξ ξ] =
       ∫ x, f x ∂(P.diag ξ) := by
   rw [polarizedComplexMeasure_self_eq_withDensityᵥ, VectorMeasure.integral_mul_withDensityᵥ_one]
+
+/-- Applying `P.integral f` in the second argument multiplies the polarized complex measure by the
+density `f`. -/
+theorem polarizedComplexMeasure_integral_right (P : ProjValMeasure X H)
+    (f : BoundedBorelFunction X) (ψ ξ : H) :
+    P.polarizedComplexMeasure ψ (P.integral f ξ) =
+      (P.polarizedComplexMeasure ψ ξ).withDensity f (ContinuousLinearMap.mul ℝ ℂ) := by
+  ext B hB
+  have hcomm := (P.forall_commute_integral_iff (P.proj B hB)).2
+    (fun C hC => P.proj_mul_comm B C hB hC) f
+  rw [polarizedComplexMeasure_apply _ _ _ _ hB,
+    ← mul_apply_eq_comp, hcomm.eq, mul_apply_eq_comp,
+    ← integral_polarizedComplexMeasure_eq_inner_integral,
+    polarizedComplexMeasure_proj_right _ hB,
+    VectorMeasure.withDensity_apply (f.integrable _)]
+
+/-- Applying `P.integral f` in the first argument multiplies the polarized complex measure by the
+conjugate density `star ⇑f`. -/
+theorem polarizedComplexMeasure_integral_left (P : ProjValMeasure X H)
+    (f : BoundedBorelFunction X) (ψ ξ : H) :
+    P.polarizedComplexMeasure (P.integral f ψ) ξ =
+      (P.polarizedComplexMeasure ψ ξ).withDensity (star ⇑f) (ContinuousLinearMap.mul ℝ ℂ) := by
+  ext B hB
+  rw [polarizedComplexMeasure_apply _ _ _ _ hB,
+    ← ContinuousLinearMap.adjoint_inner_right, ← ContinuousLinearMap.star_eq_adjoint, ← map_star,
+    ← integral_polarizedComplexMeasure_eq_inner_integral,
+    polarizedComplexMeasure_proj_right _ hB, ← BoundedBorelFunction.coe_star,
+    VectorMeasure.withDensity_apply ((star f).integrable _)]
+
+/-- Applying `P.integral f` multiplies the diagonal spectral measure `P.diag ξ` by the density
+`x ↦ ‖f x‖ₑ ^ 2`. -/
+theorem diag_integral (P : ProjValMeasure X H) (f : BoundedBorelFunction X) (ξ : H) :
+    P.diag (P.integral f ξ) = (P.diag ξ).withDensity fun x => ‖f x‖ₑ ^ 2 := by
+  have hpol : P.polarizedComplexMeasure (P.integral f ξ) (P.integral f ξ) =
+      (P.polarizedComplexMeasure ξ ξ).withDensity (fun x => f x * star (f x))
+        (ContinuousLinearMap.mul ℝ ℂ) := by
+    rw [polarizedComplexMeasure_integral_right, polarizedComplexMeasure_integral_left,
+      ← BoundedBorelFunction.coe_star,
+      VectorMeasure.withDensity_withDensity_mul ((star f).integrable _)]
+    rfl
+  have hvar := congrArg VectorMeasure.variation hpol
+  have hint : (P.polarizedComplexMeasure ξ ξ).Integrable (fun x => f x * star (f x)) :=
+    (f * star f).integrable _
+  rw [variation_polarizedComplexMeasure_self,
+    VectorMeasure.variation_withDensity_mul hint,
+    variation_polarizedComplexMeasure_self] at hvar
+  refine hvar.trans (withDensity_congr_ae <| Filter.Eventually.of_forall fun x => ?_)
+  simp [sq, eNorm_mul]
 
 end ProjValMeasure
 end TauCeti

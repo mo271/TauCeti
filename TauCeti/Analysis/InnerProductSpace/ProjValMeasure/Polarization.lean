@@ -1,7 +1,7 @@
 /-
-Copyright (c) 2026 Kitware, Inc. All rights reserved.
+Copyright (c) 2026 The Tau Ceti contributors and Kitware, Inc. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Jon Crall, GPT-6
+Authors: Jon Crall, GPT-6, The Tau Ceti contributors
 -/
 module
 
@@ -15,7 +15,8 @@ public import Mathlib.MeasureTheory.VectorMeasure.WithDensityVec
 A normalized projection-valued measure `P` carries a finite diagonal positive measure
 `P.diag ξ` for every vector `ξ`. Complex polarization produces a genuine complex vector measure
 `P.polarizedComplexMeasure ψ ξ` whose value on a measurable set `B` is
-`⟪ψ, P.proj B hB ξ⟫_ℂ`. Its dependence on `ψ` is conjugate-linear and on `ξ` linear. On the
+`⟪ψ, P.proj B hB ξ⟫_ℂ`. Its dependence on `ψ` is conjugate-linear and on `ξ` linear, and
+projecting either vector onto a measurable set restricts the complex measure to that set. On the
 diagonal, `P.polarizedComplexMeasure ξ ξ` is `P.diag ξ` with the constant complex density `1`.
 
 The construction uses Mathlib's signed-measure and complex-measure conversions: countable
@@ -148,6 +149,32 @@ theorem polarizedComplexMeasure_smul_right (P : ProjValMeasure X H) (c : ℂ) (�
       P.polarizedComplexMeasure u v B = ⟪u, P.proj B hB v⟫_ℂ :=
     P.polarizedComplexMeasure_apply u v B hB
   simp only [heval, _root_.smul_apply, map_smul, inner_smul_right, smul_eq_mul]
+
+/-- Projecting the second vector onto a measurable set `B` restricts the polarized complex measure
+to `B`. -/
+@[simp]
+theorem polarizedComplexMeasure_proj_right (P : ProjValMeasure X H) {B : Set X}
+    (hB : MeasurableSet B) (ψ ξ : H) :
+    P.polarizedComplexMeasure ψ (P.proj B hB ξ) = (P.polarizedComplexMeasure ψ ξ).restrict B := by
+  ext C hC
+  rw [P.polarizedComplexMeasure_apply ψ (P.proj B hB ξ) C hC,
+    VectorMeasure.restrict_apply _ hB hC,
+    P.polarizedComplexMeasure_apply ψ ξ (C ∩ B) (hC.inter hB),
+    ← ContinuousLinearMap.comp_apply, ← ContinuousLinearMap.mul_def, P.proj_inter]
+
+/-- Projecting the first vector onto a measurable set `B` restricts the polarized complex measure
+to `B`. -/
+@[simp]
+theorem polarizedComplexMeasure_proj_left (P : ProjValMeasure X H) {B : Set X}
+    (hB : MeasurableSet B) (ψ ξ : H) :
+    P.polarizedComplexMeasure (P.proj B hB ψ) ξ = (P.polarizedComplexMeasure ψ ξ).restrict B := by
+  ext C hC
+  have hsym : ⟪P.proj B hB ψ, P.proj C hC ξ⟫_ℂ = ⟪ψ, P.proj B hB (P.proj C hC ξ)⟫_ℂ :=
+    (P.isSelfAdjoint_proj B hB).isSymmetric ψ (P.proj C hC ξ)
+  rw [P.polarizedComplexMeasure_apply (P.proj B hB ψ) ξ C hC, hsym,
+    ← ContinuousLinearMap.comp_apply, ← ContinuousLinearMap.mul_def, P.proj_mul_comm B C hB hC,
+    P.proj_inter C B hC hB, ← P.polarizedComplexMeasure_apply ψ ξ (C ∩ B) (hC.inter hB),
+    VectorMeasure.restrict_apply _ hB hC]
 
 /-- Pointwise Young-type bound on a polarized spectral measure by a weighted sum of the two
 diagonal measures. -/

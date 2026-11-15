@@ -28,7 +28,8 @@ space equipped with its Borel measurable space these are bounded Borel functions
 be empty, in which case every norm vanishes; on a nonempty domain the unit has norm one.
 
 These symbols form the source algebra for bounded Borel functional calculus: constants,
-measurable simple functions and restrictions to measurable sets are bounded symbols, pullback
+measurable simple functions, restrictions to measurable sets, and norm cutoffs (`cutoff`) of
+arbitrary measurable functions are bounded symbols, pullback
 along a measurable map is a star algebra homomorphism (hence norm-nonincreasing, as is every star
 homomorphism between C⋆-algebras), and convergence in norm is uniform convergence.
 
@@ -302,6 +303,68 @@ theorem compStarAlgHom'_indicator (g : X → Y) (hg : Measurable g) (s : Set Y)
   ext x
   simp only [compStarAlgHom'_apply, indicator_apply]
   exact (Set.indicator_comp_right g (g := (f : Y → ℂ)) (s := s) (x := x)).symm
+
+/-- Norm truncation of a measurable complex function `f` at threshold `R : ℝ`, equal to `f x` where
+`‖f x‖ ≤ R` and to `0` where `R < ‖f x‖`. For `R < 0` the set `{x | ‖f x‖ ≤ R}` is empty and the
+cutoff is `0`. -/
+noncomputable def cutoff (f : X → ℂ) (hf : Measurable f) (R : ℝ) : BoundedBorelFunction X :=
+  ofFunction ({x | ‖f x‖ ≤ R}.indicator f)
+    (hf.indicator (measurableSet_le hf.norm measurable_const))
+    ⟨max R 0, le_max_right R 0, fun x => by
+      by_cases hx : x ∈ {y | ‖f y‖ ≤ R}
+      · rw [Set.indicator_of_mem hx]
+        exact hx.trans (le_max_left R 0)
+      · simp [Set.indicator_of_notMem hx]⟩
+
+/-- Norm truncation coerces to the indicator of `{x | ‖f x‖ ≤ R}`. -/
+@[simp] theorem coe_cutoff (f : X → ℂ) (hf : Measurable f) (R : ℝ) :
+    ⇑(cutoff f hf R) = {x | ‖f x‖ ≤ R}.indicator f := (rfl)
+
+/-- Evaluating `cutoff f hf R` evaluates the indicator of `{y | ‖f y‖ ≤ R}`. -/
+@[simp] theorem cutoff_apply (f : X → ℂ) (hf : Measurable f) (R : ℝ) (x : X) :
+    cutoff f hf R x = {y | ‖f y‖ ≤ R}.indicator f x := (rfl)
+
+/-- Complex conjugation commutes with norm truncation. -/
+@[simp] theorem star_cutoff (f : X → ℂ) (hf : Measurable f) (R : ℝ) :
+    star (cutoff f hf R) = cutoff (star f) (continuous_star.measurable.comp hf) R := by
+  ext x
+  by_cases hx : x ∈ {y | ‖f y‖ ≤ R}
+  · simp [Set.indicator_of_mem hx]
+  · simp [Set.indicator_of_notMem hx]
+
+/-- Norm truncation of `star f` is the star of the norm truncation of `f`. -/
+theorem cutoff_star (f : X → ℂ) (hf : Measurable f) (hstar : Measurable (star f)) (R : ℝ) :
+    cutoff (star f) hstar R = star (cutoff f hf R) :=
+  (star_cutoff f hf R).symm
+
+/-- Restricting `cutoff f hf R` to `{x | ‖f x‖ ≤ R}` leaves it unchanged. -/
+@[simp] theorem indicator_cutoff_self (f : X → ℂ) (hf : Measurable f) (R : ℝ)
+    (hS : MeasurableSet {x | ‖f x‖ ≤ R}) :
+    indicator {x | ‖f x‖ ≤ R} hS (cutoff f hf R) = cutoff f hf R := by
+  ext x
+  by_cases hx : x ∈ {y | ‖f y‖ ≤ R} <;> simp [hx]
+
+/-- Pointwise, a norm cutoff never increases the norm of `f`. -/
+theorem norm_cutoff_apply_le (f : X → ℂ) (hf : Measurable f) (R : ℝ) (x : X) :
+    ‖cutoff f hf R x‖ ≤ ‖f x‖ :=
+  norm_indicator_le_norm_self f x
+
+/-- For a nonnegative threshold `R`, the supremum norm of `cutoff f hf R` is at most `R`. -/
+theorem norm_cutoff_le (f : X → ℂ) (hf : Measurable f) {R : ℝ} (hR : 0 ≤ R) :
+    ‖cutoff f hf R‖ ≤ R := by
+  refine (norm_le hR).2 fun x => ?_
+  by_cases hx : x ∈ {y | ‖f y‖ ≤ R}
+  · simpa [Set.indicator_of_mem hx] using hx
+  · simpa [Set.indicator_of_notMem hx] using hR
+
+/-- Along any filter where the cutoff threshold tends to `+∞`, `cutoff f hf (R i) x` is eventually
+equal to `f x` and hence converges to `f x`. -/
+theorem tendsto_cutoff_apply {ι : Type*} {l : Filter ι} {R : ι → ℝ} (hR : Tendsto R l atTop)
+    (f : X → ℂ) (hf : Measurable f) (x : X) :
+    Tendsto (fun i => cutoff f hf (R i) x) l (𝓝 (f x)) := by
+  refine tendsto_const_nhds.congr' ?_
+  filter_upwards [hR.eventually_ge_atTop ‖f x‖] with i hi
+  exact (Set.indicator_of_mem hi f).symm
 
 /-- Every measurable complex simple function is an everywhere bounded symbol. This embedding is a
 star algebra homomorphism for the pointwise operations on simple functions. -/

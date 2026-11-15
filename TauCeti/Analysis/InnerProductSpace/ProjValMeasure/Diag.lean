@@ -6,6 +6,7 @@ Authors: The Tau Ceti contributors
 module
 
 public import TauCeti.Analysis.InnerProductSpace.ProjValMeasure.Additivity
+import TauCeti.Analysis.InnerProductSpace.Parallelogram
 
 /-!
 # Vector dependence and restriction of diagonal spectral measures
@@ -52,6 +53,7 @@ theorem diag_neg (P : ProjValMeasure X H) (ξ : H) : P.diag (-ξ) = P.diag ξ :=
   rw [← P.enorm_sq_proj_apply B hB (-ξ), ← P.enorm_sq_proj_apply B hB ξ, map_neg, eNorm_neg]
 
 /-- Scaling a vector by `c` scales its diagonal spectral measure by `‖c‖₊ ^ 2`. -/
+@[simp]
 theorem diag_smul (P : ProjValMeasure X H) (c : ℂ) (ξ : H) :
     P.diag (c • ξ) = (‖c‖₊ ^ 2) • P.diag ξ := by
   ext B hB
@@ -67,19 +69,11 @@ theorem diag_add_le (P : ProjValMeasure X H) (ξ η : H) :
   intro B hB
   let u := P.proj B hB ξ
   let v := P.proj B hB η
-  have hreal : ‖u + v‖ ^ 2 ≤ 2 * ‖u‖ ^ 2 + 2 * ‖v‖ ^ 2 := by
-    nlinarith [norm_add_le u v, norm_nonneg (u + v), sq_nonneg (‖u‖ - ‖v‖)]
-  have henorm : ‖u + v‖ₑ ^ 2 ≤ 2 * ‖u‖ₑ ^ 2 + 2 * ‖v‖ₑ ^ 2 := by
-    have h := ENNReal.ofReal_le_ofReal hreal
-    rwa [ENNReal.ofReal_add (by positivity) (by positivity),
-      ENNReal.ofReal_mul (by positivity), ENNReal.ofReal_mul (by positivity),
-      ENNReal.ofReal_ofNat, ENNReal.ofReal_pow (norm_nonneg _),
-      ENNReal.ofReal_pow (norm_nonneg _), ENNReal.ofReal_pow (norm_nonneg _),
-      ofReal_norm, ofReal_norm, ofReal_norm] at h
   calc (P.diag (ξ + η)) B
       = ‖u + v‖ₑ ^ 2 := by
           rw [← P.enorm_sq_proj_apply B hB (ξ + η), map_add]
-    _ ≤ 2 * ‖u‖ₑ ^ 2 + 2 * ‖v‖ₑ ^ 2 := henorm
+    _ ≤ 2 * ‖u‖ₑ ^ 2 + 2 * ‖v‖ₑ ^ 2 :=
+          le_self_add.trans_eq ((TauCeti.parallelogram_law_with_enorm ℂ u v).trans (mul_add 2 _ _))
     _ = (2 • P.diag ξ + 2 • P.diag η) B := by
           simp [u, v, P.enorm_sq_proj_apply B hB]
 
