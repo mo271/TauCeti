@@ -7,7 +7,7 @@ module
 
 public import Mathlib.Algebra.Category.ModuleCat.Basic
 public import Mathlib.Algebra.Homology.HomologicalComplex
-public import TauCeti.Algebra.Homology.AInfinity.Algebra.Hom.Homotopy
+public import TauCeti.Algebra.Homology.AInfinity.Algebra.Hom.Homotopy.Basic
 
 /-!
 # The complex of reduced transformations between A-infinity morphisms
@@ -54,6 +54,8 @@ morphisms.
   from `f` to `g`, the `(F, G)`-coderivations of degree `p` between reduced bar constructions.
 * `TauCeti.AInfinityHom.reducedTransformationCochains.taylor`: the suspended Taylor components of
   a reduced transformation.
+* `TauCeti.AInfinityHom.reducedTransformationCochains.ofTaylor`: the reduced transformation with
+  prescribed suspended Taylor components.
 * `TauCeti.AInfinityHom.reducedTransformationDifferential`: the graded commutator with the bar
   differentials.
 * `TauCeti.AInfinityHom.reducedTransformationComplex`: the complex of reduced transformations from
@@ -176,12 +178,36 @@ theorem taylor_def (D : reducedTransformationCochains f g p) :
 theorem taylor_zero : taylor (0 : reducedTransformationCochains f g p) = 0 :=
   LinearMap.comp_zero _
 
+theorem coe_neg (D : reducedTransformationCochains f g p) :
+    ((-D : reducedTransformationCochains f g p) :
+      ReducedTensorWords R A →ₗ[R] ReducedTensorWords R B) = -D :=
+  (rfl)
+
+theorem coe_sub (D D' : reducedTransformationCochains f g p) :
+    ((D - D' : reducedTransformationCochains f g p) :
+      ReducedTensorWords R A →ₗ[R] ReducedTensorWords R B) = D - D' :=
+  (rfl)
+
 /-- The Taylor components of a sum of transformations are the sums of their Taylor
 components. -/
 @[simp]
 theorem taylor_add (D D' : reducedTransformationCochains f g p) :
     taylor (D + D') = taylor D + taylor D' :=
   LinearMap.comp_add _ _ _
+
+/-- The Taylor components of the negation of a transformation are the negations of its Taylor
+components. -/
+@[simp]
+theorem taylor_neg (D : reducedTransformationCochains f g p) :
+    taylor (-D) = -taylor D :=
+  LinearMap.comp_neg _ _
+
+/-- The Taylor components of a difference of transformations are the differences of their Taylor
+components. -/
+@[simp]
+theorem taylor_sub (D D' : reducedTransformationCochains f g p) :
+    taylor (D - D') = taylor D - taylor D' :=
+  LinearMap.comp_sub _ _ _
 
 /-- The Taylor components of a scalar multiple of a transformation are the scalar multiples of
 its Taylor components. -/
@@ -209,6 +235,65 @@ theorem taylor_injective :
 @[ext]
 theorem ext {D D' : reducedTransformationCochains f g p} (e : taylor D = taylor D') : D = D' :=
   taylor_injective e
+
+variable (f g) in
+/-- The reduced transformation of degree `p` from `f` to `g` with prescribed suspended Taylor
+components `t`: its underlying coderivation is `gradedCoderivAlong` of `t` along `f.barMap` and
+`g.barMap`. -/
+noncomputable def ofTaylor (t : ReducedTensorWords R A →ₗ[R] B)
+    (ht : LinearMap.IsHomogeneous t (ReducedTensorWords.gradedPiece (AA.grading.shift 1))
+      (BB.grading.shift 1).piece p) :
+    reducedTransformationCochains f g p :=
+  ⟨ReducedTensorWords.gradedCoderivAlong (AA.grading.shift 1) p f.barMap g.barMap t,
+    ReducedTensorWords.isGradedCoderivationAlong_gradedCoderivAlong f.isCoalgHom_barMap
+      g.isCoalgHom_barMap t,
+    ReducedTensorWords.isHomogeneous_gradedCoderivAlong f.isHomogeneous_barMap
+      g.isHomogeneous_barMap ht⟩
+
+@[simp]
+theorem coe_ofTaylor (t : ReducedTensorWords R A →ₗ[R] B)
+    (ht : LinearMap.IsHomogeneous t (ReducedTensorWords.gradedPiece (AA.grading.shift 1))
+      (BB.grading.shift 1).piece p) :
+    (ofTaylor f g t ht : ReducedTensorWords R A →ₗ[R] ReducedTensorWords R B) =
+      ReducedTensorWords.gradedCoderivAlong (AA.grading.shift 1) p f.barMap g.barMap t :=
+  (rfl)
+
+/-- The reduced transformation built from Taylor components has those Taylor components. -/
+@[simp]
+theorem taylor_ofTaylor (t : ReducedTensorWords R A →ₗ[R] B)
+    (ht : LinearMap.IsHomogeneous t (ReducedTensorWords.gradedPiece (AA.grading.shift 1))
+      (BB.grading.shift 1).piece p) :
+    taylor (ofTaylor f g t ht) = t :=
+  ReducedTensorWords.letter_comp_gradedCoderivAlong _ _ _ _ _
+
+/-- Every reduced transformation is built from its own Taylor components. -/
+@[simp]
+theorem ofTaylor_taylor (D : reducedTransformationCochains f g p)
+    (ht : LinearMap.IsHomogeneous (taylor D) (ReducedTensorWords.gradedPiece (AA.grading.shift 1))
+      (BB.grading.shift 1).piece p) :
+    ofTaylor f g (taylor D) ht = D :=
+  ext (taylor_ofTaylor _ _)
+
+@[simp]
+theorem ofTaylor_zero
+    (ht : LinearMap.IsHomogeneous (0 : ReducedTensorWords R A →ₗ[R] B)
+      (ReducedTensorWords.gradedPiece (AA.grading.shift 1)) (BB.grading.shift 1).piece p) :
+    ofTaylor f g 0 ht = 0 :=
+  ext (by rw [taylor_ofTaylor, taylor_zero])
+
+theorem ofTaylor_add {t t' : ReducedTensorWords R A →ₗ[R] B}
+    (ht : LinearMap.IsHomogeneous t (ReducedTensorWords.gradedPiece (AA.grading.shift 1))
+      (BB.grading.shift 1).piece p)
+    (ht' : LinearMap.IsHomogeneous t' (ReducedTensorWords.gradedPiece (AA.grading.shift 1))
+      (BB.grading.shift 1).piece p) :
+    ofTaylor f g (t + t') (ht.add ht') = ofTaylor f g t ht + ofTaylor f g t' ht' :=
+  ext (by rw [taylor_ofTaylor, taylor_add, taylor_ofTaylor, taylor_ofTaylor])
+
+theorem ofTaylor_smul (r : R) {t : ReducedTensorWords R A →ₗ[R] B}
+    (ht : LinearMap.IsHomogeneous t (ReducedTensorWords.gradedPiece (AA.grading.shift 1))
+      (BB.grading.shift 1).piece p) :
+    ofTaylor f g (r • t) (ht.smul r) = r • ofTaylor f g t ht :=
+  ext (by rw [taylor_ofTaylor, taylor_smul, taylor_ofTaylor])
 
 end reducedTransformationCochains
 
