@@ -17,7 +17,11 @@ monoidal categories add no extra unary operations on morphisms beyond compositio
 the least braided monoidal congruence containing `R` is the quotient congruence of
 `HomRel.MonoidalClosure R` on `S.FreeBraided`. Thus `S.PresentedBraided R` reuses
 `CategoryTheory.Quotient (HomRel.MonoidalClosure R)`, inheriting its `MonoidalCategory` and
-`BraidedCategory` instances from `TauCeti.CategoryTheory.Quotient.Braided`.
+`BraidedCategory` instances from `TauCeti.CategoryTheory.Quotient.Braided`. Iterated braided
+presentations are compared with union presentations by
+`CategoryTheory.Quotient.iteratedQuotientEquiv`. The formal presentation architecture follows
+`TauCeti.CategoryTheory.Monoidal.Presentation` (`TauCeti.TensorSignature.Presented`) and
+`TauCeti.CategoryTheory.Quotient.Monoidal`.
 
 ## Main definitions and results
 
@@ -28,10 +32,14 @@ the least braided monoidal congruence containing `R` is the quotient congruence 
   lift into any braided monoidal category `D` and exact descent criterion.
 * `PresentedBraided.monoidalNatIso` and `PresentedBraided.natTrans_ext`: uniqueness of braided
   lifts up to a unique monoidal natural isomorphism extending given isomorphisms on generators.
-* `PresentedBraided.iteratedQuotientEquiv`: equivalence between iterated quotienting by `R₁` then
-  `R₂` and presenting by `unionRel R₁ R₂` at once.
 * `BraidedSubstitution.mapPresented`: descent of a relation-preserving braided substitution to a
   strong braided functor `S.PresentedBraided R ⥤ T.PresentedBraided R'`.
+
+## References
+
+* A. Joyal and R. Street, *The geometry of tensor calculus I*, Adv. Math. 88 (1991), §§1, 3.
+* P. Selinger, *A survey of graphical languages for monoidal categories*, Lecture Notes in Physics
+  813 (2011), §3.3.
 -/
 
 public section
@@ -87,20 +95,15 @@ theorem quotientFunctor_comp_lift : quotientFunctor R ⋙ lift fo fc h = FreeBra
 
 @[simp] theorem lift_obj (X : S.FreeBraided) :
     (lift fo fc h).obj ((quotientFunctor R).obj X) = (FreeBraided.lift fo fc).obj X := (rfl)
-
 @[simp] theorem lift_map {X Y : S.FreeBraided} (f : X ⟶ Y) :
     (lift fo fc h).map ((quotientFunctor R).map f) = (FreeBraided.lift fo fc).map f := (rfl)
-
 @[simp] theorem lift_ε : Functor.LaxMonoidal.ε (lift fo fc h) = 𝟙 _ :=
   (CategoryTheory.Quotient.lift_ε _ _).trans (FreeBraided.lift_ε fo fc)
-
 @[simp] theorem lift_η : Functor.OplaxMonoidal.η (lift fo fc h) = 𝟙 _ :=
   (CategoryTheory.Quotient.lift_η _ _).trans (FreeBraided.lift_η fo fc)
-
 @[simp] theorem lift_μ (X Y : S.PresentedBraided R) :
     Functor.LaxMonoidal.μ (lift fo fc h) X Y = 𝟙 _ :=
   (CategoryTheory.Quotient.lift_μ _ _ X.as Y.as).trans (FreeBraided.lift_μ fo fc X.as Y.as)
-
 @[simp] theorem lift_δ (X Y : S.PresentedBraided R) :
     Functor.OplaxMonoidal.δ (lift fo fc h) X Y = 𝟙 _ :=
   (CategoryTheory.Quotient.lift_δ _ _ X.as Y.as).trans (FreeBraided.lift_δ fo fc X.as Y.as)
@@ -169,111 +172,6 @@ noncomputable instance : NatTrans.IsMonoidal (monoidalNatIso F G e he).hom :=
 
 end Uniqueness
 
-section IteratedQuotient
-
-/-- Pushforward of a second family of relations `R₂` on `S.FreeBraided` to
-`S.PresentedBraided R₁` along `quotientFunctor R₁`. -/
-inductive PushforwardRel (R₁ R₂ : HomRel S.FreeBraided) : HomRel (S.PresentedBraided R₁)
-  | of {X Y : S.FreeBraided} {f g : X ⟶ Y} :
-      R₂ f g → PushforwardRel R₁ R₂ ((quotientFunctor R₁).map f) ((quotientFunctor R₁).map g)
-
-/-- The union of two relation families on `S.FreeBraided`. -/
-@[expose] def unionRel (R₁ R₂ : HomRel S.FreeBraided) : HomRel S.FreeBraided :=
-  fun _ _ f g ↦ R₁ f g ∨ R₂ f g
-
-theorem iteratedStep₁_rel (R₁ R₂ : HomRel S.FreeBraided)
-    (X Y : S.FreeBraided) (f g : X ⟶ Y) (hfg : HomRel.MonoidalClosure R₁ f g) :
-    (quotientFunctor (unionRel R₁ R₂)).map f = (quotientFunctor (unionRel R₁ R₂)).map g :=
-  HomRel.MonoidalClosure.map_eq (fun _ _ _ _ h ↦ sound (R := unionRel R₁ R₂) (Or.inl h)) hfg
-
-/-- Auxiliary first-step lift from `S.PresentedBraided R₁` to
-`S.PresentedBraided (unionRel R₁ R₂)`. -/
-@[expose] def iteratedStep₁ (R₁ R₂ : HomRel S.FreeBraided) :
-    S.PresentedBraided R₁ ⥤ S.PresentedBraided (unionRel R₁ R₂) :=
-  CategoryTheory.Quotient.lift _ (quotientFunctor (unionRel R₁ R₂)) (iteratedStep₁_rel R₁ R₂)
-
-instance (R₁ R₂ : HomRel S.FreeBraided) : (iteratedStep₁ R₁ R₂).Monoidal :=
-  CategoryTheory.Quotient.liftMonoidal _ _
-
-noncomputable instance (R₁ R₂ : HomRel S.FreeBraided) : (iteratedStep₁ R₁ R₂).Braided :=
-  CategoryTheory.Quotient.liftBraided _ _ _
-
-theorem iteratedToUnion_rel (R₁ R₂ : HomRel S.FreeBraided) (X Y : S.PresentedBraided R₁)
-    (f g : X ⟶ Y) (hfg : HomRel.MonoidalClosure (PushforwardRel R₁ R₂) f g) :
-    (iteratedStep₁ R₁ R₂).map f = (iteratedStep₁ R₁ R₂).map g :=
-  HomRel.MonoidalClosure.map_eq (F := iteratedStep₁ R₁ R₂)
-    (by rintro _ _ _ _ ⟨h⟩; exact sound (R := unionRel R₁ R₂) (Or.inr h)) hfg
-
-/-- First quotienting `S.FreeBraided` by `R₁` and then quotienting by the monoidal closure of
-`R₂` maps strictly and braided-monoidally to `S.PresentedBraided (unionRel R₁ R₂)`. -/
-@[expose] def iteratedToUnion (R₁ R₂ : HomRel S.FreeBraided) :
-    CategoryTheory.Quotient (HomRel.MonoidalClosure (PushforwardRel R₁ R₂)) ⥤
-      S.PresentedBraided (unionRel R₁ R₂) :=
-  CategoryTheory.Quotient.lift _ (iteratedStep₁ R₁ R₂) (iteratedToUnion_rel R₁ R₂)
-
-instance (R₁ R₂ : HomRel S.FreeBraided) : (iteratedToUnion R₁ R₂).Monoidal :=
-  CategoryTheory.Quotient.liftMonoidal _ _
-
-noncomputable instance (R₁ R₂ : HomRel S.FreeBraided) : (iteratedToUnion R₁ R₂).Braided :=
-  CategoryTheory.Quotient.liftBraided _ _ _
-
-theorem unionToIterated_rel (R₁ R₂ : HomRel S.FreeBraided) (X Y : S.FreeBraided) (f g : X ⟶ Y)
-    (hfg : HomRel.MonoidalClosure (unionRel R₁ R₂) f g) :
-    (quotientFunctor R₁ ⋙
-      CategoryTheory.Quotient.functor (HomRel.MonoidalClosure (PushforwardRel R₁ R₂))).map f =
-    (quotientFunctor R₁ ⋙
-      CategoryTheory.Quotient.functor (HomRel.MonoidalClosure (PushforwardRel R₁ R₂))).map g :=
-  HomRel.MonoidalClosure.map_eq
-    (F := quotientFunctor R₁ ⋙ CategoryTheory.Quotient.functor _)
-    (by rintro _ _ _ _ (h₁ | h₂)
-        · exact congrArg (CategoryTheory.Quotient.functor _).map (sound h₁)
-        · exact CategoryTheory.Quotient.sound _ (.of (.of h₂))) hfg
-
-/-- Presenting `S` by `unionRel R₁ R₂` maps strictly and braided-monoidally to the two-step
-quotient of `S.PresentedBraided R₁` by `PushforwardRel R₁ R₂`. -/
-@[expose] def unionToIterated (R₁ R₂ : HomRel S.FreeBraided) :
-    S.PresentedBraided (unionRel R₁ R₂) ⥤
-      CategoryTheory.Quotient (HomRel.MonoidalClosure (PushforwardRel R₁ R₂)) :=
-  CategoryTheory.Quotient.lift _
-    (quotientFunctor R₁ ⋙ CategoryTheory.Quotient.functor _) (unionToIterated_rel R₁ R₂)
-
-instance (R₁ R₂ : HomRel S.FreeBraided) : (unionToIterated R₁ R₂).Monoidal :=
-  CategoryTheory.Quotient.liftMonoidal _ _
-
-noncomputable instance (R₁ R₂ : HomRel S.FreeBraided) : (unionToIterated R₁ R₂).Braided :=
-  CategoryTheory.Quotient.liftBraided _ _ _
-
-theorem iteratedQuotientEquiv_unit (R₁ R₂ : HomRel S.FreeBraided)
-    (X : CategoryTheory.Quotient (HomRel.MonoidalClosure (PushforwardRel R₁ R₂))) :
-    (iteratedToUnion R₁ R₂).map
-      ((CategoryTheory.Quotient.natIsoLift _
-        (CategoryTheory.Quotient.natIsoLift _ (Iso.refl _)) :
-          𝟭 _ ≅ iteratedToUnion R₁ R₂ ⋙ unionToIterated R₁ R₂).hom.app X) ≫
-      ((CategoryTheory.Quotient.natIsoLift _ (Iso.refl _) :
-        unionToIterated R₁ R₂ ⋙ iteratedToUnion R₁ R₂ ≅ 𝟭 _).hom.app
-        ((iteratedToUnion R₁ R₂).obj X)) = 𝟙 ((iteratedToUnion R₁ R₂).obj X) := by
-  rcases X with ⟨⟨_⟩⟩; exact Category.id_comp _
-
-/-- Quotienting twice (first by `R₁`, then by `R₂`) is equivalent as a braided monoidal category
-to adjoining both families `unionRel R₁ R₂` at once. -/
-@[expose] def iteratedQuotientEquiv (R₁ R₂ : HomRel S.FreeBraided) :
-    CategoryTheory.Quotient (HomRel.MonoidalClosure (PushforwardRel R₁ R₂)) ≌
-      S.PresentedBraided (unionRel R₁ R₂) where
-  functor := iteratedToUnion R₁ R₂
-  inverse := unionToIterated R₁ R₂
-  unitIso := CategoryTheory.Quotient.natIsoLift _
-    (CategoryTheory.Quotient.natIsoLift _ (Iso.refl _))
-  counitIso := CategoryTheory.Quotient.natIsoLift _ (Iso.refl _)
-  functor_unitIso_comp := iteratedQuotientEquiv_unit R₁ R₂
-
-@[simp] theorem iteratedQuotientEquiv_functor (R₁ R₂ : HomRel S.FreeBraided) :
-    (iteratedQuotientEquiv R₁ R₂).functor = iteratedToUnion R₁ R₂ := rfl
-
-@[simp] theorem iteratedQuotientEquiv_inverse (R₁ R₂ : HomRel S.FreeBraided) :
-    (iteratedQuotientEquiv R₁ R₂).inverse = unionToIterated R₁ R₂ := rfl
-
-end IteratedQuotient
-
 end PresentedBraided
 
 namespace BraidedSubstitution
@@ -300,7 +198,6 @@ variable (σ : BraidedSubstitution S T)
       (PresentedBraided.quotientFunctor R').map (σ.toFunctor.map g))
 
 instance : (σ.mapPresented hσ).Monoidal := CategoryTheory.Quotient.liftMonoidal _ _
-
 noncomputable instance : (σ.mapPresented hσ).Braided := CategoryTheory.Quotient.liftBraided _ _ _
 
 /-- `σ.mapPresented hσ` commutes strictly with the quotient functors. -/
@@ -312,27 +209,22 @@ theorem quotientFunctor_comp_mapPresented :
 @[simp] theorem mapPresented_obj (X : S.FreeBraided) :
     (σ.mapPresented hσ).obj ((PresentedBraided.quotientFunctor R).obj X) =
       (PresentedBraided.quotientFunctor R').obj (σ.toFunctor.obj X) := (rfl)
-
 @[simp] theorem mapPresented_map {X Y : S.FreeBraided} (f : X ⟶ Y) :
     (σ.mapPresented hσ).map ((PresentedBraided.quotientFunctor R).map f) =
       (PresentedBraided.quotientFunctor R').map (σ.toFunctor.map f) := (rfl)
-
 @[simp] theorem mapPresented_ε : Functor.LaxMonoidal.ε (σ.mapPresented hσ) = 𝟙 _ := by
   refine (CategoryTheory.Quotient.lift_ε _ _).trans ?_
   rw [Functor.LaxMonoidal.comp_ε, CategoryTheory.Quotient.functor_ε, σ.toFunctor_ε]
   erw [Functor.map_id, Category.id_comp]; rfl
-
 @[simp] theorem mapPresented_η : Functor.OplaxMonoidal.η (σ.mapPresented hσ) = 𝟙 _ := by
   refine (CategoryTheory.Quotient.lift_η _ _).trans ?_
   rw [Functor.OplaxMonoidal.comp_η, CategoryTheory.Quotient.functor_η, σ.toFunctor_η]
   erw [Functor.map_id, Category.comp_id]; rfl
-
 @[simp] theorem mapPresented_μ (X Y : S.PresentedBraided R) :
     Functor.LaxMonoidal.μ (σ.mapPresented hσ) X Y = 𝟙 _ := by
   refine (CategoryTheory.Quotient.lift_μ _ _ X.as Y.as).trans ?_
   rw [Functor.LaxMonoidal.comp_μ, CategoryTheory.Quotient.functor_μ, σ.toFunctor_μ]
   erw [Functor.map_id, Category.id_comp]; rfl
-
 @[simp] theorem mapPresented_δ (X Y : S.PresentedBraided R) :
     Functor.OplaxMonoidal.δ (σ.mapPresented hσ) X Y = 𝟙 _ := by
   refine (CategoryTheory.Quotient.lift_δ _ _ X.as Y.as).trans ?_

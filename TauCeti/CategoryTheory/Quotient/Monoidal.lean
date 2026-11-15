@@ -38,6 +38,9 @@ monoidal preadditive category by a tensor ideal (`TauCeti.MonoidalQuotient`) is 
   monoidal functors induce monoidal relations (`HomRel.isMonoidal_homRel`).
 * `HomRel.MonoidalClosure r`: the least monoidal relation containing `r`, with
   `HomRel.MonoidalClosure.imp` and `HomRel.monoidalClosure_iff_self`.
+* `HomRel.union r₁ r₂`, `CategoryTheory.Quotient.PushforwardRel r₁ r₂`, and
+  `CategoryTheory.Quotient.iteratedQuotientEquiv r₁ r₂`: quotienting a monoidal category first by
+  `r₁` and then by `r₂` is monoidally equivalent to quotienting by `r₁.union r₂` at once.
 * the instance `MonoidalCategory (CategoryTheory.Quotient r)` for monoidal `r`, characterized by
   `CategoryTheory.Quotient.whiskerLeft_map`, `CategoryTheory.Quotient.map_whiskerRight`,
   `CategoryTheory.Quotient.map_tensorHom_map` and the corresponding lemmas for the associator and
@@ -58,9 +61,21 @@ universe v u v' u'
 
 open CategoryTheory MonoidalCategory
 
-variable {C : Type u} [Category.{v} C] [MonoidalCategory C]
-
 namespace HomRel
+
+section Union
+
+variable {C : Type u} [Quiver.{v} C]
+
+/-- The union of two relation families on the morphisms of `C`. -/
+def union (r₁ r₂ : HomRel C) : HomRel C := fun _ _ f g ↦ r₁ f g ∨ r₂ f g
+
+@[simp] theorem union_iff (r₁ r₂ : HomRel C) {X Y : C} (f g : X ⟶ Y) :
+    r₁.union r₂ f g ↔ r₁ f g ∨ r₂ f g := Iff.rfl
+
+end Union
+
+variable {C : Type u} [Category.{v} C] [MonoidalCategory C]
 
 /-- A relation on the morphisms of a monoidal category is **monoidal** when it is stable under
 whiskering by arbitrary objects on either side. -/
@@ -117,6 +132,8 @@ theorem MonoidalClosure.map_eq {D : Type u'} [Category.{v'} D] [MonoidalCategory
   MonoidalClosure.imp (s := F.homRel) h hfg
 
 end HomRel
+
+variable {C : Type u} [Category.{v} C] [MonoidalCategory C]
 
 namespace CategoryTheory.Quotient
 
@@ -412,5 +429,94 @@ instance (τ : functor r ⋙ F ⟶ functor r ⋙ G) [τ.IsMonoidal] : (natTransL
     exact h
 
 end natTransLift
+
+/-! ### Iterated monoidal quotients -/
+
+/-- Pushforward of a relation `r₂` on `C` to `Quotient r₁` along `Quotient.functor r₁`. -/
+inductive PushforwardRel {C : Type u} [Category.{v} C] (r₁ r₂ : HomRel C) : HomRel (Quotient r₁)
+  | of {X Y : C} {f g : X ⟶ Y} :
+      r₂ f g → PushforwardRel r₁ r₂ ((functor r₁).map f) ((functor r₁).map g)
+
+section IteratedQuotient
+
+/-- Auxiliary first-step lift from `Quotient (HomRel.MonoidalClosure r₁)` to
+`Quotient (HomRel.MonoidalClosure (r₁.union r₂))`. -/
+@[expose] def iteratedStep₁ (r₁ r₂ : HomRel C) :
+    Quotient (HomRel.MonoidalClosure r₁) ⥤ Quotient (HomRel.MonoidalClosure (r₁.union r₂)) :=
+  lift _ (functor (HomRel.MonoidalClosure (r₁.union r₂))) fun _ _ _ _ hfg ↦
+    HomRel.MonoidalClosure.map_eq
+      (fun _ _ _ _ h ↦ Quotient.sound _ (.of ((HomRel.union_iff r₁ r₂ _ _).2 (Or.inl h)))) hfg
+
+instance iteratedStep₁Monoidal (r₁ r₂ : HomRel C) : (iteratedStep₁ r₁ r₂).Monoidal :=
+  liftMonoidal _ _
+
+/-- First quotienting `C` by the monoidal closure of `r₁` and then quotienting by the monoidal
+closure of the pushforward of `r₂` maps strictly monoidally to the single-step quotient by
+`r₁.union r₂`. -/
+@[expose] def iteratedToUnion (r₁ r₂ : HomRel C) :
+    Quotient (HomRel.MonoidalClosure (PushforwardRel (HomRel.MonoidalClosure r₁) r₂)) ⥤
+      Quotient (HomRel.MonoidalClosure (r₁.union r₂)) :=
+  lift _ (iteratedStep₁ r₁ r₂) fun _ _ _ _ hfg ↦
+    HomRel.MonoidalClosure.map_eq (F := iteratedStep₁ r₁ r₂)
+      (by rintro _ _ _ _ ⟨h⟩
+          exact Quotient.sound _ (.of ((HomRel.union_iff r₁ r₂ _ _).2 (Or.inr h)))) hfg
+
+instance iteratedToUnionMonoidal (r₁ r₂ : HomRel C) : (iteratedToUnion r₁ r₂).Monoidal :=
+  liftMonoidal _ _
+
+@[simp] theorem iteratedToUnion_obj (r₁ r₂ : HomRel C) (X : C) :
+    (iteratedToUnion r₁ r₂).obj
+      ((functor (HomRel.MonoidalClosure (PushforwardRel (HomRel.MonoidalClosure r₁) r₂))).obj
+        ((functor (HomRel.MonoidalClosure r₁)).obj X)) =
+      (functor (HomRel.MonoidalClosure (r₁.union r₂))).obj X := (rfl)
+
+@[simp] theorem iteratedToUnion_map (r₁ r₂ : HomRel C) {X Y : C} (f : X ⟶ Y) :
+    (iteratedToUnion r₁ r₂).map
+      ((functor (HomRel.MonoidalClosure (PushforwardRel (HomRel.MonoidalClosure r₁) r₂))).map
+        ((functor (HomRel.MonoidalClosure r₁)).map f)) =
+      (functor (HomRel.MonoidalClosure (r₁.union r₂))).map f := (rfl)
+
+/-- The single-step quotient of `C` by the monoidal closure of `r₁.union r₂` maps strictly
+monoidally to the two-step quotient by `r₁` and then `r₂`. -/
+@[expose] def unionToIterated (r₁ r₂ : HomRel C) :
+    Quotient (HomRel.MonoidalClosure (r₁.union r₂)) ⥤
+      Quotient (HomRel.MonoidalClosure (PushforwardRel (HomRel.MonoidalClosure r₁) r₂)) :=
+  lift _ (functor (HomRel.MonoidalClosure r₁) ⋙ functor _) fun _ _ _ _ hfg ↦
+    HomRel.MonoidalClosure.map_eq (F := functor (HomRel.MonoidalClosure r₁) ⋙ functor _)
+      (fun _ _ _ _ h ↦ match (HomRel.union_iff r₁ r₂ _ _).1 h with
+        | Or.inl h₁ => congrArg (functor _).map (Quotient.sound _ (.of h₁))
+        | Or.inr h₂ => Quotient.sound _ (.of (.of h₂))) hfg
+
+instance unionToIteratedMonoidal (r₁ r₂ : HomRel C) : (unionToIterated r₁ r₂).Monoidal :=
+  liftMonoidal _ _
+
+@[simp] theorem unionToIterated_obj (r₁ r₂ : HomRel C) (X : C) :
+    (unionToIterated r₁ r₂).obj ((functor (HomRel.MonoidalClosure (r₁.union r₂))).obj X) =
+      (functor (HomRel.MonoidalClosure (PushforwardRel (HomRel.MonoidalClosure r₁) r₂))).obj
+        ((functor (HomRel.MonoidalClosure r₁)).obj X) := (rfl)
+
+@[simp] theorem unionToIterated_map (r₁ r₂ : HomRel C) {X Y : C} (f : X ⟶ Y) :
+    (unionToIterated r₁ r₂).map ((functor (HomRel.MonoidalClosure (r₁.union r₂))).map f) =
+      (functor (HomRel.MonoidalClosure (PushforwardRel (HomRel.MonoidalClosure r₁) r₂))).map
+        ((functor (HomRel.MonoidalClosure r₁)).map f) := (rfl)
+
+/-- Quotienting a monoidal category twice (first by `r₁`, then by `r₂`) is monoidally equivalent to
+quotienting by `r₁.union r₂` at once. -/
+@[expose] def iteratedQuotientEquiv (r₁ r₂ : HomRel C) :
+    Quotient (HomRel.MonoidalClosure (PushforwardRel (HomRel.MonoidalClosure r₁) r₂)) ≌
+      Quotient (HomRel.MonoidalClosure (r₁.union r₂)) where
+  functor := iteratedToUnion r₁ r₂
+  inverse := unionToIterated r₁ r₂
+  unitIso := natIsoLift _ (natIsoLift _ (Iso.refl _))
+  counitIso := natIsoLift _ (Iso.refl _)
+  functor_unitIso_comp := by rintro ⟨⟨_⟩⟩; exact Category.id_comp _
+
+@[simp] theorem iteratedQuotientEquiv_functor (r₁ r₂ : HomRel C) :
+    (iteratedQuotientEquiv r₁ r₂).functor = iteratedToUnion r₁ r₂ := rfl
+
+@[simp] theorem iteratedQuotientEquiv_inverse (r₁ r₂ : HomRel C) :
+    (iteratedQuotientEquiv r₁ r₂).inverse = unionToIterated r₁ r₂ := rfl
+
+end IteratedQuotient
 
 end CategoryTheory.Quotient

@@ -21,6 +21,12 @@ morphism preserve port count, this integer invariant is preserved by all braided
   `FreeBraided.length_toList_eq_of_isEmpty`.
 * `FreeBraided.braiding_comp_braiding_ne_id`: for arbitrary `S` (with no hypothesis on `S.Coupon`)
   and any `a b : S.Obj`, `(β_ (of a) (of b)).hom ≫ (β_ (of b) (of a)).hom ≠ 𝟙 (of a ⊗ of b)`.
+
+## References
+
+* A. Joyal and R. Street, *The geometry of tensor calculus I*, Adv. Math. 88 (1991), §3.
+* P. Selinger, *A survey of graphical languages for monoidal categories*, Lecture Notes in Physics
+  813 (2011), §3.3.
 -/
 
 universe u v
@@ -46,25 +52,30 @@ def Hom.exponentSum : ∀ {X Y : FreeMonoidalCategory S.Obj}, Hom X Y → ℤ
 
 @[simp] theorem Hom.exponentSum_id (X : FreeMonoidalCategory S.Obj) :
     (Hom.id X).exponentSum = 0 := (rfl)
-
+@[simp] theorem Hom.exponentSum_α_hom (X Y Z : FreeMonoidalCategory S.Obj) :
+    (Hom.α_hom X Y Z).exponentSum = 0 := (rfl)
+@[simp] theorem Hom.exponentSum_α_inv (X Y Z : FreeMonoidalCategory S.Obj) :
+    (Hom.α_inv X Y Z).exponentSum = 0 := (rfl)
+@[simp] theorem Hom.exponentSum_l_hom (X : FreeMonoidalCategory S.Obj) :
+    (Hom.l_hom X).exponentSum = 0 := (rfl)
+@[simp] theorem Hom.exponentSum_l_inv (X : FreeMonoidalCategory S.Obj) :
+    (Hom.l_inv X).exponentSum = 0 := (rfl)
+@[simp] theorem Hom.exponentSum_ρ_hom (X : FreeMonoidalCategory S.Obj) :
+    (Hom.ρ_hom X).exponentSum = 0 := (rfl)
+@[simp] theorem Hom.exponentSum_ρ_inv (X : FreeMonoidalCategory S.Obj) :
+    (Hom.ρ_inv X).exponentSum = 0 := (rfl)
 @[simp] theorem Hom.exponentSum_β_hom (X Y : FreeMonoidalCategory S.Obj) :
     (Hom.β_hom X Y).exponentSum = (X.toList.length * Y.toList.length : ℕ) := (rfl)
-
 @[simp] theorem Hom.exponentSum_β_inv (X Y : FreeMonoidalCategory S.Obj) :
     (Hom.β_inv X Y).exponentSum = -((X.toList.length * Y.toList.length : ℕ) : ℤ) := (rfl)
-
 @[simp] theorem Hom.exponentSum_coupon (g : S.Coupon) : (Hom.coupon g).exponentSum = 0 := (rfl)
-
 @[simp] theorem Hom.exponentSum_comp {X Y Z : FreeMonoidalCategory S.Obj}
     (f : Hom X Y) (g : Hom Y Z) : (f.comp g).exponentSum = f.exponentSum + g.exponentSum := (rfl)
-
 @[simp] theorem Hom.exponentSum_whiskerLeft (X : FreeMonoidalCategory S.Obj)
     {Y Z : FreeMonoidalCategory S.Obj} (f : Hom Y Z) :
     (f.whiskerLeft X).exponentSum = f.exponentSum := (rfl)
-
 @[simp] theorem Hom.exponentSum_whiskerRight {X Y : FreeMonoidalCategory S.Obj} (f : Hom X Y)
     (Z : FreeMonoidalCategory S.Obj) : (f.whiskerRight Z).exponentSum = f.exponentSum := (rfl)
-
 @[simp] theorem Hom.exponentSum_tensor {W X Y Z : FreeMonoidalCategory S.Obj}
     (f : Hom W Y) (g : Hom X Z) :
     (f.tensor g).exponentSum = f.exponentSum + g.exponentSum := (rfl)
@@ -169,29 +180,33 @@ def exponentSum {X Y : S.FreeBraided} (f : X ⟶ Y) : ℤ :=
 
 @[simp] theorem exponentSum_homMk {X Y : S.FreeBraided} (f : Hom X.as Y.as) :
     exponentSum hS (homMk f) = f.exponentSum := (rfl)
-
 @[simp] theorem exponentSum_id (X : S.FreeBraided) : exponentSum hS (𝟙 X) = 0 := (rfl)
-
 @[simp] theorem exponentSum_comp {X Y Z : S.FreeBraided} (f : X ⟶ Y) (g : Y ⟶ Z) :
     exponentSum hS (f ≫ g) = exponentSum hS f + exponentSum hS g :=
   Quotient.ind₂ (fun _ _ ↦ rfl) f g
-
 @[simp] theorem exponentSum_whiskerLeft (X : S.FreeBraided) {Y Z : S.FreeBraided} (f : Y ⟶ Z) :
     exponentSum hS (X ◁ f) = exponentSum hS f := by rcases f with ⟨f⟩; rfl
-
 @[simp] theorem exponentSum_whiskerRight {X Y : S.FreeBraided} (f : X ⟶ Y) (Z : S.FreeBraided) :
     exponentSum hS (f ▷ Z) = exponentSum hS f := by rcases f with ⟨f⟩; rfl
-
 @[simp] theorem exponentSum_tensorHom {W X Y Z : S.FreeBraided} (f : W ⟶ Y) (g : X ⟶ Z) :
     exponentSum hS (f ⊗ₘ g) = exponentSum hS f + exponentSum hS g :=
   Quotient.ind₂ (fun _ _ ↦ rfl) f g
-
+@[simp] theorem exponentSum_associator_hom (X Y Z : S.FreeBraided) :
+    exponentSum hS (α_ X Y Z).hom = 0 := (rfl)
+@[simp] theorem exponentSum_associator_inv (X Y Z : S.FreeBraided) :
+    exponentSum hS (α_ X Y Z).inv = 0 := (rfl)
+@[simp] theorem exponentSum_leftUnitor_hom (X : S.FreeBraided) :
+    exponentSum hS (λ_ X).hom = 0 := (rfl)
+@[simp] theorem exponentSum_leftUnitor_inv (X : S.FreeBraided) :
+    exponentSum hS (λ_ X).inv = 0 := (rfl)
+@[simp] theorem exponentSum_rightUnitor_hom (X : S.FreeBraided) :
+    exponentSum hS (ρ_ X).hom = 0 := (rfl)
+@[simp] theorem exponentSum_rightUnitor_inv (X : S.FreeBraided) :
+    exponentSum hS (ρ_ X).inv = 0 := (rfl)
 @[simp] theorem exponentSum_braiding_hom (X Y : S.FreeBraided) :
     exponentSum hS (β_ X Y).hom = (X.as.toList.length * Y.as.toList.length : ℕ) := (rfl)
-
 @[simp] theorem exponentSum_braiding_inv (X Y : S.FreeBraided) :
     exponentSum hS (β_ X Y).inv = -((X.as.toList.length * Y.as.toList.length : ℕ) : ℤ) := (rfl)
-
 @[simp] theorem exponentSum_coupon (g : S.Coupon) : exponentSum hS (coupon g) = 0 := (rfl)
 
 end LengthPreservingCoupons

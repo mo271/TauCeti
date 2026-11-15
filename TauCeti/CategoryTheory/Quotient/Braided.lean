@@ -34,6 +34,9 @@ including quotients of braided diagram categories by negligible morphisms.
 * `CategoryTheory.Quotient.liftLaxBraided` and `CategoryTheory.Quotient.liftBraided`: a lax
   braided or braided functor identifying related morphisms factors through a lax braided or
   braided functor.
+* `CategoryTheory.Quotient.iteratedToUnionBraided` and
+  `CategoryTheory.Quotient.unionToIteratedBraided`: the comparison functors of
+  `CategoryTheory.Quotient.iteratedQuotientEquiv` are braided.
 
 ## References
 
@@ -119,5 +122,19 @@ noncomputable instance liftBraided [F.Braided] : (lift r F H).Braided where
   __ := liftLaxBraided r F H
 
 end lift
+
+section IteratedQuotient
+
+variable [BraidedCategory C] (r₁ r₂ : HomRel C)
+
+noncomputable instance iteratedStep₁Braided : (iteratedStep₁ r₁ r₂).Braided := liftBraided _ _ _
+
+/-- The comparison functor from an iterated monoidal quotient to the union quotient is braided. -/
+noncomputable instance iteratedToUnionBraided : (iteratedToUnion r₁ r₂).Braided := liftBraided _ _ _
+
+/-- The comparison functor from a union monoidal quotient to the iterated quotient is braided. -/
+noncomputable instance unionToIteratedBraided : (unionToIterated r₁ r₂).Braided := liftBraided _ _ _
+
+end IteratedQuotient
 
 end CategoryTheory.Quotient

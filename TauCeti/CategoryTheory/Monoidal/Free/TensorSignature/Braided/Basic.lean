@@ -16,7 +16,10 @@ Given a tensor signature `S` (`TauCeti.TensorSignature`), the free braided monoi
 `TensorSignature.FreeBraided S` has the formal tensor words (`FreeMonoidalCategory S.Obj`) as
 objects. Its morphisms are formal composites, tensor products, and whiskerings of identities,
 associators, unitors, braidings, inverse braidings, and coupons, modulo the axioms of a braided
-monoidal category (`HomEquiv`). Neither symmetry nor any equation between coupons is imposed.
+monoidal category (`HomEquiv`). Neither symmetry nor any equation between coupons is imposed. The
+construction adapts `Mathlib/CategoryTheory/Monoidal/Free/Basic.lean` (Markus Himmel) and
+`TauCeti.CategoryTheory.Monoidal.Free.TensorSignature.Basic` by adding braiding and inverse braiding
+constructors together with the braided naturality and hexagon relations.
 
 ## Main definitions and results
 
@@ -35,6 +38,8 @@ For the crossing-exponent sum invariant and `FreeBraided.braiding_comp_braiding_
 ## References
 
 * A. Joyal and R. Street, *The geometry of tensor calculus I*, Adv. Math. 88 (1991), §3.
+* P. Selinger, *A survey of graphical languages for monoidal categories*, Lecture Notes in Physics
+  813 (2011), §3.3.
 -/
 
 universe u v u' v'
@@ -228,48 +233,35 @@ abbrev homMk {X Y : S.FreeBraided} (f : Hom X.as Y.as) : X ⟶ Y := ⟦f⟧
 @[expose] def coupon (g : S.Coupon) : (⟨S.src g⟩ : S.FreeBraided) ⟶ ⟨S.tgt g⟩ := homMk (.coupon g)
 
 @[simp] theorem homMk_id (X : S.FreeBraided) : homMk (Hom.id X.as) = 𝟙 X := (rfl)
-
 @[simp] theorem homMk_comp {X Y Z : S.FreeBraided} (f : Hom X.as Y.as) (g : Hom Y.as Z.as) :
     homMk (Y := Z) (f.comp g) = homMk f ≫ homMk g := (rfl)
-
 @[simp] theorem homMk_tensor {X₁ Y₁ X₂ Y₂ : S.FreeBraided}
     (f : Hom X₁.as Y₁.as) (g : Hom X₂.as Y₂.as) :
     homMk (X := X₁ ⊗ X₂) (Y := Y₁ ⊗ Y₂) (f.tensor g) = homMk f ⊗ₘ homMk g := (rfl)
-
 @[simp] theorem homMk_whiskerLeft (X : S.FreeBraided) {Y₁ Y₂ : S.FreeBraided}
     (f : Hom Y₁.as Y₂.as) : homMk (X := X ⊗ Y₁) (Y := X ⊗ Y₂) (f.whiskerLeft X.as) = X ◁ homMk f :=
   (rfl)
-
 @[simp] theorem homMk_whiskerRight {X₁ X₂ : S.FreeBraided} (f : Hom X₁.as X₂.as)
     (Y : S.FreeBraided) : homMk (X := X₁ ⊗ Y) (Y := X₂ ⊗ Y) (f.whiskerRight Y.as) = homMk f ▷ Y :=
   (rfl)
-
 @[simp] theorem homMk_α_hom (X Y Z : S.FreeBraided) :
     homMk (X := (X ⊗ Y) ⊗ Z) (Y := X ⊗ (Y ⊗ Z)) (Hom.α_hom X.as Y.as Z.as) = (α_ X Y Z).hom :=
   (rfl)
-
 @[simp] theorem homMk_α_inv (X Y Z : S.FreeBraided) :
     homMk (X := X ⊗ (Y ⊗ Z)) (Y := (X ⊗ Y) ⊗ Z) (Hom.α_inv X.as Y.as Z.as) = (α_ X Y Z).inv :=
   (rfl)
-
 @[simp] theorem homMk_l_hom (X : S.FreeBraided) :
     homMk (X := 𝟙_ _ ⊗ X) (Hom.l_hom X.as) = (λ_ X).hom := (rfl)
-
 @[simp] theorem homMk_l_inv (X : S.FreeBraided) :
     homMk (Y := 𝟙_ _ ⊗ X) (Hom.l_inv X.as) = (λ_ X).inv := (rfl)
-
 @[simp] theorem homMk_ρ_hom (X : S.FreeBraided) :
     homMk (X := X ⊗ 𝟙_ _) (Hom.ρ_hom X.as) = (ρ_ X).hom := (rfl)
-
 @[simp] theorem homMk_ρ_inv (X : S.FreeBraided) :
     homMk (Y := X ⊗ 𝟙_ _) (Hom.ρ_inv X.as) = (ρ_ X).inv := (rfl)
-
 @[simp] theorem homMk_β_hom (X Y : S.FreeBraided) :
     homMk (X := X ⊗ Y) (Y := Y ⊗ X) (Hom.β_hom X.as Y.as) = (β_ X Y).hom := (rfl)
-
 @[simp] theorem homMk_β_inv (X Y : S.FreeBraided) :
     homMk (X := Y ⊗ X) (Y := X ⊗ Y) (Hom.β_inv X.as Y.as) = (β_ X Y).inv := (rfl)
-
 @[simp] theorem homMk_coupon (g : S.Coupon) :
     homMk (X := ⟨S.src g⟩) (Y := ⟨S.tgt g⟩) (Hom.coupon g) = coupon g := (rfl)
 
@@ -327,7 +319,6 @@ section Lift
 variable {D : Type u'} [Category.{v'} D] [MonoidalCategory D] [BraidedCategory D] (fo : S.Obj → D)
   (fc : ∀ g : S.Coupon, projectObj fo (S.src g) ⟶ projectObj fo (S.tgt g))
 
-/-- The interpretation of a formal braided morphism in `D`. -/
 private def liftMapAux :
     ∀ {X Y : FreeMonoidalCategory S.Obj}, Hom X Y → (projectObj fo X ⟶ projectObj fo Y)
   | _, _, Hom.id _ => 𝟙 _
@@ -380,61 +371,43 @@ def liftMap {X Y : S.FreeBraided} (f : X ⟶ Y) : projectObj fo X.as ⟶ project
   Quotient.lift (liftMapAux fo fc) (fun _ _ h ↦ liftMapAux_sound fo fc h) f
 
 theorem liftMap_id (X : S.FreeBraided) : liftMap fo fc (𝟙 X) = 𝟙 _ := (rfl)
-
 theorem liftMap_comp {X Y Z : S.FreeBraided} (f : X ⟶ Y) (g : Y ⟶ Z) :
     liftMap fo fc (f ≫ g) = liftMap fo fc f ≫ liftMap fo fc g :=
   Quotient.ind₂ (fun _ _ ↦ rfl) f g
 
 /-- The functor out of `S.FreeBraided` determined by the images `fo` of the generating objects and
 `fc` of the coupons. It is strong braided monoidal, with identity tensorator and unit comparison. -/
-@[expose] def lift : S.FreeBraided ⥤ D where
-  obj X := projectObj fo X.as
-  map := liftMap fo fc
-  map_id := liftMap_id fo fc
-  map_comp := liftMap_comp fo fc
+@[expose] def lift : S.FreeBraided ⥤ D := ⟨fun X ↦ projectObj fo X.as, liftMap fo fc,
+  liftMap_id fo fc, liftMap_comp fo fc⟩
 
 @[simp] theorem lift_obj_of (a : S.Obj) : (lift fo fc).obj (of a) = fo a := rfl
-
 @[simp] theorem lift_obj_tensor (X Y : S.FreeBraided) :
     (lift fo fc).obj (X ⊗ Y) = (lift fo fc).obj X ⊗ (lift fo fc).obj Y := rfl
-
 @[simp] theorem lift_obj_tensorUnit : (lift fo fc).obj (𝟙_ S.FreeBraided) = 𝟙_ D := rfl
-
 @[simp] theorem lift_map_coupon (g : S.Coupon) : (lift fo fc).map (coupon g) = fc g := (rfl)
-
 @[simp] theorem lift_map_whiskerLeft (X : S.FreeBraided) {Y₁ Y₂ : S.FreeBraided} (f : Y₁ ⟶ Y₂) :
     (lift fo fc).map (X ◁ f) = (lift fo fc).obj X ◁ (lift fo fc).map f := by rcases f with ⟨f⟩; rfl
-
 @[simp] theorem lift_map_whiskerRight {X₁ X₂ : S.FreeBraided} (f : X₁ ⟶ X₂) (Y : S.FreeBraided) :
     (lift fo fc).map (f ▷ Y) = (lift fo fc).map f ▷ (lift fo fc).obj Y := by rcases f with ⟨f⟩; rfl
-
 @[simp] theorem lift_map_tensorHom {X₁ Y₁ X₂ Y₂ : S.FreeBraided} (f : X₁ ⟶ Y₁) (g : X₂ ⟶ Y₂) :
     (lift fo fc).map (f ⊗ₘ g) = (lift fo fc).map f ⊗ₘ (lift fo fc).map g :=
   Quotient.ind₂ (fun _ _ ↦ rfl) f g
-
 @[simp] theorem lift_map_associator_hom (X Y Z : S.FreeBraided) :
     (lift fo fc).map (α_ X Y Z).hom =
       (α_ ((lift fo fc).obj X) ((lift fo fc).obj Y) ((lift fo fc).obj Z)).hom := (rfl)
-
 @[simp] theorem lift_map_associator_inv (X Y Z : S.FreeBraided) :
     (lift fo fc).map (α_ X Y Z).inv =
       (α_ ((lift fo fc).obj X) ((lift fo fc).obj Y) ((lift fo fc).obj Z)).inv := (rfl)
-
 theorem lift_map_leftUnitor_hom (X : S.FreeBraided) :
     (lift fo fc).map (λ_ X).hom = (λ_ ((lift fo fc).obj X)).hom := (rfl)
-
 theorem lift_map_leftUnitor_inv (X : S.FreeBraided) :
     (lift fo fc).map (λ_ X).inv = (λ_ ((lift fo fc).obj X)).inv := (rfl)
-
 theorem lift_map_rightUnitor_hom (X : S.FreeBraided) :
     (lift fo fc).map (ρ_ X).hom = (ρ_ ((lift fo fc).obj X)).hom := (rfl)
-
 theorem lift_map_rightUnitor_inv (X : S.FreeBraided) :
     (lift fo fc).map (ρ_ X).inv = (ρ_ ((lift fo fc).obj X)).inv := (rfl)
-
 theorem lift_map_braiding_hom (X Y : S.FreeBraided) :
     (lift fo fc).map (β_ X Y).hom = (β_ ((lift fo fc).obj X) ((lift fo fc).obj Y)).hom := (rfl)
-
 theorem lift_map_braiding_inv (X Y : S.FreeBraided) :
     (lift fo fc).map (β_ X Y).inv = (β_ ((lift fo fc).obj X) ((lift fo fc).obj Y)).inv := (rfl)
 
@@ -453,11 +426,8 @@ instance : (lift fo fc).Monoidal :=
         simp [lift_map_rightUnitor_hom] }
 
 @[simp] theorem lift_ε : Functor.LaxMonoidal.ε (lift fo fc) = 𝟙 _ := rfl
-
 @[simp] theorem lift_η : Functor.OplaxMonoidal.η (lift fo fc) = 𝟙 _ := rfl
-
 @[simp] theorem lift_μ (X Y : S.FreeBraided) : Functor.LaxMonoidal.μ (lift fo fc) X Y = 𝟙 _ := rfl
-
 @[simp] theorem lift_δ (X Y : S.FreeBraided) : Functor.OplaxMonoidal.δ (lift fo fc) X Y = 𝟙 _ := rfl
 
 instance : (lift fo fc).Braided where
@@ -484,8 +454,7 @@ theorem natTrans_ext {F G : S.FreeBraided ⥤ D} [F.Monoidal] [G.LaxMonoidal] {�
     exact (NatTrans.IsMonoidal.unit (τ := α)).trans (NatTrans.IsMonoidal.unit (τ := β)).symm
   | tensor X Y hX hY =>
     rw [← cancel_epi (μ F ⟨X⟩ ⟨Y⟩)]
-    refine (NatTrans.IsMonoidal.tensor (τ := α) ⟨X⟩ ⟨Y⟩).trans ?_
-    rw [hX, hY]
+    refine (NatTrans.IsMonoidal.tensor (τ := α) ⟨X⟩ ⟨Y⟩).trans ?_; rw [hX, hY]
     exact (NatTrans.IsMonoidal.tensor (τ := β) ⟨X⟩ ⟨Y⟩).symm
 
 section WordIso
@@ -504,10 +473,8 @@ def wordIso : ∀ X : FreeMonoidalCategory S.Obj, F.obj ⟨X⟩ ≅ G.obj ⟨X�
       Functor.Monoidal.μIso G ⟨X⟩ ⟨Y⟩
 
 @[simp] theorem wordIso_of (a : S.Obj) : wordIso F G e (of a).as = e a := (rfl)
-
 @[simp] theorem wordIso_tensorUnit_hom :
     (wordIso F G e (𝟙_ S.FreeBraided).as).hom = η F ≫ ε G := (rfl)
-
 @[simp] theorem wordIso_tensor_hom (X Y : S.FreeBraided) :
     (wordIso F G e (X ⊗ Y).as).hom =
       δ F X Y ≫ ((wordIso F G e X.as).hom ⊗ₘ (wordIso F G e Y.as).hom) ≫ μ G X Y := (rfl)
@@ -582,7 +549,6 @@ variable (he : ∀ g, F.map (coupon g) ≫ (wordIso F G e (S.tgt g)).hom =
 
 @[simp] theorem monoidalNatIso_hom_app (X : S.FreeBraided) :
     (monoidalNatIso he).hom.app X = (wordIso F G e X.as).hom := (rfl)
-
 theorem monoidalNatIso_hom_app_of (a : S.Obj) : (monoidalNatIso he).hom.app (of a) = (e a).hom :=
   (rfl)
 
@@ -619,148 +585,146 @@ def Hom.toBraided : ∀ {X Y : FreeMonoidalCategory S.Obj}, Hom X Y → FreeBrai
 
 @[simp] theorem Hom.toBraided_id (X : FreeMonoidalCategory S.Obj) :
     (Hom.id X).toBraided = .id X := (rfl)
-
 @[simp] theorem Hom.toBraided_coupon (g : S.Coupon) :
     (Hom.coupon g).toBraided = .coupon g := (rfl)
-
 @[simp] theorem Hom.toBraided_comp {X Y Z : FreeMonoidalCategory S.Obj}
     (f : Hom X Y) (g : Hom Y Z) : (f.comp g).toBraided = f.toBraided.comp g.toBraided := (rfl)
-
 @[simp] theorem Hom.toBraided_whiskerLeft (X : FreeMonoidalCategory S.Obj)
     {Y Z : FreeMonoidalCategory S.Obj} (f : Hom Y Z) :
     (f.whiskerLeft X).toBraided = f.toBraided.whiskerLeft X := (rfl)
-
 @[simp] theorem Hom.toBraided_whiskerRight {X Y : FreeMonoidalCategory S.Obj} (f : Hom X Y)
     (Z : FreeMonoidalCategory S.Obj) :
     (f.whiskerRight Z).toBraided = f.toBraided.whiskerRight Z := (rfl)
-
 @[simp] theorem Hom.toBraided_tensor {W X Y Z : FreeMonoidalCategory S.Obj}
     (f : Hom W Y) (g : Hom X Z) : (f.tensor g).toBraided = f.toBraided.tensor g.toBraided := (rfl)
+
+/-- The canonical strict monoidal functor from `S.FreeMonoidal` into `S.FreeBraided`. -/
+@[expose] def toFreeBraided : S.FreeMonoidal ⥤ S.FreeBraided :=
+  FreeMonoidal.lift FreeBraided.of fun g ↦
+    eqToHom (FreeBraided.projectObj_of_eq (S.src g)) ≫ FreeBraided.coupon g ≫
+      eqToHom (FreeBraided.projectObj_of_eq (S.tgt g)).symm
+
+theorem toFreeBraided_obj (X : S.FreeMonoidal) : toFreeBraided.obj X = ⟨X.as⟩ :=
+  FreeBraided.projectObj_of_eq X.as
+@[simp] theorem toFreeBraided_obj_of (a : S.Obj) : toFreeBraided.obj (of a) = FreeBraided.of a :=
+  rfl
+@[simp] theorem toFreeBraided_obj_tensor (X Y : S.FreeMonoidal) :
+    toFreeBraided.obj (X ⊗ Y) = toFreeBraided.obj X ⊗ toFreeBraided.obj Y := rfl
+@[simp] theorem toFreeBraided_obj_tensorUnit :
+    toFreeBraided.obj (𝟙_ S.FreeMonoidal) = 𝟙_ S.FreeBraided := rfl
+@[simp] theorem toFreeBraided_map_coupon (g : S.Coupon) :
+    toFreeBraided.map (coupon g) =
+      eqToHom (toFreeBraided_obj ⟨S.src g⟩) ≫ FreeBraided.coupon g ≫
+        eqToHom (toFreeBraided_obj ⟨S.tgt g⟩).symm :=
+  FreeMonoidal.lift_map_coupon _ _ g
+@[simp] theorem toFreeBraided_map_whiskerLeft (X : S.FreeMonoidal) {Y Z : S.FreeMonoidal}
+    (f : Y ⟶ Z) : toFreeBraided.map (X ◁ f) = toFreeBraided.obj X ◁ toFreeBraided.map f :=
+  FreeMonoidal.lift_map_whiskerLeft _ _ X f
+@[simp] theorem toFreeBraided_map_whiskerRight {X Y : S.FreeMonoidal} (f : X ⟶ Y)
+    (Z : S.FreeMonoidal) :
+    toFreeBraided.map (f ▷ Z) = toFreeBraided.map f ▷ toFreeBraided.obj Z :=
+  FreeMonoidal.lift_map_whiskerRight _ _ f Z
+@[simp] theorem toFreeBraided_map_tensorHom {W X Y Z : S.FreeMonoidal} (f : W ⟶ Y) (g : X ⟶ Z) :
+    toFreeBraided.map (f ⊗ₘ g) = toFreeBraided.map f ⊗ₘ toFreeBraided.map g :=
+  FreeMonoidal.lift_map_tensorHom _ _ f g
+@[simp] theorem toFreeBraided_map_associator_hom (X Y Z : S.FreeMonoidal) :
+    toFreeBraided.map (α_ X Y Z).hom =
+      (α_ (toFreeBraided.obj X) (toFreeBraided.obj Y) (toFreeBraided.obj Z)).hom :=
+  FreeMonoidal.lift_map_associator_hom _ _ X Y Z
+@[simp] theorem toFreeBraided_map_associator_inv (X Y Z : S.FreeMonoidal) :
+    toFreeBraided.map (α_ X Y Z).inv =
+      (α_ (toFreeBraided.obj X) (toFreeBraided.obj Y) (toFreeBraided.obj Z)).inv :=
+  FreeMonoidal.lift_map_associator_inv _ _ X Y Z
+theorem toFreeBraided_map_leftUnitor_hom (X : S.FreeMonoidal) :
+    toFreeBraided.map (λ_ X).hom = (λ_ (toFreeBraided.obj X)).hom :=
+  FreeMonoidal.lift_map_leftUnitor_hom _ _ X
+theorem toFreeBraided_map_leftUnitor_inv (X : S.FreeMonoidal) :
+    toFreeBraided.map (λ_ X).inv = (λ_ (toFreeBraided.obj X)).inv :=
+  FreeMonoidal.lift_map_leftUnitor_inv _ _ X
+theorem toFreeBraided_map_rightUnitor_hom (X : S.FreeMonoidal) :
+    toFreeBraided.map (ρ_ X).hom = (ρ_ (toFreeBraided.obj X)).hom :=
+  FreeMonoidal.lift_map_rightUnitor_hom _ _ X
+theorem toFreeBraided_map_rightUnitor_inv (X : S.FreeMonoidal) :
+    toFreeBraided.map (ρ_ X).inv = (ρ_ (toFreeBraided.obj X)).inv :=
+  FreeMonoidal.lift_map_rightUnitor_inv _ _ X
+
+instance : (toFreeBraided (S := S)).Monoidal :=
+  inferInstanceAs (FreeMonoidal.lift FreeBraided.of _).Monoidal
+
+@[simp] theorem toFreeBraided_ε : Functor.LaxMonoidal.ε (toFreeBraided (S := S)) = 𝟙 _ :=
+  FreeMonoidal.lift_ε _ _
+@[simp] theorem toFreeBraided_η : Functor.OplaxMonoidal.η (toFreeBraided (S := S)) = 𝟙 _ :=
+  FreeMonoidal.lift_η _ _
+@[simp] theorem toFreeBraided_μ (X Y : S.FreeMonoidal) :
+    Functor.LaxMonoidal.μ (toFreeBraided (S := S)) X Y = 𝟙 _ := FreeMonoidal.lift_μ _ _ X Y
+@[simp] theorem toFreeBraided_δ (X Y : S.FreeMonoidal) :
+    Functor.OplaxMonoidal.δ (toFreeBraided (S := S)) X Y = 𝟙 _ := FreeMonoidal.lift_δ _ _ X Y
+
+/-- Interpreting a raw monoidal expression via `toFreeBraided` agrees heterogeneously with
+embedding it via `Hom.toBraided`. -/
+theorem toFreeBraided_map_homMk_heq {X Y : FreeMonoidalCategory S.Obj} (f : Hom X Y) :
+    toFreeBraided.map (homMk (X := ⟨X⟩) (Y := ⟨Y⟩) f) ≍
+      FreeBraided.homMk (X := ⟨X⟩) (Y := ⟨Y⟩) f.toBraided := by
+  induction f with
+  | id X =>
+    change toFreeBraided.map (𝟙 ⟨X⟩) ≍ 𝟙 (⟨X⟩ : S.FreeBraided)
+    rw [Functor.map_id]; congr 1; exact toFreeBraided_obj ⟨X⟩
+  | α_hom X Y Z =>
+    change toFreeBraided.map (α_ ⟨X⟩ ⟨Y⟩ ⟨Z⟩).hom ≍ (α_ (⟨X⟩ : S.FreeBraided) ⟨Y⟩ ⟨Z⟩).hom
+    rw [toFreeBraided_map_associator_hom]; congr 2 <;> simp only [toFreeBraided_obj]
+  | α_inv X Y Z =>
+    change toFreeBraided.map (α_ ⟨X⟩ ⟨Y⟩ ⟨Z⟩).inv ≍ (α_ (⟨X⟩ : S.FreeBraided) ⟨Y⟩ ⟨Z⟩).inv
+    rw [toFreeBraided_map_associator_inv]; congr 2 <;> simp only [toFreeBraided_obj]
+  | l_hom X =>
+    change toFreeBraided.map (λ_ ⟨X⟩).hom ≍ (λ_ (⟨X⟩ : S.FreeBraided)).hom
+    rw [toFreeBraided_map_leftUnitor_hom]; congr 2 <;> simp only [toFreeBraided_obj]
+  | l_inv X =>
+    change toFreeBraided.map (λ_ ⟨X⟩).inv ≍ (λ_ (⟨X⟩ : S.FreeBraided)).inv
+    rw [toFreeBraided_map_leftUnitor_inv]; congr 2 <;> simp only [toFreeBraided_obj]
+  | ρ_hom X =>
+    change toFreeBraided.map (ρ_ ⟨X⟩).hom ≍ (ρ_ (⟨X⟩ : S.FreeBraided)).hom
+    rw [toFreeBraided_map_rightUnitor_hom]; congr 2 <;> simp only [toFreeBraided_obj]
+  | ρ_inv X =>
+    change toFreeBraided.map (ρ_ ⟨X⟩).inv ≍ (ρ_ (⟨X⟩ : S.FreeBraided)).inv
+    rw [toFreeBraided_map_rightUnitor_inv]; congr 2 <;> simp only [toFreeBraided_obj]
+  | coupon g =>
+    exact (conj_eqToHom_iff_heq _ _ (toFreeBraided_obj ⟨S.src g⟩) (toFreeBraided_obj ⟨S.tgt g⟩)).1
+      (toFreeBraided_map_coupon g)
+  | comp f g hf hg =>
+    change toFreeBraided.map (homMk (X := ⟨_⟩) (Y := ⟨_⟩) f ≫ homMk (X := ⟨_⟩) (Y := ⟨_⟩) g) ≍
+      FreeBraided.homMk (X := ⟨_⟩) (Y := ⟨_⟩) f.toBraided ≫
+        FreeBraided.homMk (X := ⟨_⟩) (Y := ⟨_⟩) g.toBraided
+    rw [Functor.map_comp]
+    exact heq_comp (toFreeBraided_obj _) (toFreeBraided_obj _) (toFreeBraided_obj _) hf hg
+  | whiskerLeft X f hf =>
+    change toFreeBraided.map ((⟨X⟩ : S.FreeMonoidal) ◁ homMk (X := ⟨_⟩) (Y := ⟨_⟩) f) ≍
+      (⟨X⟩ : S.FreeBraided) ◁ FreeBraided.homMk (X := ⟨_⟩) (Y := ⟨_⟩) f.toBraided
+    rw [toFreeBraided_map_whiskerLeft]; congr 1 <;> simp only [toFreeBraided_obj]
+  | whiskerRight f Z hf =>
+    change toFreeBraided.map (homMk (X := ⟨_⟩) (Y := ⟨_⟩) f ▷ (⟨Z⟩ : S.FreeMonoidal)) ≍
+      FreeBraided.homMk (X := ⟨_⟩) (Y := ⟨_⟩) f.toBraided ▷ (⟨Z⟩ : S.FreeBraided)
+    rw [toFreeBraided_map_whiskerRight]; congr 1 <;> simp only [toFreeBraided_obj]
+  | tensor f g hf hg =>
+    change toFreeBraided.map (homMk (X := ⟨_⟩) (Y := ⟨_⟩) f ⊗ₘ homMk (X := ⟨_⟩) (Y := ⟨_⟩) g) ≍
+      FreeBraided.homMk (X := ⟨_⟩) (Y := ⟨_⟩) f.toBraided ⊗ₘ
+        FreeBraided.homMk (X := ⟨_⟩) (Y := ⟨_⟩) g.toBraided
+    rw [toFreeBraided_map_tensorHom]; congr 1 <;> simp only [toFreeBraided_obj]
+
+@[simp] theorem toFreeBraided_map_homMk {X Y : FreeMonoidalCategory S.Obj} (f : Hom X Y) :
+    toFreeBraided.map (homMk (X := ⟨X⟩) (Y := ⟨Y⟩) f) =
+      eqToHom (toFreeBraided_obj ⟨X⟩) ≫
+        FreeBraided.homMk (X := ⟨X⟩) (Y := ⟨Y⟩) f.toBraided ≫
+          eqToHom (toFreeBraided_obj ⟨Y⟩).symm :=
+  (conj_eqToHom_iff_heq _ _ (toFreeBraided_obj ⟨X⟩) (toFreeBraided_obj ⟨Y⟩)).2
+    (toFreeBraided_map_homMk_heq f)
 
 /-- Embedding raw monoidal expressions into raw braided expressions respects `HomEquiv`. -/
 theorem HomEquiv.toBraided {X Y : FreeMonoidalCategory S.Obj} {f g : Hom X Y}
     (h : HomEquiv f g) : FreeBraided.HomEquiv f.toBraided g.toBraided := by
-  induction h with
-  | refl f => exact .refl f.toBraided
-  | symm _ _ _ ih => exact .symm _ _ ih
-  | trans _ _ ih₁ ih₂ => exact .trans ih₁ ih₂
-  | comp _ _ ih₁ ih₂ => exact .comp ih₁ ih₂
-  | whiskerLeft _ _ _ _ ih => exact .whiskerLeft _ _ _ ih
-  | whiskerRight _ _ _ _ ih => exact .whiskerRight _ _ _ ih
-  | tensor _ _ ih₁ ih₂ => exact .tensor ih₁ ih₂
-  | tensorHom_def f g => exact .tensorHom_def f.toBraided g.toBraided
-  | comp_id f => exact .comp_id f.toBraided
-  | id_comp f => exact .id_comp f.toBraided
-  | assoc f g h => exact .assoc f.toBraided g.toBraided h.toBraided
-  | id_tensorHom_id => exact .id_tensorHom_id
-  | tensorHom_comp_tensorHom f₁ f₂ g₁ g₂ =>
-    exact .tensorHom_comp_tensorHom f₁.toBraided f₂.toBraided g₁.toBraided g₂.toBraided
-  | whiskerLeft_id X Y => exact .whiskerLeft_id X Y
-  | id_whiskerRight X Y => exact .id_whiskerRight X Y
-  | α_hom_inv => exact .α_hom_inv
-  | α_inv_hom => exact .α_inv_hom
-  | associator_naturality f₁ f₂ f₃ =>
-    exact .associator_naturality f₁.toBraided f₂.toBraided f₃.toBraided
-  | ρ_hom_inv => exact .ρ_hom_inv
-  | ρ_inv_hom => exact .ρ_inv_hom
-  | ρ_naturality f => exact .ρ_naturality f.toBraided
-  | l_hom_inv => exact .l_hom_inv
-  | l_inv_hom => exact .l_inv_hom
-  | l_naturality f => exact .l_naturality f.toBraided
-  | pentagon => exact .pentagon
-  | triangle => exact .triangle
-
-/-- The action of `toFreeBraided` on morphisms. Use `toFreeBraided_map_*` to compute it. -/
-def toFreeBraidedMap {X Y : S.FreeMonoidal} (f : X ⟶ Y) : (⟨X.as⟩ : S.FreeBraided) ⟶ ⟨Y.as⟩ :=
-  Quotient.map Hom.toBraided (fun _ _ h ↦ HomEquiv.toBraided h) f
-
-theorem toFreeBraidedMap_id (X : S.FreeMonoidal) : toFreeBraidedMap (𝟙 X) = 𝟙 _ := (rfl)
-
-theorem toFreeBraidedMap_comp {X Y Z : S.FreeMonoidal} (f : X ⟶ Y) (g : Y ⟶ Z) :
-    toFreeBraidedMap (f ≫ g) = toFreeBraidedMap f ≫ toFreeBraidedMap g :=
-  Quotient.ind₂ (fun _ _ ↦ rfl) f g
-
-/-- The canonical strict monoidal functor from `S.FreeMonoidal` into `S.FreeBraided`. -/
-@[expose] def toFreeBraided : S.FreeMonoidal ⥤ S.FreeBraided where
-  obj X := ⟨X.as⟩
-  map := toFreeBraidedMap
-  map_id := toFreeBraidedMap_id
-  map_comp := toFreeBraidedMap_comp
-
-theorem toFreeBraided_obj (X : S.FreeMonoidal) : toFreeBraided.obj X = ⟨X.as⟩ := rfl
-
-@[simp] theorem toFreeBraided_obj_of (a : S.Obj) : toFreeBraided.obj (of a) = FreeBraided.of a :=
-  rfl
-
-@[simp] theorem toFreeBraided_obj_tensor (X Y : S.FreeMonoidal) :
-    toFreeBraided.obj (X ⊗ Y) = toFreeBraided.obj X ⊗ toFreeBraided.obj Y := rfl
-
-@[simp] theorem toFreeBraided_obj_tensorUnit :
-    toFreeBraided.obj (𝟙_ S.FreeMonoidal) = 𝟙_ S.FreeBraided := rfl
-
-@[simp] theorem toFreeBraided_map_homMk {X Y : FreeMonoidalCategory S.Obj} (f : Hom X Y) :
-    toFreeBraided.map (homMk (X := ⟨X⟩) (Y := ⟨Y⟩) f) =
-      FreeBraided.homMk (X := ⟨X⟩) (Y := ⟨Y⟩) f.toBraided := (rfl)
-
-@[simp] theorem toFreeBraided_map_coupon (g : S.Coupon) :
-    toFreeBraided.map (coupon g) = FreeBraided.coupon g := (rfl)
-
-@[simp] theorem toFreeBraided_map_whiskerLeft (X : S.FreeMonoidal) {Y Z : S.FreeMonoidal}
-    (f : Y ⟶ Z) : toFreeBraided.map (X ◁ f) = toFreeBraided.obj X ◁ toFreeBraided.map f := by
-  rcases f with ⟨f⟩; rfl
-
-@[simp] theorem toFreeBraided_map_whiskerRight {X Y : S.FreeMonoidal} (f : X ⟶ Y)
-    (Z : S.FreeMonoidal) :
-    toFreeBraided.map (f ▷ Z) = toFreeBraided.map f ▷ toFreeBraided.obj Z := by
-  rcases f with ⟨f⟩; rfl
-
-@[simp] theorem toFreeBraided_map_tensorHom {W X Y Z : S.FreeMonoidal} (f : W ⟶ Y) (g : X ⟶ Z) :
-    toFreeBraided.map (f ⊗ₘ g) = toFreeBraided.map f ⊗ₘ toFreeBraided.map g :=
-  Quotient.ind₂ (fun _ _ ↦ rfl) f g
-
-@[simp] theorem toFreeBraided_map_associator_hom (X Y Z : S.FreeMonoidal) :
-    toFreeBraided.map (α_ X Y Z).hom =
-      (α_ (toFreeBraided.obj X) (toFreeBraided.obj Y) (toFreeBraided.obj Z)).hom := (rfl)
-
-@[simp] theorem toFreeBraided_map_associator_inv (X Y Z : S.FreeMonoidal) :
-    toFreeBraided.map (α_ X Y Z).inv =
-      (α_ (toFreeBraided.obj X) (toFreeBraided.obj Y) (toFreeBraided.obj Z)).inv := (rfl)
-
-theorem toFreeBraided_map_leftUnitor_hom (X : S.FreeMonoidal) :
-    toFreeBraided.map (λ_ X).hom = (λ_ (toFreeBraided.obj X)).hom := (rfl)
-
-theorem toFreeBraided_map_leftUnitor_inv (X : S.FreeMonoidal) :
-    toFreeBraided.map (λ_ X).inv = (λ_ (toFreeBraided.obj X)).inv := (rfl)
-
-theorem toFreeBraided_map_rightUnitor_hom (X : S.FreeMonoidal) :
-    toFreeBraided.map (ρ_ X).hom = (ρ_ (toFreeBraided.obj X)).hom := (rfl)
-
-theorem toFreeBraided_map_rightUnitor_inv (X : S.FreeMonoidal) :
-    toFreeBraided.map (ρ_ X).inv = (ρ_ (toFreeBraided.obj X)).inv := (rfl)
-
-instance : (toFreeBraided (S := S)).Monoidal :=
-  Functor.CoreMonoidal.toMonoidal
-    { εIso := Iso.refl _
-      μIso := fun _ _ ↦ Iso.refl _
-      μIso_hom_natural_left := by intros; dsimp only [Iso.refl_hom, toFreeBraided_obj_tensor]; simp
-      μIso_hom_natural_right := by intros; dsimp only [Iso.refl_hom, toFreeBraided_obj_tensor]; simp
-      associativity := by intros; dsimp only [Iso.refl_hom, toFreeBraided_obj_tensor]; simp
-      left_unitality := by
-        intros; dsimp only [Iso.refl_hom, toFreeBraided_obj_tensor, toFreeBraided_obj_tensorUnit]
-        simp [toFreeBraided_map_leftUnitor_hom]
-      right_unitality := by
-        intros; dsimp only [Iso.refl_hom, toFreeBraided_obj_tensor, toFreeBraided_obj_tensorUnit]
-        simp [toFreeBraided_map_rightUnitor_hom] }
-
-@[simp] theorem toFreeBraided_ε : Functor.LaxMonoidal.ε (toFreeBraided (S := S)) = 𝟙 _ := rfl
-
-@[simp] theorem toFreeBraided_η : Functor.OplaxMonoidal.η (toFreeBraided (S := S)) = 𝟙 _ := rfl
-
-@[simp] theorem toFreeBraided_μ (X Y : S.FreeMonoidal) :
-    Functor.LaxMonoidal.μ (toFreeBraided (S := S)) X Y = 𝟙 _ := rfl
-
-@[simp] theorem toFreeBraided_δ (X Y : S.FreeMonoidal) :
-    Functor.OplaxMonoidal.δ (toFreeBraided (S := S)) X Y = 𝟙 _ := rfl
+  apply Quotient.exact (s := FreeBraided.setoidHom X Y)
+  exact eq_of_heq ((toFreeBraided_map_homMk_heq f).symm.trans
+    ((heq_of_eq (congrArg (toFreeBraided.map (X := ⟨X⟩) (Y := ⟨Y⟩)) (Quotient.sound h))).trans
+      (toFreeBraided_map_homMk_heq g)))
 
 /-- Restricting `FreeBraided.lift fo fc` along `toFreeBraided` recovers
 `FreeMonoidal.lift fo fc`. -/
@@ -768,34 +732,51 @@ theorem toFreeBraided_comp_lift {D : Type u'} [Category.{v'} D]
     [MonoidalCategory D] [BraidedCategory D] (fo : S.Obj → D)
     (fc : ∀ g : S.Coupon, projectObj fo (S.src g) ⟶ projectObj fo (S.tgt g)) :
     toFreeBraided ⋙ FreeBraided.lift fo fc = FreeMonoidal.lift fo fc := by
-  refine Functor.hext (fun _ ↦ rfl) fun _ _ f ↦ heq_of_eq ?_
+  have hobj : ∀ X : S.FreeMonoidal,
+      (FreeBraided.lift fo fc).obj (toFreeBraided.obj X) = (FreeMonoidal.lift fo fc).obj X :=
+    fun X ↦ congrArg (FreeBraided.lift fo fc).obj (toFreeBraided_obj X)
+  refine Functor.hext hobj fun X Y f ↦ ?_
   induction f using Hom.inductionOn with
-  | id => simp only [Functor.map_id]; rfl
-  | α_hom | α_inv =>
+  | id W => simp only [Functor.map_id]; congr 1; exact hobj W
+  | α_hom W X Y | α_inv W X Y =>
     dsimp only [Functor.comp_map, toFreeBraided_obj_tensor]
     simp only [toFreeBraided_map_associator_hom, toFreeBraided_map_associator_inv,
       FreeBraided.lift_map_associator_hom, FreeBraided.lift_map_associator_inv,
-      FreeMonoidal.lift_map_associator_hom, FreeMonoidal.lift_map_associator_inv]; rfl
-  | l_hom | l_inv | ρ_hom | ρ_inv =>
+      FreeMonoidal.lift_map_associator_hom, FreeMonoidal.lift_map_associator_inv]
+    congr 2 <;> simp only [hobj]
+  | l_hom W =>
     dsimp only [Functor.comp_map, toFreeBraided_obj_tensor, toFreeBraided_obj_tensorUnit]
-    simp only [toFreeBraided_map_leftUnitor_hom, toFreeBraided_map_leftUnitor_inv,
-      toFreeBraided_map_rightUnitor_hom, toFreeBraided_map_rightUnitor_inv,
-      FreeBraided.lift_map_leftUnitor_hom, FreeBraided.lift_map_leftUnitor_inv,
-      FreeBraided.lift_map_rightUnitor_hom, FreeBraided.lift_map_rightUnitor_inv,
-      FreeMonoidal.lift_map_leftUnitor_hom, FreeMonoidal.lift_map_leftUnitor_inv,
-      FreeMonoidal.lift_map_rightUnitor_hom, FreeMonoidal.lift_map_rightUnitor_inv]; rfl
-  | coupon =>
-    dsimp only [Functor.comp_map, toFreeBraided_obj]
-    rw [toFreeBraided_map_coupon, FreeBraided.lift_map_coupon, FreeMonoidal.lift_map_coupon]
-  | comp _ _ hf hg => rw [Functor.map_comp, Functor.map_comp, hf, hg]; rfl
-  | whiskerLeft W f hf =>
+    rw [toFreeBraided_map_leftUnitor_hom, FreeBraided.lift_map_leftUnitor_hom,
+      FreeMonoidal.lift_map_leftUnitor_hom]
+    exact (fun {A B : D} (h : A = B) ↦ show (λ_ A).hom ≍ (λ_ B).hom by subst h; rfl) (hobj W)
+  | l_inv W =>
+    dsimp only [Functor.comp_map, toFreeBraided_obj_tensor, toFreeBraided_obj_tensorUnit]
+    rw [toFreeBraided_map_leftUnitor_inv, FreeBraided.lift_map_leftUnitor_inv,
+      FreeMonoidal.lift_map_leftUnitor_inv]
+    exact (fun {A B : D} (h : A = B) ↦ show (λ_ A).inv ≍ (λ_ B).inv by subst h; rfl) (hobj W)
+  | ρ_hom W =>
+    dsimp only [Functor.comp_map, toFreeBraided_obj_tensor, toFreeBraided_obj_tensorUnit]
+    rw [toFreeBraided_map_rightUnitor_hom, FreeBraided.lift_map_rightUnitor_hom,
+      FreeMonoidal.lift_map_rightUnitor_hom]
+    exact (fun {A B : D} (h : A = B) ↦ show (ρ_ A).hom ≍ (ρ_ B).hom by subst h; rfl) (hobj W)
+  | ρ_inv W =>
+    dsimp only [Functor.comp_map, toFreeBraided_obj_tensor, toFreeBraided_obj_tensorUnit]
+    rw [toFreeBraided_map_rightUnitor_inv, FreeBraided.lift_map_rightUnitor_inv,
+      FreeMonoidal.lift_map_rightUnitor_inv]
+    exact (fun {A B : D} (h : A = B) ↦ show (ρ_ A).inv ≍ (ρ_ B).inv by subst h; rfl) (hobj W)
+  | coupon g =>
+    dsimp only [Functor.comp_map]
+    rw [toFreeBraided_map_coupon, Functor.map_comp, Functor.map_comp, eqToHom_map, eqToHom_map,
+      FreeBraided.lift_map_coupon, FreeMonoidal.lift_map_coupon]
+    exact (conj_eqToHom_iff_heq _ _ (hobj ⟨S.src g⟩) (hobj ⟨S.tgt g⟩)).1 rfl
+  | comp _ _ hf hg =>
+    rw [Functor.map_comp, Functor.map_comp]; exact heq_comp (hobj _) (hobj _) (hobj _) hf hg
+  | whiskerLeft W f hf | whiskerRight f W hf =>
     dsimp only [Functor.comp_map, toFreeBraided_obj_tensor]
-    rw [toFreeBraided_map_whiskerLeft, FreeBraided.lift_map_whiskerLeft,
-      FreeMonoidal.lift_map_whiskerLeft, ← Functor.comp_map, hf]; rfl
-  | whiskerRight f W hf =>
-    dsimp only [Functor.comp_map, toFreeBraided_obj_tensor]
-    rw [toFreeBraided_map_whiskerRight, FreeBraided.lift_map_whiskerRight,
-      FreeMonoidal.lift_map_whiskerRight, ← Functor.comp_map, hf]; rfl
+    simp only [toFreeBraided_map_whiskerLeft, toFreeBraided_map_whiskerRight,
+      FreeBraided.lift_map_whiskerLeft, FreeBraided.lift_map_whiskerRight,
+      FreeMonoidal.lift_map_whiskerLeft, FreeMonoidal.lift_map_whiskerRight, ← Functor.comp_map]
+    congr 1 <;> simp only [hobj]
 
 end FreeMonoidal
 
