@@ -113,6 +113,21 @@ theorem IsAcyclic.eq_of_src_eq_of_tgt_eq (h : Γ.IsAcyclic) {e f : Γ.E}
   exact (Γ.dart_val e).symm.trans (key (Γ.dart e) ⟨f, hs.symm, ht.symm⟩)
 
 variable {Γ} in
+/-- In an acyclic Serre graph, the target map identifies the outgoing darts from `v` bijectively
+with the neighbours of `v`. -/
+noncomputable def IsAcyclic.outDartEquivNeighbour (h : Γ.IsAcyclic) (v : Γ.V) :
+    {e : Γ.E // Γ.src e = v} ≃ {w : Γ.V // ∃ e : Γ.E, Γ.src e = v ∧ Γ.tgt e = w} :=
+  Equiv.ofBijective (fun e => ⟨Γ.tgt e.1, e.1, e.2, rfl⟩)
+    ⟨fun e₁ e₂ htgt => Subtype.ext <|
+      h.eq_of_src_eq_of_tgt_eq (e₁.2.trans e₂.2.symm) (Subtype.mk.inj htgt),
+      fun ⟨_, e, hs, ht⟩ => ⟨⟨e, hs⟩, Subtype.ext ht⟩⟩
+
+variable {Γ} in
+@[simp] theorem IsAcyclic.outDartEquivNeighbour_apply_val (h : Γ.IsAcyclic) (v : Γ.V)
+    (e : {e : Γ.E // Γ.src e = v}) : (h.outDartEquivNeighbour v e).1 = Γ.tgt e.1 :=
+  (rfl)
+
+variable {Γ} in
 /-- In an acyclic graph, a single vertex induces no dart. -/
 @[simp] theorem IsAcyclic.inducedDarts_singleton (h : Γ.IsAcyclic) (v : Γ.V) :
     Γ.inducedDarts {v} = ∅ :=
