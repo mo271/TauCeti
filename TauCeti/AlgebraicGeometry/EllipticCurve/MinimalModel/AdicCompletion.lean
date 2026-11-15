@@ -10,7 +10,6 @@ public import TauCeti.RingTheory.DedekindDomain.AdicValuation.Completion
 import Mathlib.Topology.Constructions.SumProd
 import TauCeti.AlgebraicGeometry.EllipticCurve.IntegralModel
 import TauCeti.AlgebraicGeometry.EllipticCurve.MinimalModel.Basic
-import TauCeti.AlgebraicGeometry.EllipticCurve.MinimalModel.Valuation
 import TauCeti.AlgebraicGeometry.EllipticCurve.VariableChange.Basic
 import TauCeti.RingTheory.DedekindDomain.AdicCompletionExtension
 import TauCeti.RingTheory.DedekindDomain.LocalizationAtPrime
@@ -36,15 +35,15 @@ to `v.adicCompletion K`.
 * `WeierstrassCurve.isIntegral_baseChange_adicCompletion_iff`: `W.baseChange (v.adicCompletion K)`
   is integral over `v.adicCompletionIntegers K` if and only if `W` is integral over
   `Localization.AtPrime v.asIdeal`.
-* `WeierstrassCurve.exists_smul_isIntegral_localizationAtPrime_of_adicCompletion`: every completed
-  integral change of variables of `W.baseChange (v.adicCompletion K)` can be approximated over `K`
-  with the same discriminant valuation.
+* `WeierstrassCurve.exists_smul_isIntegral_localizationAtPrime_of_adicCompletion`: for every
+  completed integral change of variables `C` of `W.baseChange (v.adicCompletion K)`, there exists
+  `D : VariableChange K` with `D • W` integral over `Localization.AtPrime v.asIdeal` and the same
+  discriminant valuation.
 * `WeierstrassCurve.isMinimal_baseChange_adicCompletion_iff`: `W.baseChange (v.adicCompletion K)`
   is minimal over `v.adicCompletionIntegers K` if and only if `W` is minimal over
   `Localization.AtPrime v.asIdeal`.
-* `WeierstrassCurve.isMinimal_baseChange_adicCompletion` and
-  `WeierstrassCurve.IsGlobalMinimal.isMinimal_adicCompletion`: the forward direction as an instance
-  and for globally minimal equations.
+* `WeierstrassCurve.IsIntegral.baseChange_adicCompletion` and
+  `WeierstrassCurve.isMinimal_baseChange_adicCompletion`: the forward directions as instances.
 
 ## References
 
@@ -58,6 +57,22 @@ open scoped WithZero
 
 namespace WeierstrassCurve
 
+private theorem isIntegral_iff_of_integers {O F Γ₀ : Type*} [CommRing O] [Field F] [Algebra O F]
+    [LinearOrderedCommGroupWithZero Γ₀] {w : Valuation F Γ₀} (hw : w.Integers O)
+    (W : WeierstrassCurve F) :
+    IsIntegral O W ↔ w W.a₁ ≤ 1 ∧ w W.a₂ ≤ 1 ∧ w W.a₃ ≤ 1 ∧ w W.a₄ ≤ 1 ∧ w W.a₆ ≤ 1 := by
+  constructor
+  · intro _
+    refine ⟨?_, ?_, ?_, ?_, ?_⟩
+    · rw [← integralModel_a₁_eq O W]; exact hw.map_le_one _
+    · rw [← integralModel_a₂_eq O W]; exact hw.map_le_one _
+    · rw [← integralModel_a₃_eq O W]; exact hw.map_le_one _
+    · rw [← integralModel_a₄_eq O W]; exact hw.map_le_one _
+    · rw [← integralModel_a₆_eq O W]; exact hw.map_le_one _
+  · rintro ⟨h₁, h₂, h₃, h₄, h₆⟩
+    exact isIntegral_of_exists_lift O (hw.exists_of_le_one h₁) (hw.exists_of_le_one h₂)
+      (hw.exists_of_le_one h₃) (hw.exists_of_le_one h₄) (hw.exists_of_le_one h₆)
+
 variable {R : Type*} [CommRing R] [IsDedekindDomain R]
   {K : Type*} [Field K] [Algebra R K] [IsFractionRing R K]
   (v : HeightOneSpectrum R)
@@ -67,57 +82,19 @@ if and only if its five Weierstrass coefficients have valuation at most `1`. -/
 theorem isIntegral_adicCompletionIntegers_iff (E : WeierstrassCurve (v.adicCompletion K)) :
     IsIntegral (v.adicCompletionIntegers K) E ↔
       Valued.v E.a₁ ≤ 1 ∧ Valued.v E.a₂ ≤ 1 ∧ Valued.v E.a₃ ≤ 1 ∧
-        Valued.v E.a₄ ≤ 1 ∧ Valued.v E.a₆ ≤ 1 := by
-  constructor
-  · intro h
-    refine ⟨?_, ?_, ?_, ?_, ?_⟩
-    · rw [← integralModel_a₁_eq (v.adicCompletionIntegers K) E]
-      exact (mem_adicCompletionIntegers R K v).mp
-        (integralModel (v.adicCompletionIntegers K) E).a₁.2
-    · rw [← integralModel_a₂_eq (v.adicCompletionIntegers K) E]
-      exact (mem_adicCompletionIntegers R K v).mp
-        (integralModel (v.adicCompletionIntegers K) E).a₂.2
-    · rw [← integralModel_a₃_eq (v.adicCompletionIntegers K) E]
-      exact (mem_adicCompletionIntegers R K v).mp
-        (integralModel (v.adicCompletionIntegers K) E).a₃.2
-    · rw [← integralModel_a₄_eq (v.adicCompletionIntegers K) E]
-      exact (mem_adicCompletionIntegers R K v).mp
-        (integralModel (v.adicCompletionIntegers K) E).a₄.2
-    · rw [← integralModel_a₆_eq (v.adicCompletionIntegers K) E]
-      exact (mem_adicCompletionIntegers R K v).mp
-        (integralModel (v.adicCompletionIntegers K) E).a₆.2
-  · rintro ⟨h₁, h₂, h₃, h₄, h₆⟩
-    exact isIntegral_of_exists_lift (v.adicCompletionIntegers K)
-      ⟨⟨E.a₁, (mem_adicCompletionIntegers R K v).mpr h₁⟩, rfl⟩
-      ⟨⟨E.a₂, (mem_adicCompletionIntegers R K v).mpr h₂⟩, rfl⟩
-      ⟨⟨E.a₃, (mem_adicCompletionIntegers R K v).mpr h₃⟩, rfl⟩
-      ⟨⟨E.a₄, (mem_adicCompletionIntegers R K v).mpr h₄⟩, rfl⟩
-      ⟨⟨E.a₆, (mem_adicCompletionIntegers R K v).mpr h₆⟩, rfl⟩
+        Valued.v E.a₄ ≤ 1 ∧ Valued.v E.a₆ ≤ 1 :=
+  -- `v.adicCompletionIntegers K` is by definition `Valued.v.valuationSubring`.
+  isIntegral_iff_of_integers
+    (Valuation.valuationSubring.integers (v := (Valued.v : Valuation (v.adicCompletion K) ℤᵐ⁰))) E
 
 /-- A Weierstrass equation over `K` is integral over `Localization.AtPrime v.asIdeal` if and only
 if its five Weierstrass coefficients have `v`-adic valuation at most `1`. -/
 theorem isIntegral_localizationAtPrime_iff (W : WeierstrassCurve K) :
     IsIntegral (Localization.AtPrime v.asIdeal) W ↔
       v.valuation K W.a₁ ≤ 1 ∧ v.valuation K W.a₂ ≤ 1 ∧ v.valuation K W.a₃ ≤ 1 ∧
-        v.valuation K W.a₄ ≤ 1 ∧ v.valuation K W.a₆ ≤ 1 := by
-  have hv := v.integers_valuation_of_isLocalizationAtPrime (Localization.AtPrime v.asIdeal) (K := K)
-  constructor
-  · intro h
-    refine ⟨?_, ?_, ?_, ?_, ?_⟩
-    · rw [← integralModel_a₁_eq (Localization.AtPrime v.asIdeal) W]
-      exact hv.map_le_one _
-    · rw [← integralModel_a₂_eq (Localization.AtPrime v.asIdeal) W]
-      exact hv.map_le_one _
-    · rw [← integralModel_a₃_eq (Localization.AtPrime v.asIdeal) W]
-      exact hv.map_le_one _
-    · rw [← integralModel_a₄_eq (Localization.AtPrime v.asIdeal) W]
-      exact hv.map_le_one _
-    · rw [← integralModel_a₆_eq (Localization.AtPrime v.asIdeal) W]
-      exact hv.map_le_one _
-  · rintro ⟨h₁, h₂, h₃, h₄, h₆⟩
-    exact isIntegral_of_exists_lift (Localization.AtPrime v.asIdeal)
-      (hv.exists_of_le_one h₁) (hv.exists_of_le_one h₂) (hv.exists_of_le_one h₃)
-      (hv.exists_of_le_one h₄) (hv.exists_of_le_one h₆)
+        v.valuation K W.a₄ ≤ 1 ∧ v.valuation K W.a₆ ≤ 1 :=
+  isIntegral_iff_of_integers
+    (v.integers_valuation_of_isLocalizationAtPrime (Localization.AtPrime v.asIdeal) (K := K)) W
 
 /-- Base change from `K` to `v.adicCompletion K` preserves and reflects integrality at `v`. -/
 @[simp]
@@ -127,9 +104,12 @@ theorem isIntegral_baseChange_adicCompletion_iff (W : WeierstrassCurve K) :
   rw [isIntegral_adicCompletionIntegers_iff, isIntegral_localizationAtPrime_iff]
   simp [baseChange, algebraMap_adicCompletion]
 
+-- Named under `IsIntegral` (matching `IsIntegral.baseChange`) because
+-- `WeierstrassCurve.isIntegral_baseChange_adicCompletion` is already taken in
+-- `FormalGroup.Point.AdicCompletion` for an equation over `v.adicCompletionIntegers K`.
 /-- If `W` is integral over `Localization.AtPrime v.asIdeal`, its base change to
 `v.adicCompletion K` is integral over `v.adicCompletionIntegers K`. -/
-instance isIntegral_adicCompletionIntegers_baseChange (W : WeierstrassCurve K)
+instance IsIntegral.baseChange_adicCompletion (W : WeierstrassCurve K)
     [IsIntegral (Localization.AtPrime v.asIdeal) W] :
     IsIntegral (v.adicCompletionIntegers K) (W.baseChange (v.adicCompletion K)) :=
   (isIntegral_baseChange_adicCompletion_iff v W).mpr inferInstance
@@ -153,16 +133,14 @@ private theorem exists_smul_isIntegral_adicCompletionIntegers_u_eq (W : Weierstr
   have hε₁ : Valued.v (ε_val : v.adicCompletion K) = 1 := by
     rw [Units.val_mul, map_mul, Units.val_inv_eq_inv_val, map_inv₀, hval_u]
     exact mul_inv_cancel₀ ((Valued.v : Valuation _ ℤᵐ⁰).ne_zero_iff.mpr C.u.ne_zero)
-  have hε_inv : Valued.v ((ε_val⁻¹ : (v.adicCompletion K)ˣ) : v.adicCompletion K) = 1 := by
-    rw [Units.val_inv_eq_inv_val, map_inv₀, hε₁, inv_one]
   let ε : (v.adicCompletionIntegers K)ˣ :=
-    ⟨⟨(ε_val : v.adicCompletion K), (mem_adicCompletionIntegers R K v).mpr hε₁.le⟩,
-      ⟨((ε_val⁻¹ : (v.adicCompletion K)ˣ) : v.adicCompletion K),
-        (mem_adicCompletionIntegers R K v).mpr hε_inv.le⟩,
-      Subtype.ext ε_val.mul_inv, Subtype.ext ε_val.inv_mul⟩
+    (adicCompletionIntegers.isUnit_iff_valued_eq_one (a :=
+      ⟨(ε_val : v.adicCompletion K), (mem_adicCompletionIntegers R K v).mpr hε₁.le⟩).mpr hε₁).unit
   let E₀ : VariableChange (v.adicCompletionIntegers K) := ⟨ε, 0, 0, 0⟩
   refine ⟨u₀, E₀.baseChange (v.adicCompletion K) * C, ?_, ?_, ?_⟩
-  · have hE₀u : (E₀.baseChange (v.adicCompletion K)).u = ε_val := by ext; rfl
+  · have hE₀u : (E₀.baseChange (v.adicCompletion K)).u = ε_val := by
+      ext
+      simp [VariableChange.baseChange, VariableChange.map, E₀, ε]
     rw [VariableChange.mul_def, hE₀u]
     exact inv_mul_cancel_right u₀_v C.u
   · rw [mul_smul]
@@ -170,8 +148,8 @@ private theorem exists_smul_isIntegral_adicCompletionIntegers_u_eq (W : Weierstr
   · rw [mul_smul, ← v.valuation_maximalIdeal_adicCompletionIntegers,
       ← v.valuation_maximalIdeal_adicCompletionIntegers, valuation_Δ_baseChange_smul]
 
-/-- Every completed change of variables carrying `W.baseChange (v.adicCompletion K)` to an equation
-integral over `v.adicCompletionIntegers K` can be approximated by a change of variables over `K`
+/-- For every completed change of variables carrying `W.baseChange (v.adicCompletion K)` to an
+equation integral over `v.adicCompletionIntegers K`, there exists a change of variables over `K`
 carrying `W` to an equation integral over `Localization.AtPrime v.asIdeal` with the same
 discriminant valuation. -/
 theorem exists_smul_isIntegral_localizationAtPrime_of_adicCompletion (W : WeierstrassCurve K)
@@ -211,7 +189,7 @@ theorem exists_smul_isIntegral_localizationAtPrime_of_adicCompletion (W : Weiers
   have hDf : (D • W).baseChange (v.adicCompletion K) =
       f (algebraMap K _ r₀, algebraMap K _ s₀, algebraMap K _ t₀) := by
     rw [← baseChange_smul_baseChange]
-    rfl
+    simp [VariableChange.baseChange, VariableChange.map, f, D, u₀_v]
   refine ⟨D, ?_, ?_⟩
   · rw [← isIntegral_baseChange_adicCompletion_iff, hDf, isIntegral_adicCompletionIntegers_iff]
     simpa only [U, B, Set.mem_inter_iff, Set.mem_preimage, Set.mem_ofPred_eq, Prod.map_apply]
@@ -274,14 +252,6 @@ instance isMinimal_baseChange_adicCompletion (W : WeierstrassCurve K)
     [IsMinimal (Localization.AtPrime v.asIdeal) W] :
     IsMinimal (v.adicCompletionIntegers K) (W.baseChange (v.adicCompletion K)) :=
   (isMinimal_baseChange_adicCompletion_iff v W).mpr inferInstance
-
-/-- A globally minimal Weierstrass equation over `R` remains minimal over
-`v.adicCompletionIntegers K` at every height-one prime `v` of `R`. -/
-theorem IsGlobalMinimal.isMinimal_adicCompletion {W : WeierstrassCurve K} [W.IsElliptic]
-    (h : IsGlobalMinimal R W) (v : HeightOneSpectrum R) :
-    IsMinimal (v.adicCompletionIntegers K) (W.baseChange (v.adicCompletion K)) :=
-  have := h.isMinimal v
-  inferInstance
 
 end WeierstrassCurve
 

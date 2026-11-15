@@ -40,8 +40,10 @@ zeros or poles, and since `F` is the exact constant field of `F(W₁)`, `a` is a
 * `TauCeti.Isogeny.existsUnique_pullbackDifferential_invariantDifferential_eq_smul`:
   `φ^*ω₂ = c ω₁` for a unique `c ∈ F`.
 * `TauCeti.Isogeny.isSeparable_iff_ne_zero_of_pullbackDifferential_eq_smul`: this constant is
-  nonzero exactly when `φ` is separable, and `ne_zero_of_pullbackDifferential_eq_smul`: in
-  characteristic zero it is always nonzero.
+  nonzero exactly when `φ` is separable,
+  `ne_zero_of_pullbackDifferential_eq_smul_of_degree_ne_zero`: it is nonzero whenever
+  `(deg φ : F) ≠ 0`, and `ne_zero_of_pullbackDifferential_eq_smul`: in characteristic zero it is
+  always nonzero.
 * `TauCeti.Isogeny.Hom.existsUnique_pullbackDifferential_invariantDifferential_eq_smul`: the same
   for every morphism `W₁ → W₂`.
 
@@ -166,6 +168,30 @@ theorem isSeparable_iff_ne_zero_of_pullbackDifferential_eq_smul (φ : Isogeny W�
   have := φ.isElliptic
   rw [isSeparable_iff_pullbackDifferential_ne_zero, hc,
     smul_ne_zero_iff_left (invariantDifferential_ne_zero W₁)]
+
+/-- **When the degree is nonzero in the base field, the pullback constant is nonzero**: any isogeny
+of degree prime to the characteristic is separable, so if `φ^*ω₂ = c ω₁` and `(φ.degree : F) ≠ 0`
+then `c ≠ 0`. -/
+theorem ne_zero_of_pullbackDifferential_eq_smul_of_degree_ne_zero (φ : Isogeny W₁ W₂) {c : F}
+    (hc : φ.pullbackDifferential (invariantDifferential W₂) = c • invariantDifferential W₁)
+    (hdeg : (φ.degree : F) ≠ 0) :
+    c ≠ 0 := by
+  have := φ.isElliptic
+  refine (isSeparable_iff_ne_zero_of_pullbackDifferential_eq_smul φ hc).mp ?_
+  rw [← inseparableDegree_eq_one_iff_isSeparable]
+  obtain ⟨q, hq⟩ := ExpChar.exists F
+  obtain ⟨n, hn⟩ : ∃ n : ℕ, φ.inseparableDegree = q ^ n :=
+    φ.inseparableDegree_def ▸ finInsepDegree_eq_pow _ _ q
+  rw [hn]
+  rcases hq with _ | hp
+  · exact one_pow n
+  · cases n with
+    | zero => exact pow_zero q
+    | succ m =>
+      exfalso
+      apply hdeg
+      rw [← φ.separableDegree_mul_inseparableDegree, hn, pow_succ,
+        Nat.cast_mul, Nat.cast_mul, CharP.cast_eq_zero F q, mul_zero, mul_zero]
 
 /-- **In characteristic zero the constant is nonzero**: every isogeny is separable, so if
 `φ^*ω₂ = c ω₁` then `c ≠ 0`. -/

@@ -67,11 +67,12 @@ Everything here concerns one completion. The comparison of two completions along
 ## Implementation notes
 
 `Mathlib.NumberTheory.NumberField.Completion.FinitePlace` supplies two instances used throughout —
-`IsDiscreteValuationRing (v.adicCompletionIntegers K)` and
-`(Valued.v : Valuation (v.adicCompletion K) ℤᵐ⁰).IsRankOneDiscrete`. Both are stated there for an
-arbitrary Dedekind domain and its fraction field, not for number fields, so nothing here depends on
-number-field theory; they simply live in that module upstream. This note records the reason so the
-placement of a `NumberTheory` import inside `RingTheory` is not mistaken for a layering slip.
+`IsDiscreteValuationRing (v.adicCompletionIntegers K)` (re-exported at the definitionally equal
+`Valued.v.valuationSubring` spelling as `isDiscreteValuationRing_valuationSubring_adicCompletion`)
+and `(Valued.v : Valuation (v.adicCompletion K) ℤᵐ⁰).IsRankOneDiscrete`. Both are stated there for
+an arbitrary Dedekind domain and its fraction field, not for number fields, so nothing here depends
+on number-field theory; they simply live in that module upstream. This note records the reason so
+the placement of a `NumberTheory` import inside `RingTheory` is not mistaken for a layering slip.
 
 ## Motivation
 
@@ -142,6 +143,12 @@ zero, since the field embeds into it. -/
 instance adicCompletion_charZero [CharZero K] (v : HeightOneSpectrum R) :
     CharZero (v.adicCompletion K) :=
   charZero_of_injective_algebraMap (algebraMap K (v.adicCompletion K)).injective
+
+/-- `Valued.v.valuationSubring` on an adic completion is a discrete valuation ring: it is by
+definition `v.adicCompletionIntegers K`. -/
+instance isDiscreteValuationRing_valuationSubring_adicCompletion (v : HeightOneSpectrum R) :
+    IsDiscreteValuationRing (Valued.v : Valuation (v.adicCompletion K) ℤᵐ⁰).valuationSubring :=
+  inferInstanceAs (IsDiscreteValuationRing (v.adicCompletionIntegers K))
 
 /-- The prime of `R` lying under the maximal ideal of the ring of integers of the completion of
 `K` at `v` is `v` itself. -/

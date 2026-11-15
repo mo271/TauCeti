@@ -8,7 +8,6 @@ module
 public import Mathlib.Algebra.BigOperators.Finprod
 public import Mathlib.NumberTheory.NumberField.Completion.FinitePlace
 import Mathlib.Algebra.FiniteSupport.Basic
-import Mathlib.NumberTheory.NumberField.ProductFormula
 import TauCeti.RingTheory.Ideal.Norm.AbsNorm
 
 /-!
@@ -32,16 +31,15 @@ finite-place product formula indexed by `HeightOneSpectrum ℤ`.
 
 * `IsDedekindDomain.HeightOneSpectrum.adicAbv_eq_absNorm_zpow`: at a nonzero element `x ∈ K`,
   `adicAbv K v x = (Ideal.absNorm v.asIdeal : ℝ) ^ WithZero.log (v.valuation K x)`.
-* `IsDedekindDomain.HeightOneSpectrum.hasFiniteMulSupport_adicAbv`: for `x ≠ 0` in `K`, only
-  finitely many height-one primes have `adicAbv K v x ≠ 1`.
-* `IsDedekindDomain.HeightOneSpectrum.finprod_adicAbv_algebraMap`: for `x ≠ 0` in `R`,
+* `TauCeti.hasFiniteMulSupport_adicAbv`: for `x ≠ 0` in `K`, only finitely many height-one primes
+  have `adicAbv K v x ≠ 1`.
+* `TauCeti.finprod_adicAbv_algebraMap`: for `x ≠ 0` in `R`,
   `∏ᶠ v : HeightOneSpectrum R, adicAbv K v (algebraMap R K x) = (Ideal.absNorm (Ideal.span {x}))⁻¹`.
-* `IsDedekindDomain.HeightOneSpectrum.finprod_adicAbv_div`: for nonzero `a, b ∈ R`, the finite
-  product of `adicAbv K v (algebraMap R K a / algebraMap R K b)` is
+* `TauCeti.finprod_adicAbv_div`: for nonzero `a, b ∈ R`, the finite product of
+  `adicAbv K v (algebraMap R K a / algebraMap R K b)` is
   `Ideal.absNorm (Ideal.span {b}) / Ideal.absNorm (Ideal.span {a})`.
-* `IsDedekindDomain.HeightOneSpectrum.finprod_adicAbv_rat` and
-  `IsDedekindDomain.HeightOneSpectrum.abs_mul_finprod_adicAbv_rat`: the rational product formula
-  over `HeightOneSpectrum ℤ`.
+* `TauCeti.finprod_adicAbv_rat`: the rational finite-place product formula over
+  `HeightOneSpectrum ℤ`.
 
 ## References
 
@@ -49,20 +47,21 @@ finite-place product formula indexed by `HeightOneSpectrum ℤ`.
 
 ## Provenance
 
-`finprod_adicAbv_algebraMap` generalizes `NumberField.FinitePlace.prod_eq_inv_abs_norm_int` in
-`Mathlib.NumberTheory.NumberField.ProductFormula` from `𝓞 K` to any Dedekind domain `R` satisfying
-`Ring.HasFiniteQuotients R`.
+`finprod_adicAbv_algebraMap`, `finprod_adicAbv_div`, and `hasFiniteMulSupport_adicAbv` generalize
+`NumberField.FinitePlace.prod_eq_inv_abs_norm_int`, `NumberField.FinitePlace.prod_eq_inv_abs_norm`,
+and `NumberField.FinitePlace.hasFiniteMulSupport` from `𝓞 K` to any Dedekind domain `R` satisfying
+`Ring.HasFiniteQuotients R`, adapting the proofs in
+`Mathlib.NumberTheory.NumberField.ProductFormula` and
+`Mathlib.NumberTheory.NumberField.Completion.FinitePlace` by Fabrizio Barroero.
 -/
 
 public section
 
-open Function Ideal NumberField NumberField.HeightOneSpectrum
+open Function Ideal IsDedekindDomain NumberField NumberField.HeightOneSpectrum
 
 namespace IsDedekindDomain.HeightOneSpectrum
 
-section DedekindDomain
-
-variable (R : Type*) [CommRing R] [IsDedekindDomain R] [Ring.HasFiniteQuotients R]
+variable {R : Type*} [CommRing R] [IsDedekindDomain R] [Ring.HasFiniteQuotients R]
   {K : Type*} [Field K] [Algebra R K] [IsFractionRing R K]
 
 /-- At a nonzero element of `K`, the normalized `v`-adic absolute value is the absolute norm of
@@ -75,6 +74,15 @@ theorem adicAbv_eq_absNorm_zpow (v : HeightOneSpectrum R) {x : K} (hx : x ≠ 0)
       ((v.valuation K).ne_zero_iff.mpr hx)]
   norm_cast
 
+end IsDedekindDomain.HeightOneSpectrum
+
+namespace TauCeti
+
+section DedekindDomain
+
+variable {R : Type*} [CommRing R] [IsDedekindDomain R] [Ring.HasFiniteQuotients R]
+  (K : Type*) [Field K] [Algebra R K] [IsFractionRing R K]
+
 /-- For a nonzero element of `R`, only finitely many height-one primes have nontrivial `v`-adic
 absolute value. -/
 theorem hasFiniteMulSupport_adicAbv_algebraMap {x : R} (hx : x ≠ 0) :
@@ -86,7 +94,7 @@ theorem hasFiniteMulSupport_adicAbv_algebraMap {x : R} (hx : x ≠ 0) :
     not_not] at hv
   rwa [Set.mem_ofPred_eq, Ideal.dvd_span_singleton]
 
-variable {R} in
+variable {K} in
 /-- For a nonzero element of `K`, only finitely many height-one primes of `R` have nontrivial
 `v`-adic absolute value. -/
 theorem hasFiniteMulSupport_adicAbv {x : K} (hx : x ≠ 0) :
@@ -96,8 +104,8 @@ theorem hasFiniteMulSupport_adicAbv {x : K} (hx : x ≠ 0) :
   have hb0 : (b : R) ≠ 0 := nonZeroDivisors.ne_zero hb
   have ha0 : a ≠ 0 := fun h ↦ hx (by simp [h])
   simp_rw [map_div₀]
-  exact (hasFiniteMulSupport_adicAbv_algebraMap R (K := K) ha0).fun_div
-    (hasFiniteMulSupport_adicAbv_algebraMap R (K := K) hb0)
+  exact (hasFiniteMulSupport_adicAbv_algebraMap K ha0).fun_div
+    (hasFiniteMulSupport_adicAbv_algebraMap K hb0)
 
 /-- **Finite-place product formula on `R`**: for a nonzero `x ∈ R`, the product of the normalized
 `v`-adic absolute values of `algebraMap R K x` over all height-one primes `v` of `R` is the
@@ -107,11 +115,11 @@ theorem finprod_adicAbv_algebraMap {x : R} (hx : x ≠ 0) :
       NumberField.HeightOneSpectrum.adicAbv K v (algebraMap R K x)) =
       (absNorm (span ({x} : Set R)) : ℝ)⁻¹ := by
   have hspan : span ({x} : Set R) ≠ 0 := by simpa using hx
-  have hfin₁ := hasFiniteMulSupport_adicAbv_algebraMap R (K := K) hx
+  have hfin₁ := hasFiniteMulSupport_adicAbv_algebraMap K hx
   have hfin₂ : (fun v : HeightOneSpectrum R ↦
       (absNorm (v.maxPowDividing (span {x})) : ℝ)).HasFiniteMulSupport := by
     refine (Ideal.finite_factors hspan).subset ?_
-    simp only [mulSupport_subset_iff, Set.mem_ofPred_eq, maxPowDividing]
+    simp only [mulSupport_subset_iff, Set.mem_ofPred_eq, HeightOneSpectrum.maxPowDividing]
     intro v hv
     simp only [map_pow, Nat.cast_pow, ← pow_zero (absNorm v.asIdeal : ℝ)] at hv
     refine (Associates.count_ne_zero_iff_dvd hspan v.irreducible).1 fun h ↦ hv ?_
@@ -135,9 +143,9 @@ theorem finprod_adicAbv_div {a b : R} (ha : a ≠ 0) (hb : b ≠ 0) :
       NumberField.HeightOneSpectrum.adicAbv K v (algebraMap R K a / algebraMap R K b)) =
       (absNorm (span ({b} : Set R)) : ℝ) / absNorm (span ({a} : Set R)) := by
   simp_rw [map_div₀]
-  rw [finprod_div_distrib (hasFiniteMulSupport_adicAbv_algebraMap R ha)
-    (hasFiniteMulSupport_adicAbv_algebraMap R hb),
-    finprod_adicAbv_algebraMap R ha, finprod_adicAbv_algebraMap R hb, inv_div_inv]
+  rw [finprod_div_distrib (hasFiniteMulSupport_adicAbv_algebraMap K ha)
+    (hasFiniteMulSupport_adicAbv_algebraMap K hb),
+    finprod_adicAbv_algebraMap K ha, finprod_adicAbv_algebraMap K hb, inv_div_inv]
 
 end DedekindDomain
 
@@ -156,18 +164,11 @@ theorem finprod_adicAbv_rat {x : ℚ} (hx : x ≠ 0) :
   have hx' : x = algebraMap ℤ ℚ x.num / algebraMap ℤ ℚ (x.den : ℤ) := by
     simp [Rat.num_div_den]
   conv_lhs => rw [hx']
-  rw [finprod_adicAbv_div ℤ hnum hden, Int.absNorm_span_singleton, Int.absNorm_span_singleton,
+  rw [finprod_adicAbv_div ℚ hnum hden, Int.absNorm_span_singleton, Int.absNorm_span_singleton,
     Int.natAbs_natCast, hcast, inv_div]
-
-/-- **The rational product formula indexed by `HeightOneSpectrum ℤ`**: for a nonzero `x ∈ ℚ`,
-`|x|_∞ · ∏_p |x|_p = 1`. -/
-theorem abs_mul_finprod_adicAbv_rat {x : ℚ} (hx : x ≠ 0) :
-    |(x : ℝ)| * (∏ᶠ v : HeightOneSpectrum ℤ, NumberField.HeightOneSpectrum.adicAbv ℚ v x) = 1 := by
-  have hxR : |(x : ℝ)| ≠ 0 := abs_ne_zero.mpr (Rat.cast_ne_zero.mpr hx)
-  rw [finprod_adicAbv_rat hx, mul_inv_cancel₀ hxR]
 
 end Rational
 
-end IsDedekindDomain.HeightOneSpectrum
+end TauCeti
 
 end

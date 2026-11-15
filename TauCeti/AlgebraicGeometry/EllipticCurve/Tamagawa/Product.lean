@@ -47,11 +47,6 @@ variable {R : Type*} [CommRing R] [IsDedekindDomain R] [Ring.HasFiniteQuotients 
 local instance (v : HeightOneSpectrum R) : Finite (R ⧸ v.asIdeal) :=
   Ring.HasFiniteQuotients.finiteQuotient v.ne_bot
 
--- `adicCompletionIntegers` is by definition `Valued.v.valuationSubring`.
-private local instance (v : HeightOneSpectrum R) :
-    IsDiscreteValuationRing (Valued.v : Valuation (v.adicCompletion K) ℤᵐ⁰).valuationSubring :=
-  inferInstanceAs (IsDiscreteValuationRing (v.adicCompletionIntegers K))
-
 /-- The minimal-equation index over the completed field at a finite prime. For elliptic curves
 this is the local Tamagawa number. -/
 noncomputable def tamagawaNumberAt (E : WeierstrassCurve K)

@@ -9,6 +9,7 @@ public import Mathlib.NumberTheory.NumberField.ProductFormula
 public import TauCeti.Algebra.BigOperators.Finprod
 
 import TauCeti.NumberTheory.NumberField.FinitePlace.Basic
+import TauCeti.RingTheory.DedekindDomain.AdicValuation.ProductFormula
 
 /-!
 # Places of a number field and their normalized absolute values
@@ -189,22 +190,11 @@ end Integers
 
 variable {x : K}
 
-/-- A nonzero element of a number field lies outside all but finitely many height one primes,
-so its `v`-adic absolute values are almost all `1`. -/
-theorem hasFiniteMulSupport_adicAbv (hx : x ≠ 0) :
-    HasFiniteMulSupport fun v : HeightOneSpectrum (𝓞 K) ↦
-      NumberField.HeightOneSpectrum.adicAbv K v x := by
-  refine Set.Finite.subset
-    (Set.Finite.image FinitePlace.maximalIdeal (FinitePlace.hasFiniteMulSupport hx)) ?_
-  intro v hv
-  refine ⟨FinitePlace.mk v, ?_, FinitePlace.maximalIdeal_mk v⟩
-  simpa [FinitePlace.mk_apply, FinitePlace.norm_embedding] using hv
-
 /-- A nonzero element of a number field has normalized absolute value `1` at all but finitely
 many places. -/
 theorem hasFiniteMulSupport_normalizedAbsValue (hx : x ≠ 0) :
     HasFiniteMulSupport fun v : Place K ↦ normalizedAbsValue v x :=
-  hasFiniteMulSupport_sum_type (hasFiniteMulSupport_adicAbv hx) (Set.toFinite _)
+  hasFiniteMulSupport_sum_type (TauCeti.hasFiniteMulSupport_adicAbv (R := 𝓞 K) hx) (Set.toFinite _)
 
 /-- The finite part of the product formula, indexed by the height one primes of `𝓞 K`. -/
 theorem finprod_normalizedAbsValue_inl (hx : x ≠ 0) :
@@ -223,7 +213,7 @@ theorem finprod_normalizedAbsValue_inl (hx : x ≠ 0) :
 and infinite, of the normalized absolute values. -/
 theorem finprod_normalizedAbsValue_eq_one (hx : x ≠ 0) :
     ∏ᶠ v : Place K, normalizedAbsValue v x = 1 := by
-  rw [finprod_sum_type _ (hasFiniteMulSupport_adicAbv hx) (Set.toFinite _),
+  rw [finprod_sum_type _ (TauCeti.hasFiniteMulSupport_adicAbv (R := 𝓞 K) hx) (Set.toFinite _),
     finprod_normalizedAbsValue_inl hx, finprod_eq_prod_of_fintype]
   simp only [normalizedAbsValue_inr]
   rw [InfinitePlace.prod_eq_abs_norm]

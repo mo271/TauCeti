@@ -125,6 +125,9 @@ minimality over `u.adicCompletionIntegers F`. -/
 @[simp]
 theorem isMinimal_integer_adicCompletion_iff (E : WeierstrassCurve (u.adicCompletion F)) :
     E.IsMinimal 𝒪[u.adicCompletion F] ↔ E.IsMinimal (u.adicCompletionIntegers F) := by
+  -- As in `hasGoodReduction_baseChange_adicCompletion`, quantify over `T` to substitute
+  -- `𝒪[F_u] = u.adicCompletionIntegers F`; `𝒪[F_u]` is by definition
+  -- `(valuation (u.adicCompletion F)).valuationSubring`.
   suffices ∀ (T : ValuationSubring (u.adicCompletion F)) [IsDiscreteValuationRing T],
       u.adicCompletionIntegers F = T →
         (E.IsMinimal T ↔ E.IsMinimal (u.adicCompletionIntegers F)) by
@@ -149,6 +152,7 @@ theorem natCard_point_reduction_adicCompletion (E : WeierstrassCurve (u.adicComp
     Nat.card (E.reduction 𝒪[u.adicCompletion F]).toAffine.Point =
       Nat.card ((integralModel (Valued.v : Valuation (u.adicCompletion F)
         (WithZero (Multiplicative ℤ))).valuationSubring E).map (residue _)).toAffine.Point := by
+  -- As in `hasGoodReduction_baseChange_adicCompletion`, substitute `𝒪[F_u] = O_u`.
   suffices ∀ (T : ValuationSubring (u.adicCompletion F)) [IsDiscreteValuationRing T]
       [E.IsMinimal T], u.adicCompletionIntegers F = T →
       Nat.card (E.reduction T).toAffine.Point =
@@ -162,6 +166,7 @@ theorem natCard_point_reduction_adicCompletion (E : WeierstrassCurve (u.adicComp
       (ValuationSubring.toSubring_injective (u.integer_eq_adicCompletionIntegers (K := F)).symm)
   rintro T _ _ rfl
   rw [reduction]
+  -- `adicCompletionIntegers` is by definition `Valued.v.valuationSubring`
   rfl
 
 variable (C : WeierstrassCurve (u.adicCompletionIntegers F)) [C.IsElliptic]
