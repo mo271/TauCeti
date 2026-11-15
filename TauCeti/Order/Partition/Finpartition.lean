@@ -58,8 +58,9 @@ of a finite partition of the image `f '' s` to a finite partition of `s`, which 
 embedding whose image consists of the partitions coarser than the partition of `s` into the fibres
 of `f`, each of which is the pullback of its pushforward `Finpartition.pushforward`, a left inverse
 of the pullback; pulling a partition of `univ` back along an equivalence moves its parts along the
-inverse equivalence; and the partition of `α × β` into the fibres of the first coordinate
-(`Finpartition.ofSetoid_ker_fst_parts`).
+inverse equivalence; the partition of `α × β` into the fibres of the first coordinate
+(`Finpartition.ofSetoid_ker_fst_parts`); and pairwise disjointness of Cartesian products of
+subfamilies of parts (`Finpartition.pairwiseDisjoint_product_parts`).
 -/
 
 public section
@@ -1049,5 +1050,27 @@ theorem card_ofSetoid_ker_fst_parts :
   simp only at h
   rw [h] at hmem
   simpa only [mem_product, mem_singleton, mem_univ, and_true] using hmem
+
+end Finpartition
+
+namespace Finpartition
+
+open Finset
+
+/-- Products `f A ×ˢ g B` of subsets `f A ⊆ A` and `g B ⊆ B` of parts of `P` and `Q` are pairwise
+disjoint over pairs `(A, B)`. -/
+theorem pairwiseDisjoint_product_parts {α β : Type*} [DecidableEq α] [DecidableEq β]
+    {s : Finset α} {t : Finset β}
+    (P : Finpartition s) (Q : Finpartition t) (u : Set (P.parts × Q.parts))
+    {f : P.parts → Finset α} {g : Q.parts → Finset β}
+    (hf : ∀ A, f A ⊆ A.1) (hg : ∀ B, g B ⊆ B.1) :
+    u.PairwiseDisjoint fun AB ↦ f AB.1 ×ˢ g AB.2 := by
+  intro AB _ CD _ hne
+  by_cases h₁ : AB.1 = CD.1
+  · have h₂ : AB.2 ≠ CD.2 := fun h₂ ↦ hne (Prod.ext h₁ h₂)
+    exact disjoint_product.2 <| Or.inr <|
+      (Q.supIndep.pairwiseDisjoint AB.2.2 CD.2.2 (Subtype.coe_ne_coe.2 h₂)).mono (hg AB.2) (hg CD.2)
+  · exact disjoint_product.2 <| Or.inl <|
+      (P.supIndep.pairwiseDisjoint AB.1.2 CD.1.2 (Subtype.coe_ne_coe.2 h₁)).mono (hf AB.1) (hf CD.1)
 
 end Finpartition

@@ -19,7 +19,8 @@ import Mathlib.Tactic.Positivity
 `pairColorDensity S c s t` is the proportion of ordered distinct pairs in `s ×ˢ t` with
 color `c`. The denominator excludes the diagonal even when the cells overlap. An empty
 support has density zero; consequently the palette densities sum to one only when there
-is at least one distinct pair. Reversing the cells reverses the palette color.
+is at least one distinct pair. Reversing the cells reverses the palette color, and reversing
+both pairs of cells preserves the `ℓ¹` palette distance (`TauCeti.sum_abs_pairColorDensity_swap`).
 
 These densities supply the pair factors in predictions for colored hypergraph counts.
 -/
@@ -170,6 +171,15 @@ theorem pairColorDensity_swap (S : PairColorSystem κ V) (c : κ) (s t : Finset 
     intro p
     simp [and_comm, ← S.colorOfPair_swap_eq_some_iff p.2 p.1 c]
   simp only [pairColorDensity_def, hcolor, card_filter_ne_product_comm t s]
+
+/-- Reversing both pairs of vertex sets preserves the `ℓ¹` palette distance between their
+pair-color densities. -/
+theorem sum_abs_pairColorDensity_swap {R : Type*} [RatCast R] [AddCommGroup R] [Lattice R]
+    [Fintype κ] (S : PairColorSystem κ V) (s₁ t₁ s₂ t₂ : Finset V) :
+    ∑ c : κ, |(pairColorDensity S c t₁ s₁ : R) - pairColorDensity S c t₂ s₂| =
+      ∑ c : κ, |(pairColorDensity S c s₁ t₁ : R) - pairColorDensity S c s₂ t₂| :=
+  (Fintype.sum_bijective S.rev S.rev_involutive.bijective _ _ fun c ↦ by
+    rw [pairColorDensity_swap, pairColorDensity_swap]).symm
 
 /-- Pair-color density depends only on the colors on the tested rectangle. -/
 theorem pairColorDensity_congr {κ V : Type*} {S T : PairColorSystem κ V} {s t : Finset V}

@@ -7,6 +7,7 @@ module
 
 public import Mathlib.Analysis.SpecialFunctions.Exp
 public import Mathlib.Algebra.BigOperators.Group.Finset.Defs
+import TauCeti.Algebra.Order.BigOperators.Sum.PosPart
 import TauCeti.Combinatorics.Enumerative.RandomColoring
 import Mathlib.Algebra.Order.BigOperators.Group.Finset
 import Mathlib.Tactic.FieldSimp
@@ -27,12 +28,12 @@ This file constructs `x` by pushing `x₀` through an optimal Markov transition 
 empirical color distribution `q` of `x₀` on `E` to `p`: colors with `q c₀ ≤ p c₀` are left
 untouched (`M c₀ c₀ = 1`), while surplus colors (`p c₀ < q c₀`) retain color `c₀` with probability
 `p c₀ / q c₀` and redistribute their excess `q c₀ - p c₀` proportionally to the deficits
-`max 0 (p c - q c)`. Applying the discrepancy bound for independent colorings
+`max (p c - q c) 0`. Applying the discrepancy bound for independent colorings
 (`TauCeti.exists_forall_abs_card_filter_sub_mul_card_lt`) separately to each color fiber of `x₀`
 yields a coloring `x` agreeing with `x₀` outside `E` such that:
 
-* the number of edited points on `E` is within `a` of the total-variation coupling cost
-  `(∑ c, |#{e ∈ E | x₀ e = c} - p c * #E|) / 2`, and
+* the number of edited points on `E` is at most the total-variation coupling cost
+  `(∑ c, |#{e ∈ E | x₀ e = c} - p c * #E|) / 2` plus `a`, and
 * on every test set `T i`, the count of each color `c` under `x` is within `a` of the pushed-forward
   empirical count `∑ c₀, M c₀ c * #{e ∈ T i | x₀ e = c₀}`; in particular, whenever `x₀` is already
   regular on `T i` (within `b` of its empirical frequencies on `E`), `x` has counts within
@@ -60,48 +61,10 @@ namespace TauCeti
 
 section CouplingKernel
 
-variable {κ : Type*} [Fintype κ]
-
-/-- Half the `ℓ¹` distance between two distributions `q` and `p` with equal total mass, written as
-the total deficit `∑ c, max 0 (p c - q c)`. -/
-private noncomputable def totalVariationHalf (q p : κ → ℝ) : ℝ :=
-  ∑ c, max 0 (p c - q c)
-
-private theorem totalVariationHalf_nonneg (q p : κ → ℝ) : 0 ≤ totalVariationHalf q p :=
-  sum_nonneg fun _ _ ↦ le_max_left 0 _
-
-private theorem sum_max_sub_eq_totalVariationHalf {q p : κ → ℝ} (hsum : ∑ c, q c = ∑ c, p c) :
-    ∑ c, max 0 (q c - p c) = totalVariationHalf q p := by
-  have hpt (c : κ) : max 0 (q c - p c) - max 0 (p c - q c) = q c - p c := by
-    rcases le_total (q c) (p c) with h | h
-    · rw [max_eq_left (by linarith), max_eq_right (by linarith)]
-      ring
-    · rw [max_eq_right (by linarith), max_eq_left (by linarith)]
-      ring
-  have hdiff : ∑ c, max 0 (q c - p c) - totalVariationHalf q p = ∑ c, q c - ∑ c, p c := by
-    rw [totalVariationHalf, ← sum_sub_distrib, ← sum_sub_distrib]
-    exact sum_congr rfl fun c _ ↦ hpt c
-  linarith
-
-private theorem two_mul_totalVariationHalf {q p : κ → ℝ} (hsum : ∑ c, q c = ∑ c, p c) :
-    2 * totalVariationHalf q p = ∑ c, |q c - p c| := by
-  have hpt (c : κ) : max 0 (q c - p c) + max 0 (p c - q c) = |q c - p c| := by
-    rcases le_total (q c) (p c) with h | h
-    · rw [max_eq_left (by linarith), max_eq_right (by linarith), abs_of_nonpos (by linarith)]
-      ring
-    · rw [max_eq_right (by linarith), max_eq_left (by linarith), abs_of_nonneg (by linarith)]
-      ring
-  calc 2 * totalVariationHalf q p
-      = ∑ c, max 0 (q c - p c) + ∑ c, max 0 (p c - q c) := by
-          rw [sum_max_sub_eq_totalVariationHalf hsum, totalVariationHalf]
-          ring
-    _ = ∑ c, (max 0 (q c - p c) + max 0 (p c - q c)) := sum_add_distrib.symm
-    _ = ∑ c, |q c - p c| := sum_congr rfl fun c _ ↦ hpt c
-
-variable [DecidableEq κ]
+variable {κ : Type*} [Fintype κ] [DecidableEq κ]
 
 /-- Optimal Markov transition matrix pushing `q` to `p`: non-surplus colors stay put, while surplus
-colors retain `p c₀ / q c₀` of their mass and send the excess proportionally to `max 0 (p c - q c)`.
+colors retain `p c₀ / q c₀` of their mass and send the excess proportionally to `max (p c - q c) 0`.
 -/
 private noncomputable def transitionCoupling (q p : κ → ℝ) (c₀ c : κ) : ℝ :=
   if q c₀ ≤ p c₀ then
@@ -109,7 +72,7 @@ private noncomputable def transitionCoupling (q p : κ → ℝ) (c₀ c : κ) : 
   else if c = c₀ then
     p c₀ / q c₀
   else
-    ((q c₀ - p c₀) / q c₀) * (max 0 (p c - q c) / totalVariationHalf q p)
+    ((q c₀ - p c₀) / q c₀) * (max (p c - q c) 0 / ∑ c', max (p c' - q c') 0)
 
 private theorem transitionCoupling_nonneg {q p : κ → ℝ} (hp : ∀ c, 0 ≤ p c) (c₀ c : κ) :
     0 ≤ transitionCoupling q p c₀ c := by
@@ -121,7 +84,7 @@ private theorem transitionCoupling_nonneg {q p : κ → ℝ} (hp : ∀ c, 0 ≤ 
   · have hq₀ : 0 < q c₀ := by linarith [hp c₀]
     have hsub : 0 ≤ q c₀ - p c₀ := by linarith
     exact mul_nonneg (div_nonneg hsub hq₀.le)
-      (div_nonneg (le_max_left 0 _) (totalVariationHalf_nonneg q p))
+      (div_nonneg (le_max_right _ 0) (sum_nonneg fun _ _ ↦ le_max_right _ 0))
 
 private theorem sum_transitionCoupling {q p : κ → ℝ} (hp : ∀ c, 0 ≤ p c)
     (hsum : ∑ c, q c = ∑ c, p c) (c₀ : κ) :
@@ -130,20 +93,19 @@ private theorem sum_transitionCoupling {q p : κ → ℝ} (hp : ∀ c, 0 ≤ p c
   · simp [transitionCoupling, hqp]
   push Not at hqp
   have hq₀ : 0 < q c₀ := by linarith [hp c₀]
-  have hΔ : 0 < totalVariationHalf q p := by
-    rw [← sum_max_sub_eq_totalVariationHalf hsum]
-    refine lt_of_lt_of_le (by linarith [le_max_right 0 (q c₀ - p c₀)] : 0 < max 0 (q c₀ - p c₀)) ?_
-    exact single_le_sum (f := fun c ↦ max (0 : ℝ) (q c - p c))
-      (fun _ _ ↦ le_max_left 0 _) (mem_univ c₀)
+  have hΔ : 0 < ∑ c', max (p c' - q c') 0 := by
+    rw [← univ.sum_max_sub_eq_sum_max_sub hsum]
+    refine lt_of_lt_of_le (by linarith [le_max_left (q c₀ - p c₀) 0] : 0 < max (q c₀ - p c₀) 0) ?_
+    exact single_le_sum (f := fun c ↦ max (q c - p c) (0 : ℝ))
+      (fun _ _ ↦ le_max_right _ 0) (mem_univ c₀)
   have hterm (c : κ) : transitionCoupling q p c₀ c =
       (if c = c₀ then p c₀ / q c₀ else 0) +
-        ((q c₀ - p c₀) / q c₀) * (max 0 (p c - q c) / totalVariationHalf q p) := by
+        ((q c₀ - p c₀) / q c₀) * (max (p c - q c) 0 / ∑ c', max (p c' - q c') 0) := by
     by_cases hc : c = c₀
     · subst hc
       simp [transitionCoupling, hqp.not_ge, sub_nonpos.2 hqp.le]
     · simp [transitionCoupling, hqp.not_ge, hc]
-  have hdef : ∑ c, max 0 (p c - q c) = totalVariationHalf q p := rfl
-  simp only [hterm, sum_add_distrib, sum_ite_eq', mem_univ, ↓reduceIte, ← mul_sum, ← sum_div, hdef]
+  simp only [hterm, sum_add_distrib, sum_ite_eq', mem_univ, ↓reduceIte, ← mul_sum, ← sum_div]
   rw [div_self hΔ.ne', mul_one, ← add_div, add_sub_cancel, div_self hq₀.ne']
 
 private theorem sum_mul_transitionCoupling {q p : κ → ℝ} (hp : ∀ c, 0 ≤ p c)
@@ -158,45 +120,46 @@ private theorem sum_mul_transitionCoupling {q p : κ → ℝ} (hp : ∀ c, 0 ≤
         simp [transitionCoupling, hqp, hc₀.symm, sub_nonpos.2 hpc.le]
     · exact fun hc ↦ absurd (mem_univ c) hc
   push Not at hpc
-  by_cases hΔ : totalVariationHalf q p = 0
+  set Δ := ∑ c', max (p c' - q c') 0 with hΔdef
+  by_cases hΔ : Δ = 0
   · have hle (c₀ : κ) : q c₀ ≤ p c₀ := by
-      have hmax : max 0 (q c₀ - p c₀) ≤ 0 :=
-        (single_le_sum (f := fun c' ↦ max (0 : ℝ) (q c' - p c'))
-          (fun _ _ ↦ le_max_left 0 _) (mem_univ c₀)).trans_eq
-          ((sum_max_sub_eq_totalVariationHalf hsum).trans hΔ)
-      linarith [le_max_right 0 (q c₀ - p c₀)]
+      have hmax : max (q c₀ - p c₀) 0 ≤ 0 :=
+        (single_le_sum (f := fun c' ↦ max (q c' - p c') (0 : ℝ))
+          (fun _ _ ↦ le_max_right _ 0) (mem_univ c₀)).trans_eq
+          ((univ.sum_max_sub_eq_sum_max_sub hsum).trans hΔ)
+      linarith [le_max_left (q c₀ - p c₀) 0]
     have hpq : p c ≤ q c := by
-      have hmax : max 0 (p c - q c) ≤ 0 :=
-        (single_le_sum (f := fun c' ↦ max (0 : ℝ) (p c' - q c'))
-          (fun _ _ ↦ le_max_left 0 _) (mem_univ c)).trans_eq hΔ
-      linarith [le_max_right 0 (p c - q c)]
+      have hmax : max (p c - q c) 0 ≤ 0 :=
+        (single_le_sum (f := fun c' ↦ max (p c' - q c') (0 : ℝ))
+          (fun _ _ ↦ le_max_right _ 0) (mem_univ c)).trans_eq hΔ
+      linarith [le_max_left (p c - q c) 0]
     simp [transitionCoupling, hle, le_antisymm hpc hpq]
-  · have hΔpos : 0 < totalVariationHalf q p :=
-      lt_of_le_of_ne (totalVariationHalf_nonneg q p) (Ne.symm hΔ)
+  · have hΔpos : 0 < Δ :=
+      lt_of_le_of_ne (sum_nonneg fun _ _ ↦ le_max_right _ 0) (Ne.symm hΔ)
     have hterm (c₀ : κ) : q c₀ * transitionCoupling q p c₀ c =
         (if c = c₀ then q c else 0) +
-          max 0 (q c₀ - p c₀) * ((p c - q c) / totalVariationHalf q p) := by
+          max (q c₀ - p c₀) 0 * ((p c - q c) / Δ) := by
       by_cases hqp : q c₀ ≤ p c₀
-      · rw [max_eq_left (sub_nonpos.2 hqp), zero_mul, add_zero]
+      · rw [max_eq_right (sub_nonpos.2 hqp), zero_mul, add_zero]
         by_cases hcc : c = c₀ <;> simp [transitionCoupling, hqp, hcc]
       · push Not at hqp
         have hq₀ : 0 < q c₀ := by linarith [hp c₀]
         have hcc : c ≠ c₀ := fun h ↦ by subst h; linarith
-        rw [max_eq_right (sub_nonneg.2 hqp.le)]
+        rw [max_eq_left (sub_nonneg.2 hqp.le)]
         simp only [transitionCoupling, hqp.not_ge, ↓reduceIte, hcc, zero_add,
-          max_eq_right (sub_nonneg.2 hpc)]
+          max_eq_left (sub_nonneg.2 hpc), ← hΔdef]
         field_simp
     simp_rw [hterm, sum_add_distrib]
-    simp [← sum_mul, sum_max_sub_eq_totalVariationHalf hsum, mul_div_cancel₀ _ hΔpos.ne']
+    simp [← sum_mul, univ.sum_max_sub_eq_sum_max_sub hsum, ← hΔdef, mul_div_cancel₀ _ hΔpos.ne']
 
 private theorem mul_one_sub_transitionCoupling_self {q p : κ → ℝ} (hp : ∀ c, 0 ≤ p c) (c₀ : κ) :
-    q c₀ * (1 - transitionCoupling q p c₀ c₀) = max 0 (q c₀ - p c₀) := by
+    q c₀ * (1 - transitionCoupling q p c₀ c₀) = max (q c₀ - p c₀) 0 := by
   by_cases hqp : q c₀ ≤ p c₀
-  · rw [max_eq_left (sub_nonpos.2 hqp)]
+  · rw [max_eq_right (sub_nonpos.2 hqp)]
     simp [transitionCoupling, hqp]
   · push Not at hqp
     have hq₀ : 0 < q c₀ := by linarith [hp c₀]
-    rw [max_eq_right (sub_nonneg.2 hqp.le)]
+    rw [max_eq_left (sub_nonneg.2 hqp.le)]
     simp only [transitionCoupling, hqp.not_ge, ↓reduceIte]
     field_simp
 
@@ -262,27 +225,21 @@ private theorem nonempty_of_coupled_union_bound [Nonempty κ] {E : Finset ι} {I
 variable [DecidableEq κ]
 
 /-- Sum the fiberwise edit bounds for `glueColoring` into the half-`ℓ¹` coupling cost plus `a`. -/
-private theorem card_filter_glueColoring_ne_le {p : κ → ℝ} (hp : ∀ c, 0 ≤ p c)
-    (hp1 : ∑ c, p c = 1) {E : Finset ι} (hE : E.Nonempty) (x₀ : ι → κ) (y : κ → ι → κ)
+private theorem card_filter_glueColoring_ne_le [Nonempty κ] {p : κ → ℝ} (hp : ∀ c, 0 ≤ p c)
+    {E : Finset ι} (hE : E.Nonempty) (x₀ : ι → κ)
+    (hsum : ∑ c, (#{e ∈ E | x₀ e = c} : ℝ) / #E = ∑ c, p c) (y : κ → ι → κ)
     {a : ℝ} (hfib : ∀ c₀,
       |(#{e ∈ E.filter (fun e ↦ x₀ e = c₀) | y c₀ e = c₀} : ℝ) -
         transitionCoupling (fun c ↦ (#{e ∈ E | x₀ e = c} : ℝ) / #E) p c₀ c₀ *
           #{e ∈ E | x₀ e = c₀}| < a / Fintype.card κ) :
     (#{e ∈ E | glueColoring E x₀ y e ≠ x₀ e} : ℝ) ≤
       (∑ c, |(#{e ∈ E | x₀ e = c} : ℝ) - p c * #E|) / 2 + a := by
-  have hκ : Nonempty κ := by by_contra! he; simp at hp1
   have hKpos : (0 : ℝ) < Fintype.card κ := Nat.cast_pos.2 Fintype.card_pos
   have hEpos : (0 : ℝ) < #E := Nat.cast_pos.2 hE.card_pos
   let q : κ → ℝ := fun c ↦ (#{e ∈ E | x₀ e = c} : ℝ) / #E
-  have hqsum : ∑ c, q c = 1 := by
-    simp only [q, ← sum_div]
-    have hcard : ∑ c : κ, #{e ∈ E | x₀ e = c} = #E :=
-      (card_eq_sum_card_fiberwise (f := x₀) (t := univ) (fun _ _ ↦ mem_univ _)).symm
-    rw [← Nat.cast_sum, hcard, div_self hEpos.ne']
-  have hsum : ∑ c, q c = ∑ c, p c := hqsum.trans hp1.symm
   have hstep (c₀ : κ) : (#{e ∈ E | x₀ e = c₀} : ℝ) -
       #{e ∈ E.filter (fun e ↦ x₀ e = c₀) | y c₀ e = c₀} ≤
-      max 0 (q c₀ - p c₀) * #E + a / Fintype.card κ := by
+      max (q c₀ - p c₀) 0 * #E + a / Fintype.card κ := by
     have hnone := (abs_lt.1 (hfib c₀)).1
     have hid := congrArg (· * (#E : ℝ)) (mul_one_sub_transitionCoupling_self (q := q) hp c₀)
     have hqE : q c₀ * #E = #{e ∈ E | x₀ e = c₀} := div_mul_cancel₀ _ hEpos.ne'
@@ -296,13 +253,15 @@ private theorem card_filter_glueColoring_ne_le {p : κ → ℝ} (hp : ∀ c, 0 �
   rw [card_filter_glueColoring_ne_eq_sum]
   calc ∑ c₀ : κ, ((#{e ∈ E | x₀ e = c₀} : ℝ) -
           #{e ∈ E.filter (fun e ↦ x₀ e = c₀) | y c₀ e = c₀})
-      ≤ ∑ c₀ : κ, (max 0 (q c₀ - p c₀) * #E + a / Fintype.card κ) :=
+      ≤ ∑ c₀ : κ, (max (q c₀ - p c₀) 0 * #E + a / Fintype.card κ) :=
         sum_le_sum fun c₀ _ ↦ hstep c₀
-    _ = totalVariationHalf q p * #E + a := by
-        rw [sum_add_distrib, ← sum_mul, sum_max_sub_eq_totalVariationHalf hsum, sum_const,
+    _ = (∑ c, max (p c - q c) 0) * #E + a := by
+        rw [sum_add_distrib, ← sum_mul, univ.sum_max_sub_eq_sum_max_sub hsum, sum_const,
           card_univ, nsmul_eq_mul, mul_div_cancel₀ _ hKpos.ne']
     _ = (∑ c, |(#{e ∈ E | x₀ e = c} : ℝ) - p c * #E|) / 2 + a := by
-        have htvE := congrArg (· * (#E : ℝ)) (two_mul_totalVariationHalf hsum)
+        have htv : 2 * ∑ c, max (p c - q c) 0 = ∑ c, |q c - p c| := by
+          simpa [two_nsmul, two_mul] using univ.two_nsmul_sum_max_sub_eq_sum_abs_sub hsum
+        have htvE := congrArg (· * (#E : ℝ)) htv
         have habs : (∑ c, |q c - p c|) * #E =
             ∑ c, |(#{e ∈ E | x₀ e = c} : ℝ) - p c * #E| := by
           rw [sum_mul]
@@ -334,7 +293,8 @@ theorem exists_coupled_coloring_abs_card_filter_sub_lt {p : κ → ℝ} (hp : �
       ∀ i c, |(#{e ∈ T i | x e = c} : ℝ) -
         ∑ c₀, M c₀ c * #{e ∈ T i | x₀ e = c₀}| < a := by
   classical
-  have hκ : Nonempty κ := by by_contra! he; simp at hp1
+  obtain ⟨c₁, -, -⟩ := exists_ne_zero_of_sum_ne_zero (hp1.trans_ne one_ne_zero)
+  have : Nonempty κ := ⟨c₁⟩
   have hKpos : (0 : ℝ) < Fintype.card κ := Nat.cast_pos.2 Fintype.card_pos
   have hE : E.Nonempty := nonempty_of_coupled_union_bound h
   have hEpos : (0 : ℝ) < #E := Nat.cast_pos.2 hE.card_pos
@@ -357,7 +317,7 @@ theorem exists_coupled_coloring_abs_card_filter_sub_lt {p : κ → ℝ} (hp : �
   choose y hy using hexists
   refine ⟨glueColoring E x₀ y, transitionCoupling q p, fun e he ↦ by simp [glueColoring, he],
     transitionCoupling_nonneg hp, fun c₀ ↦ sum_transitionCoupling hp hsum c₀, fun c ↦ ?_,
-    card_filter_glueColoring_ne_le hp hp1 hE x₀ y (fun c₀ ↦ hy c₀ none c₀), fun i c ↦ ?_⟩
+    card_filter_glueColoring_ne_le hp hE x₀ hsum y (fun c₀ ↦ hy c₀ none c₀), fun i c ↦ ?_⟩
   · have hmul := congrArg (· * (#E : ℝ)) (sum_mul_transitionCoupling hp hsum c)
     rw [sum_mul] at hmul
     exact (sum_congr rfl fun c₀ _ ↦ by simp only [q]; field_simp).trans hmul
@@ -391,7 +351,7 @@ theorem exists_coupled_coloring_abs_card_filter_sub_mul_card_le {p : κ → ℝ}
   obtain ⟨x, M, hout, hM₀, hM₁, hMstat, hedit, htest⟩ :=
     exists_coupled_coloring_abs_card_filter_sub_lt hp hp1 E x₀ T hT ha h
   refine ⟨x, hout, hedit, fun i {b} hb c ↦ ?_⟩
-  have hκ : Nonempty κ := by by_contra! he; simp at hp1
+  have : Nonempty κ := ⟨c⟩
   have hMle (c₀ : κ) : M c₀ c ≤ 1 :=
     hM₁ c₀ ▸ single_le_sum (fun c' _ ↦ hM₀ c₀ c') (mem_univ c)
   have hEpos : (0 : ℝ) < #E := Nat.cast_pos.2 (nonempty_of_coupled_union_bound h).card_pos

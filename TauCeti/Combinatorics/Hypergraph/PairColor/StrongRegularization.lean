@@ -7,7 +7,6 @@ module
 
 public import TauCeti.Combinatorics.Hypergraph.PairColor.SeededRegularization
 public import TauCeti.Order.Partition.Finpartition
-public import Mathlib.Analysis.Real.Sqrt
 public import Mathlib.Order.PartialSups
 import Mathlib.Algebra.Order.BigOperators.Ring.Finset
 import Mathlib.Order.Iterate
@@ -15,7 +14,6 @@ import Mathlib.Tactic.FieldSimp
 import Mathlib.Tactic.Linarith
 import Mathlib.Tactic.Positivity
 import Mathlib.Tactic.Ring
-import TauCeti.Data.Finset.Basic
 
 /-!
 # Strong regularity and refinement amalgamation for pair-color systems
@@ -26,23 +24,21 @@ pairs at a fixed tolerance `ε`, producing a vertex partition whose cell count d
 construction requires regularity at a scale `η #P.parts` that depends on the number of cells of a
 coarse partition `P`, a single regularization pass is circular.
 
-This file resolves that dependence via a two-scale strong regularity iteration and supplies the two
-companion transfer lemmas needed to pass back from the fine partition `Q` to the coarse partition
-`P`:
+This file resolves that dependence via a two-scale strong regularity iteration and supplies the
+amalgamation lemmas needed to pass regularity and density accuracy back from the fine partition `Q`
+to the coarse partition `P`:
 
-1. **Energy-gap `L¹` drift** (`PairColorSystem.sum_offDiag_abs_pairColorDensity_sub_le` and
-   `PairColorSystem.sum_refinementParent_ne_abs_pairColorDensity_sub_le`): if `Q ≤ P` has pair-color
-   energy gap `S.energy Q - S.energy P ≤ g`, Cauchy–Schwarz on the refinement defect identity bounds
-   the size-weighted `ℓ¹` palette distance between fine block densities and their coarse parent
-   densities by `√(card κ * g) * |V|²`.
-2. **Coarse regularity from fine regular blocks** (`PairColorSystem.isRegularPair_of_refinement`):
-   if `Q ≤ P` and every fine block `(A', B')` inside an off-diagonal coarse block `(A, B)` is
-   `η`-regular for `T` with color densities within `η` of `p`, then `(A, B)` has color densities
-   within `2 * η` of `p` and is `δ`-regular whenever `4 * η ≤ δ ^ 3`.
-3. **Strong equitable pair-color regularity** (`PairColorSystem.exists_strong_equipartition`):
+1. **Coarse regularity from fine regular blocks**
+   (`PairColorSystem.abs_pairColorDensity_sub_le_of_refinement` and
+   `PairColorSystem.isRegularPair_of_refinement`): if `Q ≤ P` and every fine block `(A', B')` inside
+   an off-diagonal coarse block `(A, B)` is `η`-regular for `T` with color densities within `η` of
+   `p`, then `(A, B)` has color densities within `2 * η` of `p` and is `δ`-regular whenever
+   `4 * η ≤ δ ^ 3`.
+2. **Strong equitable pair-color regularity** (`PairColorSystem.exists_strong_equipartition`):
    iterating seeded equitable regularity along any positive schedule `η : ℕ → ℝ` finds
-   equipartitions `Q ≤ P ≤ P₀` with energy gap at most `g`, fine irregular mass at scale
-   `η #P.parts`, and coarse cell count bounded independently of `V` by
+   equipartitions `Q ≤ P ≤ P₀` with energy gap at most `g` (controlling fine-to-coarse `L¹` density
+   drift via `PairColorSystem.sum_refinementParent_ne_abs_pairColorDensity_sub_le`), fine irregular
+   mass at scale `η #P.parts`, and coarse cell count bounded independently of `V` by
    `strongPairColorRegularityBound g η #P₀.parts`.
 
 ## Main definitions
@@ -53,10 +49,6 @@ companion transfer lemmas needed to pass back from the fine partition `Q` to the
 
 ## Main results
 
-* `TauCeti.PairColorSystem.sum_offDiag_abs_pairColorDensity_sub_le`: `L¹` density drift over
-  ordered distinct vertex pairs from a small energy gap.
-* `TauCeti.PairColorSystem.sum_refinementParent_ne_abs_pairColorDensity_sub_le`: block-summed `L¹`
-  density drift across fine blocks in distinct coarse cells.
 * `TauCeti.PairColorSystem.abs_pairColorDensity_sub_le_of_refinement`: coarse block density
   accuracy from fine regular blocks.
 * `TauCeti.PairColorSystem.isRegularPair_of_refinement`: coarse pair regularity from fine regular
@@ -137,104 +129,6 @@ namespace PairColorSystem
 
 variable {κ V : Type*} [Fintype V] [DecidableEq V]
 
-section EnergyDrift
-
-variable [Fintype κ] (S : PairColorSystem κ V) {P Q : Finpartition (univ : Finset V)}
-
-/-- **Energy gap bounds `L¹` density drift.** If `Q ≤ P` has pair-color energy gap at most `g`, then
-the sum over ordered distinct vertex pairs and over all palette colors of the absolute density
-difference between the fine and coarse blocks is at most `√(card κ * g) * |V|²`. -/
-theorem sum_offDiag_abs_pairColorDensity_sub_le (h : Q ≤ P) {g : ℝ}
-    (hgap : S.energy Q - S.energy P ≤ g) :
-    ∑ p ∈ (univ : Finset V).offDiag, ∑ c : κ,
-        |(pairColorDensity S c (Q.part p.1) (Q.part p.2) : ℝ) -
-          pairColorDensity S c (P.part p.1) (P.part p.2)| ≤
-      √(Fintype.card κ * g) * (Fintype.card V : ℝ) ^ 2 := by
-  let D := (univ : Finset V).offDiag
-  let f (p : V × V) (c : κ) : ℝ :=
-    (pairColorDensity S c (Q.part p.1) (Q.part p.2) : ℝ) -
-      pairColorDensity S c (P.part p.1) (P.part p.2)
-  have hg : 0 ≤ g := (sub_nonneg.2 (S.energy_mono_of_refines h)).trans hgap
-  have hsq : ∑ p ∈ D, ∑ c : κ, f p c ^ 2 ≤ g * #D := by
-    rcases (#D).eq_zero_or_pos with hD0 | hDpos
-    · rw [card_eq_zero.1 hD0]
-      simp
-    · have hDpos' : (0 : ℝ) < #D := Nat.cast_pos.2 hDpos
-      exact (div_le_iff₀ hDpos').1
-        ((S.sum_sq_pairColorDensity_sub_div_eq_energy_sub h).trans_le hgap)
-  have hDle : (#D : ℝ) ≤ (Fintype.card V : ℝ) ^ 2 := by
-    exact_mod_cast (card_offDiag_le_sq (univ : Finset V)).trans_eq (by rw [card_univ])
-  have hcs := sum_mul_sq_le_sq_mul_sq (D ×ˢ (univ : Finset κ)) (fun _ ↦ (1 : ℝ))
-    (fun pc ↦ |f pc.1 pc.2|)
-  simp only [one_mul, one_pow, sum_const, card_product, card_univ, nsmul_eq_mul, mul_one,
-    sq_abs, sum_product] at hcs
-  have hrhs : ((#D * Fintype.card κ : ℕ) : ℝ) * ∑ p ∈ D, ∑ c : κ, f p c ^ 2 ≤
-      (√(Fintype.card κ * g) * (Fintype.card V : ℝ) ^ 2) ^ 2 := by
-    calc ((#D * Fintype.card κ : ℕ) : ℝ) * ∑ p ∈ D, ∑ c : κ, f p c ^ 2
-        ≤ (#D * Fintype.card κ : ℝ) * (g * #D) := by
-          push_cast; exact mul_le_mul_of_nonneg_left hsq (by positivity)
-      _ = (Fintype.card κ * g) * (#D : ℝ) ^ 2 := by ring
-      _ ≤ (Fintype.card κ * g) * ((Fintype.card V : ℝ) ^ 2) ^ 2 :=
-          mul_le_mul_of_nonneg_left (pow_le_pow_left₀ (by positivity) hDle 2) (by positivity)
-      _ = (√(Fintype.card κ * g) * (Fintype.card V : ℝ) ^ 2) ^ 2 := by
-          rw [mul_pow, Real.sq_sqrt (by positivity)]
-  exact (sq_le_sq₀ (sum_nonneg fun _ _ ↦ sum_nonneg fun _ _ ↦ abs_nonneg _)
-    (by positivity)).1 (hcs.trans hrhs)
-
-/-- **Block-summed `L¹` density drift.** If `Q ≤ P` has energy gap at most `g`, then summing
-`(#A' * #B') * ∑ c, |d_c(A', B') - d_c(A, B)|` over all fine block pairs `(A', B')` lying in
-distinct coarse parent cells `(A, B)` gives at most `√(card κ * g) * |V|²`. -/
-theorem sum_refinementParent_ne_abs_pairColorDensity_sub_le (h : Q ≤ P) {g : ℝ}
-    (hgap : S.energy Q - S.energy P ≤ g) :
-    ∑ AB ∈ univ.filter (fun AB : Q.parts × Q.parts ↦
-        refinementParent h AB.1 ≠ refinementParent h AB.2),
-      (#AB.1.1 * #AB.2.1 : ℝ) * ∑ c : κ,
-        |(pairColorDensity S c AB.1.1 AB.2.1 : ℝ) -
-          pairColorDensity S c (refinementParent h AB.1).1 (refinementParent h AB.2).1| ≤
-      √(Fintype.card κ * g) * (Fintype.card V : ℝ) ^ 2 := by
-  let F := univ.filter fun AB : Q.parts × Q.parts ↦
-    refinementParent h AB.1 ≠ refinementParent h AB.2
-  let d (p : V × V) : ℝ := ∑ c : κ,
-    |(pairColorDensity S c (Q.part p.1) (Q.part p.2) : ℝ) -
-      pairColorDensity S c (P.part p.1) (P.part p.2)|
-  have hblock (AB : Q.parts × Q.parts) :
-      (#AB.1.1 * #AB.2.1 : ℝ) * ∑ c : κ,
-        |(pairColorDensity S c AB.1.1 AB.2.1 : ℝ) -
-          pairColorDensity S c (refinementParent h AB.1).1 (refinementParent h AB.2).1| =
-      ∑ p ∈ AB.1.1 ×ˢ AB.2.1, d p := by
-    rw [← Nat.cast_mul, ← card_product, ← nsmul_eq_mul, ← sum_const]
-    refine sum_congr rfl fun p hp ↦ sum_congr rfl fun c _ ↦ ?_
-    obtain ⟨hp₁, hp₂⟩ := mem_product.1 hp
-    rw [Q.part_eq_of_mem AB.1.2 hp₁, Q.part_eq_of_mem AB.2.2 hp₂,
-      part_eq_refinementParent h AB.1 hp₁, part_eq_refinementParent h AB.2 hp₂]
-  have hdisj : (F : Set (Q.parts × Q.parts)).PairwiseDisjoint (fun AB ↦ AB.1.1 ×ˢ AB.2.1) := by
-    intro AB _ CD _ hne
-    refine disjoint_product.2 ?_
-    by_cases h₁ : AB.1 = CD.1
-    · exact Or.inr (Q.pairwiseDisjoint_subtype_val Set.univ (Set.mem_univ _) (Set.mem_univ _)
-        fun h₂ ↦ hne (Prod.ext h₁ h₂))
-    · exact Or.inl (Q.pairwiseDisjoint_subtype_val Set.univ (Set.mem_univ _) (Set.mem_univ _) h₁)
-  have hsub : F.biUnion (fun AB ↦ AB.1.1 ×ˢ AB.2.1) ⊆ (univ : Finset V).offDiag := by
-    intro p hp
-    obtain ⟨AB, hAB, hpAB⟩ := mem_biUnion.1 hp
-    obtain ⟨hp₁, hp₂⟩ := mem_product.1 hpAB
-    have hneP : (refinementParent h AB.1).1 ≠ (refinementParent h AB.2).1 :=
-      Subtype.coe_injective.ne (mem_filter.1 hAB).2
-    have hdisjP := P.disjoint (refinementParent h AB.1).2 (refinementParent h AB.2).2 hneP
-    exact mem_offDiag.2 ⟨mem_univ _, mem_univ _, hdisjP.forall_ne_finset
-      (le_refinementParent h AB.1 hp₁) (le_refinementParent h AB.2 hp₂)⟩
-  calc ∑ AB ∈ F, (#AB.1.1 * #AB.2.1 : ℝ) * ∑ c : κ,
-          |(pairColorDensity S c AB.1.1 AB.2.1 : ℝ) -
-            pairColorDensity S c (refinementParent h AB.1).1 (refinementParent h AB.2).1|
-      = ∑ AB ∈ F, ∑ p ∈ AB.1.1 ×ˢ AB.2.1, d p := sum_congr rfl fun AB _ ↦ hblock AB
-    _ = ∑ p ∈ F.biUnion (fun AB ↦ AB.1.1 ×ˢ AB.2.1), d p := (sum_biUnion hdisj).symm
-    _ ≤ ∑ p ∈ (univ : Finset V).offDiag, d p :=
-        sum_le_sum_of_subset_of_nonneg hsub fun _ _ _ ↦ sum_nonneg fun _ _ ↦ abs_nonneg _
-    _ ≤ √(Fintype.card κ * g) * (Fintype.card V : ℝ) ^ 2 :=
-        S.sum_offDiag_abs_pairColorDensity_sub_le h hgap
-
-end EnergyDrift
-
 section RefinementAmalgamation
 
 variable {P Q : Finpartition (univ : Finset V)}
@@ -262,15 +156,9 @@ private theorem card_filter_colorOfPair_eq_sum_refinement [DecidableEq κ]
     exact ⟨fun ⟨⟨A', hA', hq₁⟩, ⟨B', hB', hq₂⟩⟩ ↦ ⟨A', B', ⟨hA', hB'⟩, hq₁, hq₂⟩,
       fun ⟨A', B', ⟨hA', hB'⟩, hq₁, hq₂⟩ ↦ ⟨⟨A', hA', hq₁⟩, ⟨B', hB', hq₂⟩⟩⟩
   rw [hprod, filter_biUnion, card_biUnion, Nat.cast_sum, sum_product]
-  intro AB _ CD _ hne
-  refine disjoint_filter_filter (disjoint_product.2 ?_)
-  by_cases h₁ : AB.1 = CD.1
-  · exact Or.inr <|
-      (Q.pairwiseDisjoint_subtype_val Set.univ (Set.mem_univ _) (Set.mem_univ _)
-        fun h₂ ↦ hne (Prod.ext h₁ h₂)).mono inter_subset_right inter_subset_right
-  · exact Or.inl <|
-      (Q.pairwiseDisjoint_subtype_val Set.univ (Set.mem_univ _) (Set.mem_univ _) h₁).mono
-        inter_subset_right inter_subset_right
+  exact fun AB hAB CD hCD hne ↦ disjoint_filter_filter
+    (Q.pairwiseDisjoint_product_parts Q _ (fun _ ↦ inter_subset_right)
+      (fun _ ↦ inter_subset_right) hAB hCD hne)
 
 /-- Summing fine rectangle discrepancies over the fine blocks partitioning `(A, B)` bounds the color
 count deviation on any subrectangle `X ×ˢ Y ⊆ A ×ˢ B` by `2 * η * #A * #B`. -/

@@ -10,6 +10,7 @@ public import Mathlib.Data.Option.Basic
 public import Mathlib.Data.Sym.Sym2
 public import Mathlib.Logic.Equiv.Defs
 public import Mathlib.Data.Fintype.Pi
+public import Mathlib.Data.Fintype.Prod
 import Mathlib.Data.Finset.Prod
 
 /-!
@@ -20,7 +21,9 @@ involution describing how colors change when the vertices are exchanged. This pe
 symmetric colors and genuinely oriented colors in the lower skeleton of a hypergraph complex.
 
 `PairColorSystem.colorOfPair` extends the coloring to all vertex pairs with values in `Option`:
-only diagonal pairs have color `none`. `PairColorSystem.ofRaw` makes any directed coloring
+only diagonal pairs have color `none`, and `PairColorSystem.card_color_ne_eq_card_colorOfPair_ne`
+identifies distinct-pair edit counts with `colorOfPair` edit counts on `V × V`.
+`PairColorSystem.ofRaw` makes any directed coloring
 coherent by recording its colors in both orientations, using the product palette.
 `PairColorSystem.relabel` renames the palette along an equivalence.
 `PairColorSystem.split` refines a coloring by a symmetric labelling of the unordered pairs.
@@ -96,6 +99,25 @@ theorem colorOfPair_swap_eq_some_iff (S : PairColorSystem κ V) (u v : V) (c : �
     S.colorOfPair v u = some (S.rev c) ↔ S.colorOfPair u v = some c := by
   rw [S.colorOfPair_swap, Option.map_eq_some_iff]
   simp only [S.rev_involutive.injective.eq_iff, exists_eq_right]
+
+open Finset in
+/-- Counting edited distinct pairs in `{p : V × V // p.1 ≠ p.2}` agrees with counting edited pairs
+in `V × V` via `PairColorSystem.colorOfPair`. -/
+theorem card_color_ne_eq_card_colorOfPair_ne {κ' : Type*} [Fintype V] [DecidableEq V]
+    (S : PairColorSystem κ V) (T : PairColorSystem κ' V) (g : κ → κ')
+    [DecidablePred fun q : {p : V × V // p.1 ≠ p.2} ↦ T.color q ≠ g (S.color q)]
+    [DecidablePred fun p : V × V ↦ T.colorOfPair p.1 p.2 ≠ (S.colorOfPair p.1 p.2).map g] :
+    #{q : {p : V × V // p.1 ≠ p.2} | T.color q ≠ g (S.color q)} =
+      #{p : V × V | T.colorOfPair p.1 p.2 ≠ (S.colorOfPair p.1 p.2).map g} := by
+  refine card_bij (fun q _ ↦ q.1) (fun q hq ↦ ?_) (fun _ _ _ _ h ↦ Subtype.ext h)
+    (fun p hp ↦ ?_)
+  · simp only [mem_filter, mem_univ, true_and] at hq ⊢
+    rwa [T.colorOfPair_of_ne q.2, S.colorOfPair_of_ne q.2, Option.map_some, ne_eq, Option.some_inj]
+  · simp only [mem_filter, mem_univ, true_and] at hp
+    have hpne : p.1 ≠ p.2 := fun h ↦ hp (by simp [h])
+    refine ⟨⟨p, hpne⟩, mem_filter.2 ⟨mem_univ _, ?_⟩, rfl⟩
+    rwa [T.colorOfPair_of_ne hpne, S.colorOfPair_of_ne hpne, Option.map_some, ne_eq,
+      Option.some_inj] at hp
 
 /-- Make a directed coloring coherent by retaining the colors in both orientations.
 The palette is `κ × κ`, and reversal exchanges the coordinates. -/

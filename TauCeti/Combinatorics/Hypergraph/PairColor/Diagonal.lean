@@ -8,7 +8,10 @@ module
 public import TauCeti.Combinatorics.Hypergraph.PairColor.Regular
 public import TauCeti.Order.Partition.Finpartition
 public import Mathlib.Data.Fintype.Prod
+public import Mathlib.Order.Partition.Equipartition
 import Mathlib.Algebra.Order.BigOperators.Group.Finset
+import Mathlib.Data.Nat.Cast.Order.Field
+import Mathlib.Tactic.Ring
 
 /-!
 # Cleaning up diagonal pair blocks
@@ -20,7 +23,10 @@ its test subsets must contain at least two vertices; this size condition matters
 densities exclude equal vertices and vanish on a coincident singleton.
 
 The number of edited ordered pairs is exactly the sum of the within-cell ordered distinct-pair
-counts, and is at most `m * |V|` if every cell has at most `m` vertices. This permits diagonal
+counts, is at most `m * |V|` if every cell has at most `m` vertices, and is at most
+`|V|² / #P.parts` on an equipartition `P`
+(`PairColorSystem.card_fillDiagonal_colorOfPair_ne_le_of_isEquipartition`). Together with the
+triangle split `PairColorSystem.card_fillDiagonal_colorOfPair_ne_le_add`, this permits diagonal
 blocks to be cleaned up at small edit cost when constructing a regular lower skeleton.
 
 ## References
@@ -245,5 +251,44 @@ theorem card_fillDiagonal_colorOfPair_ne_le_of_card_le {m : ℕ} (hm : ∀ A ∈
       (S.colorOfPair p.1 p.2).map some} ≤ m * Fintype.card V := by
   classical
   exact (S.card_fillDiagonal_colorOfPair_ne_le P).trans (by simpa using P.sum_sq_card_parts_le hm)
+
+variable {P} in
+open Classical in
+/-- On an equipartition `P`, `PairColorSystem.fillDiagonal` edits at most `|V|² / #P.parts` ordered
+vertex pairs. -/
+theorem card_fillDiagonal_colorOfPair_ne_le_of_isEquipartition (hP : P.IsEquipartition) :
+    (#{p : V × V | (S.fillDiagonal P).colorOfPair p.1 p.2 ≠
+        (S.colorOfPair p.1 p.2).map some} : ℝ) ≤ (Fintype.card V : ℝ) ^ 2 / #P.parts := by
+  classical
+  have hnat : ∑ A ∈ P.parts, #A * (#A - 1) ≤ Fintype.card V * (Fintype.card V / #P.parts) := by
+    calc ∑ A ∈ P.parts, #A * (#A - 1)
+        ≤ ∑ A ∈ P.parts, #A * (Fintype.card V / #P.parts) := sum_le_sum fun A hA ↦ by
+          have hA1 := hP.card_part_le_average_add_one hA
+          rw [card_univ] at hA1
+          exact Nat.mul_le_mul_left _ (Nat.sub_le_iff_le_add.2 hA1)
+      _ = (∑ A ∈ P.parts, #A) * (Fintype.card V / #P.parts) := (sum_mul _ _ _).symm
+      _ = Fintype.card V * (Fintype.card V / #P.parts) := by rw [P.sum_card_parts, card_univ]
+  rw [S.card_fillDiagonal_colorOfPair_ne P]
+  calc ((∑ A ∈ P.parts, #A * (#A - 1) : ℕ) : ℝ)
+      ≤ ((Fintype.card V * (Fintype.card V / #P.parts) : ℕ) : ℝ) := mod_cast hnat
+    _ = (Fintype.card V : ℝ) * ((Fintype.card V / #P.parts : ℕ) : ℝ) := Nat.cast_mul _ _
+    _ ≤ (Fintype.card V : ℝ) * ((Fintype.card V : ℝ) / #P.parts) :=
+        mul_le_mul_of_nonneg_left Nat.cast_div_le (Nat.cast_nonneg _)
+    _ = (Fintype.card V : ℝ) ^ 2 / #P.parts := by ring
+
+open Classical in
+/-- Comparing `R.fillDiagonal P` against `S` edits at most the pairs edited between `R` and `S`
+plus the within-cell pairs edited by `R.fillDiagonal P`. -/
+theorem card_fillDiagonal_colorOfPair_ne_le_add (R : PairColorSystem κ V) :
+    #{p : V × V | (R.fillDiagonal P).colorOfPair p.1 p.2 ≠ (S.colorOfPair p.1 p.2).map some} ≤
+      #{p : V × V | R.colorOfPair p.1 p.2 ≠ S.colorOfPair p.1 p.2} +
+        #{p : V × V | (R.fillDiagonal P).colorOfPair p.1 p.2 ≠
+          (R.colorOfPair p.1 p.2).map some} := by
+  classical
+  refine (card_le_card fun p hp ↦ ?_).trans (card_union_le _ _)
+  simp only [mem_union, mem_filter, mem_univ, true_and] at hp ⊢
+  by_cases h : R.colorOfPair p.1 p.2 = S.colorOfPair p.1 p.2
+  · exact Or.inr (by simpa only [h] using hp)
+  · exact Or.inl h
 
 end TauCeti.PairColorSystem

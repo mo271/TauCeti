@@ -7,8 +7,7 @@ module
 
 public import TauCeti.Combinatorics.Hypergraph.PairColor.Diagonal
 public import TauCeti.Combinatorics.Hypergraph.PairColor.StrongRegularization
-import TauCeti.Combinatorics.Enumerative.CoupledColoring
-import TauCeti.Combinatorics.Hypergraph.PairColor.Recoloring
+import TauCeti.Combinatorics.Hypergraph.PairColor.Cleanup
 import TauCeti.Combinatorics.Regularity.Partition.Equitabilise
 import Mathlib.Data.Rat.BigOperators
 import Mathlib.Tactic.FieldSimp
@@ -30,17 +29,17 @@ of edited pairs remains bounded by an independent `ε > 0`.
 This file proves the lower-skeleton edited regular approximation lemma by combining three
 ingredients:
 
-1. **Coupled regular recoloring** (`PairColorSystem.exists_coupled_recoloring_isRegularPair`):
-   if `(s, t)` is already `η`-regular for `S` with `card κ * η ≤ δ ^ 3 / 2`, pushing `S` on
-   `s ×ˢ t` through the optimal transition coupling
-   (`TauCeti.exists_coupled_coloring_abs_card_filter_sub_mul_card_le`) yields a `(2 * δ)`-regular
-   pair with color densities within `δ` of `p` while editing at most
+1. **Coupled regular recoloring** (`PairColorSystem.exists_coupled_recoloring_isRegularPair` in
+   `PairColor/Recoloring.lean`): if `(s, t)` is already `η`-regular for `S` with
+   `card κ * η ≤ δ ^ 3 / 2`, pushing `S` on `s ×ˢ t` through the optimal transition coupling yields
+   a `(2 * δ)`-regular pair with color densities within `δ` of `p` while editing at most
    `((∑ c, |d_c(s, t) - p c|) / 2 + δ / 2) * (#s * #t)` pairs of `s ×ˢ t`.
 2. **Refinement-guided recoloring** (`PairColorSystem.exists_recoloring_of_refinement`): given a
    refinement `Q ≤ P`, regular fine blocks `(A', B')` between distinct coarse cells `(A, B)` are
    coupled-recolored toward the coarse densities `d_c(A, B)`, while irregular fine blocks receive
-   independent quasi-random recolorings (`PairColorSystem.exists_recoloring_isRegularPair`). The
-   total edit count is controlled by the `L¹` energy-gap drift plus the fine irregular mass.
+   independent quasi-random recolorings (`PairColorSystem.exists_recoloring_isRegularPair`), glued
+   via `PairColorSystem.exists_cellwise_recoloring`. The total edit count is controlled by the `L¹`
+   energy-gap drift plus the fine irregular mass.
 3. **Strong regularity + amalgamation + diagonal cleanup**
    (`PairColorSystem.exists_regular_approximation` and
    `PairSkeleton3.exists_lowerSkeletonRegular_approximation`): applying strong equitable regularity
@@ -60,8 +59,6 @@ ingredients:
 
 ## Main results
 
-* `TauCeti.PairColorSystem.exists_coupled_recoloring_isRegularPair`: coupled quasi-random
-  recoloring of an already regular disjoint pair.
 * `TauCeti.PairColorSystem.exists_recoloring_of_refinement`: refinement-guided off-diagonal
   recoloring controlled by the energy gap and fine irregular mass.
 * `TauCeti.PairColorSystem.exists_regular_approximation`: edited regular approximation of a
@@ -182,244 +179,7 @@ end Bounds
 
 namespace PairColorSystem
 
-section CoupledRecoloring
-
-variable {κ V : Type*}
-
-open Classical in
-/-- Recolor pairs in `s ×ˢ t` by `x`, pairs in `t ×ˢ s` by `S.rev ∘ x ∘ Prod.swap`, and leave all
-other pairs unchanged. -/
-private noncomputable def recolorPair (S : PairColorSystem κ V) {s t : Finset V}
-    (hst : Disjoint s t) (x : V × V → κ) : PairColorSystem κ V where
-  color q :=
-    if q.1 ∈ s ×ˢ t then x q.1 else if q.1.swap ∈ s ×ˢ t then S.rev (x q.1.swap) else S.color q
-  rev := S.rev
-  rev_involutive := S.rev_involutive
-  color_rev q := by
-    obtain ⟨⟨u, v⟩, huv⟩ := q
-    have hboth : ¬((u, v) ∈ s ×ˢ t ∧ (v, u) ∈ s ×ˢ t) := fun ⟨h₁, h₂⟩ ↦
-      disjoint_left.1 hst (mem_product.1 h₂).1 (mem_product.1 h₁).2
-    by_cases h₁ : (u, v) ∈ s ×ˢ t <;> by_cases h₂ : (v, u) ∈ s ×ˢ t
-    · exact absurd ⟨h₁, h₂⟩ hboth
-    · simp [h₁, h₂]
-    · simp [h₁, h₂]
-    · simpa [h₁, h₂] using S.color_rev ⟨(u, v), huv⟩
-
-private theorem colorOfPair_recolorPair_of_mem {S : PairColorSystem κ V} {s t : Finset V}
-    (hst : Disjoint s t) (x : V × V → κ) {u v : V} (h : (u, v) ∈ s ×ˢ t) :
-    (S.recolorPair hst x).colorOfPair u v = some (x (u, v)) := by
-  have huv : u ≠ v := hst.forall_ne_finset (mem_product.1 h).1 (mem_product.1 h).2
-  rw [colorOfPair_of_ne _ huv]
-  simp [recolorPair, h]
-
-private theorem colorOfPair_recolorPair_of_not_mem {S : PairColorSystem κ V} {s t : Finset V}
-    (hst : Disjoint s t) (x : V × V → κ) {u v : V} (hs : u ∈ s → v ∉ t) (ht : u ∈ t → v ∉ s) :
-    (S.recolorPair hst x).colorOfPair u v = S.colorOfPair u v := by
-  by_cases huv : u = v
-  · simp [huv]
-  have h₁ : (u, v) ∉ s ×ˢ t := fun h ↦ hs (mem_product.1 h).1 (mem_product.1 h).2
-  have h₂ : (v, u) ∉ s ×ˢ t := fun h ↦ ht (mem_product.1 h).2 (mem_product.1 h).1
-  rw [colorOfPair_of_ne _ huv, colorOfPair_of_ne _ huv]
-  simp [recolorPair, h₁, h₂]
-
-/-- Exponential union bound for coupled recoloring on all subrectangles of `s ×ˢ t` when
-`8 (card κ + 1)³ ≤ δ⁶ #s` and `8 (card κ + 1)³ ≤ δ⁶ #t`. -/
-private theorem coupled_union_bound_lt_one [Fintype κ] [Nonempty κ] {δ : ℝ} {s t : Finset V}
-    (hs : 8 * (Fintype.card κ + 1 : ℝ) ^ 3 ≤ δ ^ 6 * #s)
-    (ht : 8 * (Fintype.card κ + 1 : ℝ) ^ 3 ≤ δ ^ 6 * #t) :
-    2 * (2 ^ #s * 2 ^ #t + 1 : ℕ) * Fintype.card κ *
-      exp (-2 * ((δ ^ 3 / 2 * #s * #t) / Fintype.card κ) ^ 2 / (#s * #t : ℕ)) < 1 := by
-  let K : ℝ := Fintype.card κ
-  have hK : 1 ≤ K := Nat.one_le_cast.2 Fintype.card_pos
-  have h8pos : (0 : ℝ) < 8 * (K + 1) ^ 3 := by positivity
-  have hspos : (0 : ℝ) < #s :=
-    pos_of_mul_pos_right (h8pos.trans_le hs) (by positivity)
-  have htpos : (0 : ℝ) < #t :=
-    pos_of_mul_pos_right (h8pos.trans_le ht) (by positivity)
-  have hs1 : (1 : ℝ) ≤ #s := Nat.one_le_cast.2 (Nat.cast_pos.1 hspos)
-  have ht1 : (1 : ℝ) ≤ #t := Nat.one_le_cast.2 (Nat.cast_pos.1 htpos)
-  have h2e : (2 : ℝ) ≤ exp 1 := by linarith [add_one_le_exp (1 : ℝ)]
-  have hpow (n : ℕ) : (2 : ℝ) ^ n ≤ exp n :=
-    (pow_le_pow_left₀ (by norm_num) h2e n).trans_eq (by rw [← exp_nat_mul, mul_one])
-  have hpre : 2 * ((2 ^ #s * 2 ^ #t + 1 : ℕ) : ℝ) * K ≤ exp (#s + #t + 2 + K) := by
-    have h2st : (1 : ℝ) ≤ (2 : ℝ) ^ #s * (2 : ℝ) ^ #t :=
-      one_le_mul_of_one_le_of_one_le (one_le_pow₀ (by norm_num)) (one_le_pow₀ (by norm_num))
-    have h4 : 2 * ((2 ^ #s * 2 ^ #t + 1 : ℕ) : ℝ) ≤
-        (2 : ℝ) ^ 2 * ((2 : ℝ) ^ #s * (2 : ℝ) ^ #t) := by push_cast; linarith
-    have hKexp : K ≤ exp K := by linarith [add_one_le_exp K]
-    calc 2 * ((2 ^ #s * 2 ^ #t + 1 : ℕ) : ℝ) * K
-        ≤ ((2 : ℝ) ^ 2 * ((2 : ℝ) ^ #s * (2 : ℝ) ^ #t)) * K := by gcongr
-      _ ≤ (exp (2 : ℕ) * (exp #s * exp #t)) * exp K := by
-          gcongr; exacts [hpow 2, hpow #s, hpow #t]
-      _ = exp (#s + #t + 2 + K) := by simp only [← exp_add, Nat.cast_ofNat]; ring_nf
-  have hexp : -2 * ((δ ^ 3 / 2 * #s * #t) / K) ^ 2 / (#s * #t : ℕ) =
-      -(δ ^ 6 * #s * #t) / (2 * K ^ 2) := by push_cast; field_simp
-  calc 2 * ((2 ^ #s * 2 ^ #t + 1 : ℕ) : ℝ) * K *
-          exp (-2 * ((δ ^ 3 / 2 * #s * #t) / K) ^ 2 / (#s * #t : ℕ))
-      ≤ exp (#s + #t + 2 + K) * exp (-(δ ^ 6 * #s * #t) / (2 * K ^ 2)) := by
-        rw [hexp]; gcongr
-    _ = exp ((#s + #t + 2 + K) - (δ ^ 6 * #s * #t) / (2 * K ^ 2)) := by
-        rw [← exp_add, neg_div, ← sub_eq_add_neg]
-    _ < 1 := by
-        rw [exp_lt_one_iff, sub_lt_zero, lt_div_iff₀ (by positivity)]
-        have hKpoly : 4 * K ^ 2 * (2 * K + 2) ≤ 8 * (K + 1) ^ 3 := by nlinarith
-        have h1 := mul_le_mul_of_nonneg_right (hKpoly.trans hs) htpos.le
-        have h2 := mul_le_mul_of_nonneg_right (hKpoly.trans ht) hspos.le
-        nlinarith [mul_le_mul_of_nonneg_left hs1 (sq_nonneg K),
-          mul_le_mul_of_nonneg_left ht1 (sq_nonneg K)]
-
-private theorem card_filter_getD_eq_pairColorDensity_mul [DecidableEq κ]
-    (S : PairColorSystem κ V) {u v : Finset V} (huv : Disjoint u v) (c_def c : κ) :
-    (#{q ∈ u ×ˢ v | (S.colorOfPair q.1 q.2).getD c_def = c} : ℝ) =
-      pairColorDensity S c u v * (#u * #v) := by
-  classical
-  have hf : {q ∈ u ×ˢ v | (S.colorOfPair q.1 q.2).getD c_def = c} =
-      {q ∈ u ×ˢ v | S.colorOfPair q.1 q.2 = some c} := filter_congr fun q hq ↦ by
-    simp [colorOfPair_of_ne S (huv.forall_ne_finset (mem_product.1 hq).1 (mem_product.1 hq).2)]
-  rw [hf]
-  exact mod_cast (pairColorDensity_mul_card_of_disjoint S c huv).symm
-
-/-- Translate `S.IsRegularPair η s t` into the count-discrepancy hypothesis expected by
-`exists_coupled_coloring_abs_card_filter_sub_mul_card_le`. -/
-private theorem abs_card_filter_getD_sub_le [DecidableEq κ] {S : PairColorSystem κ V}
-    {s t s' t' : Finset V} (hst : Disjoint s t) (hs0 : (0 : ℝ) < #s) (ht0 : (0 : ℝ) < #t)
-    {η : ℝ} (hreg : S.IsRegularPair η s t) (hs' : s' ⊆ s) (ht' : t' ⊆ t) (c_def c₀ : κ) :
-    |(#{q ∈ s' ×ˢ t' | (S.colorOfPair q.1 q.2).getD c_def = c₀} : ℝ) -
-      ((#{q ∈ s ×ˢ t | (S.colorOfPair q.1 q.2).getD c_def = c₀} : ℝ) / #(s ×ˢ t)) *
-        #(s' ×ˢ t')| ≤ η * #s * #t := by
-  classical
-  have hiff : {q ∈ s' ×ˢ t' | (S.colorOfPair q.1 q.2).getD c_def = c₀} =
-      {q ∈ s' ×ˢ t' | S.colorOfPair q.1 q.2 = some c₀} := filter_congr fun q hq ↦ by
-    simp [colorOfPair_of_ne S ((hst.mono hs' ht').forall_ne_finset (mem_product.1 hq).1
-      (mem_product.1 hq).2)]
-  have h1 := hreg.abs_card_filter_colorOfPair_sub_le (c := c₀) hst hs' ht'
-  rw [← hiff] at h1
-  have h2 : ((#{q ∈ s ×ˢ t | (S.colorOfPair q.1 q.2).getD c_def = c₀} : ℝ) / #(s ×ˢ t)) *
-      #(s' ×ˢ t') = pairColorDensity S c₀ s t * #s' * #t' := by
-    rw [card_filter_getD_eq_pairColorDensity_mul S hst, card_product, card_product, Nat.cast_mul,
-      Nat.cast_mul, mul_div_cancel_right₀ _ (mul_pos hs0 ht0).ne', mul_assoc]
-  rwa [h2]
-
-open Classical in
-/-- Core `< 1` case of coupled pair recoloring: achieves density accuracy `δ` on every `δ`-large
-subrectangle while bounding edits on `s ×ˢ t`. -/
-private theorem exists_coupled_recoloring_abs_pairColorDensity_sub_le [Fintype κ]
-    (S : PairColorSystem κ V) {s t : Finset V} (hst : Disjoint s t) {p : κ → ℝ}
-    (hp : ∀ c, 0 ≤ p c) (hp1 : ∑ c, p c = 1) {η δ : ℝ} (hreg : S.IsRegularPair η s t)
-    (hδ : 0 < δ) (hηδ : Fintype.card κ * η ≤ δ ^ 3 / 2)
-    (hs : 8 * (Fintype.card κ + 1 : ℝ) ^ 3 ≤ δ ^ 6 * #s)
-    (ht : 8 * (Fintype.card κ + 1 : ℝ) ^ 3 ≤ δ ^ 6 * #t) :
-    ∃ S' : PairColorSystem κ V, S'.rev = S.rev ∧
-      (∀ u v, (u ∈ s → v ∉ t) → (u ∈ t → v ∉ s) → S'.colorOfPair u v = S.colorOfPair u v) ∧
-      (#{q ∈ s ×ˢ t | S'.colorOfPair q.1 q.2 ≠ S.colorOfPair q.1 q.2} : ℝ) ≤
-        ((∑ c, |(pairColorDensity S c s t : ℝ) - p c|) / 2 + δ ^ 3 / 2) * (#s * #t) ∧
-      ∀ c, ∀ s' ⊆ s, ∀ t' ⊆ t, δ * #s ≤ #s' → δ * #t ≤ #t' →
-        |(pairColorDensity S' c s' t' : ℝ) - p c| ≤ δ := by
-  classical
-  have hκ : Nonempty κ := by by_contra! h; simp at hp1
-  have h8pos : (0 : ℝ) < 8 * (Fintype.card κ + 1 : ℝ) ^ 3 := by positivity
-  have hs0 : (0 : ℝ) < #s := pos_of_mul_pos_right (h8pos.trans_le hs) (by positivity)
-  have ht0 : (0 : ℝ) < #t := pos_of_mul_pos_right (h8pos.trans_le ht) (by positivity)
-  let c_def := Classical.arbitrary κ
-  let x₀ (q : V × V) : κ := (S.colorOfPair q.1 q.2).getD c_def
-  obtain ⟨x, -, hedit, htest⟩ := exists_coupled_coloring_abs_card_filter_sub_mul_card_le hp hp1
-    (s ×ˢ t) x₀ (I := ↥(s.powerset ×ˢ t.powerset)) (fun i ↦ i.1.1 ×ˢ i.1.2)
-    (fun i ↦ product_subset_product (mem_powerset.1 (mem_product.1 i.2).1)
-      (mem_powerset.1 (mem_product.1 i.2).2))
-    (a := δ ^ 3 / 2 * #s * #t) (by positivity)
-    (by simpa [card_product] using coupled_union_bound_lt_one hs ht)
-  refine ⟨S.recolorPair hst x, rfl, fun u v ↦ colorOfPair_recolorPair_of_not_mem hst x, ?_, ?_⟩
-  · have hne_eq : {q ∈ s ×ˢ t | (S.recolorPair hst x).colorOfPair q.1 q.2 ≠ S.colorOfPair q.1 q.2} =
-        {q ∈ s ×ˢ t | x q ≠ x₀ q} := filter_congr fun q hq ↦ by
-      simp [x₀, colorOfPair_recolorPair_of_mem hst x hq,
-        colorOfPair_of_ne S (hst.forall_ne_finset (mem_product.1 hq).1 (mem_product.1 hq).2)]
-    have hsum_eq : ∑ c : κ, |(#{q ∈ s ×ˢ t | x₀ q = c} : ℝ) - p c * #(s ×ˢ t)| =
-        (∑ c : κ, |(pairColorDensity S c s t : ℝ) - p c|) * (#s * #t) := by
-      rw [sum_mul]
-      refine sum_congr rfl fun c _ ↦ ?_
-      rw [card_filter_getD_eq_pairColorDensity_mul S hst c_def c, card_product, Nat.cast_mul,
-        ← sub_mul, abs_mul, abs_of_pos (mul_pos hs0 ht0)]
-    rw [hne_eq]
-    linarith [hedit]
-  · intro c s' hs' t' ht' hs's ht't
-    have hpos : (0 : ℝ) < #s' * #t' :=
-      mul_pos ((mul_pos hδ hs0).trans_le hs's) ((mul_pos hδ ht0).trans_le ht't)
-    have hdev := htest ⟨(s', t'), mem_product.2 ⟨mem_powerset.2 hs', mem_powerset.2 ht'⟩⟩
-      (fun c₀ ↦ abs_card_filter_getD_sub_le hst hs0 ht0 hreg hs' ht' c_def c₀) c
-    have hx_card : (#{q ∈ s' ×ˢ t' | x q = c} : ℝ) =
-        pairColorDensity (S.recolorPair hst x) c s' t' * (#s' * #t') := by
-      have hf : {q ∈ s' ×ˢ t' | (S.recolorPair hst x).colorOfPair q.1 q.2 = some c} =
-          {q ∈ s' ×ˢ t' | x q = c} := filter_congr fun q hq ↦ by
-        rw [colorOfPair_recolorPair_of_mem hst x (product_subset_product hs' ht' hq),
-          Option.some_inj]
-      rw [← hf]
-      exact mod_cast (pairColorDensity_mul_card_of_disjoint _ c (hst.mono hs' ht')).symm
-    rw [hx_card, card_product, Nat.cast_mul, ← sub_mul, abs_mul, abs_of_pos hpos] at hdev
-    refine le_of_mul_le_mul_right ?_ hpos
-    have hrect : δ ^ 3 * (#s * #t) ≤ δ * (#s' * #t') :=
-      (by ring : δ ^ 3 * (#s * #t) = δ * ((δ * #s) * (δ * #t))).trans_le
-        (mul_le_mul_of_nonneg_left (mul_le_mul hs's ht't (by positivity) (by positivity)) hδ.le)
-    nlinarith [mul_le_mul_of_nonneg_right hηδ (mul_pos hs0 ht0).le]
-
-open Classical in
-/-- **Coupled regular recoloring of a disjoint pair.** If `(s, t)` is disjoint and `η`-regular for
-`S` with `card κ * η ≤ δ ^ 3 / 2`, `8 (card κ + 1)³ ≤ δ⁶ #s`, and `8 (card κ + 1)³ ≤ δ⁶ #t`, then
-for any target probability distribution `p` on `κ` there is a pair-color system `S'` with the same
-palette reversal and the same colors outside `(s ×ˢ t) ∪ (t ×ˢ s)` such that `(s, t)` is
-`(2 * δ)`-regular for `S'`, its color densities lie within `δ` of `p`, and at most
-`((∑ c, |d_c(s, t) - p c|) / 2 + δ / 2) * (#s * #t)` pairs of `s ×ˢ t` are edited. -/
-theorem exists_coupled_recoloring_isRegularPair [Fintype κ] (S : PairColorSystem κ V)
-    {s t : Finset V} (hst : Disjoint s t) {p : κ → ℝ} (hp : ∀ c, 0 ≤ p c) (hp1 : ∑ c, p c = 1)
-    {η δ : ℝ} (hreg : S.IsRegularPair η s t) (hδ : 0 < δ)
-    (hηδ : Fintype.card κ * η ≤ δ ^ 3 / 2)
-    (hs : 8 * (Fintype.card κ + 1 : ℝ) ^ 3 ≤ δ ^ 6 * #s)
-    (ht : 8 * (Fintype.card κ + 1 : ℝ) ^ 3 ≤ δ ^ 6 * #t) :
-    ∃ S' : PairColorSystem κ V, S'.rev = S.rev ∧
-      (∀ u v, (u ∈ s → v ∉ t) → (u ∈ t → v ∉ s) → S'.colorOfPair u v = S.colorOfPair u v) ∧
-      S'.IsRegularPair (2 * δ) s t ∧
-      (∀ c, |(pairColorDensity S' c s t : ℝ) - p c| ≤ δ) ∧
-      (#{q ∈ s ×ˢ t | S'.colorOfPair q.1 q.2 ≠ S.colorOfPair q.1 q.2} : ℝ) ≤
-        ((∑ c, |(pairColorDensity S c s t : ℝ) - p c|) / 2 + δ / 2) * (#s * #t) := by
-  classical
-  obtain hδ1 | hδ1 := le_or_gt 1 δ
-  · refine ⟨S, rfl, fun _ _ _ _ ↦ rfl, isRegularPair_of_one_le (by linarith), fun c ↦ ?_, ?_⟩
-    · have h₀ : (0 : ℝ) ≤ pairColorDensity S c s t := mod_cast pairColorDensity_nonneg S c s t
-      have h₁ : (pairColorDensity S c s t : ℝ) ≤ 1 := mod_cast pairColorDensity_le_one S c s t
-      have hpc : p c ≤ 1 := hp1 ▸ single_le_sum (fun c _ ↦ hp c) (mem_univ c)
-      exact (abs_sub_le_iff.2 ⟨by linarith [hp c], by linarith [hp c]⟩).trans hδ1
-    · have : 0 ≤ ∑ c, |(pairColorDensity S c s t : ℝ) - p c| :=
-        sum_nonneg fun _ _ ↦ abs_nonneg _
-      simp only [ne_eq, not_true_eq_false, filter_false, card_empty, Nat.cast_zero]
-      positivity
-  · obtain ⟨S', hrev, hagree, hedit, hdens⟩ :=
-      S.exists_coupled_recoloring_abs_pairColorDensity_sub_le hst hp hp1 hreg hδ hηδ hs ht
-    have hthr (u : Finset V) : δ * #u ≤ #u := mul_le_of_le_one_left (Nat.cast_nonneg _) hδ1.le
-    have hfull (c : κ) : |(pairColorDensity S' c s t : ℝ) - p c| ≤ δ :=
-      hdens c s subset_rfl t subset_rfl (hthr s) (hthr t)
-    refine ⟨S', hrev, hagree, ?_, hfull, hedit.trans ?_⟩
-    · obtain h2δ | _ := le_or_gt 1 (2 * δ)
-      · exact isRegularPair_of_one_le h2δ
-      rw [isRegularPair_iff]
-      intro c s' hs' t' ht' hs's ht't
-      have h1 := hdens c s' hs' t' ht'
-        ((by nlinarith [Nat.cast_nonneg (α := ℝ) #s] : δ * #s ≤ 2 * δ * #s).trans hs's)
-        ((by nlinarith [Nat.cast_nonneg (α := ℝ) #t] : δ * #t ≤ 2 * δ * #t).trans ht't)
-      exact (abs_sub_le _ (p c) _).trans (by rw [abs_sub_comm (p c)]; linarith [hfull c])
-    · have hpow : δ ^ 3 ≤ δ := pow_le_of_le_one hδ.le hδ1.le (by norm_num)
-      exact mul_le_mul_of_nonneg_right (by linarith) (by positivity)
-
-end CoupledRecoloring
-
 section RefinementRecoloring
-
-/-- Reindexing by `S.rev` shows the `ℓ¹` palette distance between a fine block and its coarse parent
-is invariant under swapping both blocks. -/
-private theorem sum_abs_pairColorDensity_swap {κ V : Type*} [Fintype κ] (S : PairColorSystem κ V)
-    (A' B' A B : Finset V) :
-    ∑ c : κ, |(pairColorDensity S c B' A' : ℝ) - pairColorDensity S c B A| =
-      ∑ c : κ, |(pairColorDensity S c A' B' : ℝ) - pairColorDensity S c A B| :=
-  (Fintype.sum_bijective S.rev S.rev_involutive.bijective _ _ fun c ↦ by
-    rw [pairColorDensity_swap, pairColorDensity_swap]).symm
 
 private theorem card_colorOfPair_ne_swap_eq {κ V : Type*} {S R T₀ : PairColorSystem κ V}
     {s t : Finset V}
@@ -508,71 +268,6 @@ private theorem exists_local_refinement_recoloring [Fintype κ] (S : PairColorSy
       mul_nonneg (add_nonneg (div_nonneg (sum_nonneg fun _ _ ↦ abs_nonneg _) (by norm_num))
         (by positivity)) (by positivity)
     linarith
-
-/-- Symmetrically glue local fine-block systems `T A' B'` along a linear order on `Q.parts`. -/
-private theorem exists_cellwise_refinement_recoloring (S : PairColorSystem κ V)
-    (Q : Finpartition (univ : Finset V)) (order : LinearOrder Q.parts)
-    (T : Q.parts → Q.parts → PairColorSystem κ V) (hrev : ∀ A' B', (T A' B').rev = S.rev) :
-    ∃ R : PairColorSystem κ V, R.rev = S.rev ∧
-      ∀ A' B' : Q.parts, order.le A' B' → ∀ x ∈ A'.1, ∀ y ∈ B'.1,
-        R.colorOfPair x y = (T A' B').colorOfPair x y := by
-  classical
-  let : LinearOrder Q.parts := order
-  let : LE Q.parts := order.toLE
-  let cell (x : V) : Q.parts := ⟨Q.part x, Q.part_mem.2 (mem_univ x)⟩
-  let R : PairColorSystem κ V :=
-    { color := fun p ↦ (T (min (cell p.1.1) (cell p.1.2))
-        (max (cell p.1.1) (cell p.1.2))).color p
-      rev := S.rev
-      rev_involutive := S.rev_involutive
-      color_rev := fun p ↦ by
-        dsimp only [Prod.fst_swap, Prod.snd_swap]
-        rw [min_comm (cell p.1.2), max_comm (cell p.1.2), (T _ _).color_rev, hrev] }
-  refine ⟨R, rfl, fun A' B' hle x hx y hy ↦ ?_⟩
-  by_cases hxy : x = y
-  · simp [hxy]
-  · have hcA : cell x = A' := Subtype.ext (Q.part_eq_of_mem A'.2 hx)
-    have hcB : cell y = B' := Subtype.ext (Q.part_eq_of_mem B'.2 hy)
-    simp [colorOfPair_of_ne _ hxy, R, hcA, hcB, min_eq_left hle, max_eq_right hle]
-
-/-- Transfer `(2 * δ)`-regularity and coarse density accuracy from the ordered local systems `T` to
-both orientations of `R`. -/
-private theorem isRegularPair_of_cellwise_refinement (S R : PairColorSystem κ V)
-    {P Q : Finpartition (univ : Finset V)} (hQP : Q ≤ P) {δ : ℝ} (order : LinearOrder Q.parts)
-    (T : Q.parts → Q.parts → PairColorSystem κ V) (hRrev : R.rev = S.rev)
-    (hlocal : ∀ A' B' : Q.parts, order.le A' B' → ∀ x ∈ A'.1, ∀ y ∈ B'.1,
-      R.colorOfPair x y = (T A' B').colorOfPair x y)
-    (hreg : ∀ A' B', refinementParent hQP A' ≠ refinementParent hQP B' →
-      (T A' B').IsRegularPair (2 * δ) A'.1 B'.1 ∧
-      ∀ c, |(pairColorDensity (T A' B') c A'.1 B'.1 : ℝ) -
-        pairColorDensity S c (refinementParent hQP A').1 (refinementParent hQP B').1| ≤ δ)
-    {A' B' : Q.parts} (hne : refinementParent hQP A' ≠ refinementParent hQP B') :
-    R.IsRegularPair (2 * δ) A'.1 B'.1 ∧
-      ∀ c, |(pairColorDensity R c A'.1 B'.1 : ℝ) -
-        pairColorDensity S c (refinementParent hQP A').1 (refinementParent hQP B').1| ≤ δ := by
-  let : LinearOrder Q.parts := order
-  let : LE Q.parts := order.toLE
-  have hdens_eq {U W : Q.parts} (hle : U ≤ W) {s t : Finset V} (hs : s ⊆ U.1) (ht : t ⊆ W.1)
-      (c : κ) : pairColorDensity R c s t = pairColorDensity (T U W) c s t :=
-    pairColorDensity_congr (fun x hx y hy ↦ hlocal U W hle x (hs hx) y (ht hy)) c
-  have hfwd {U W : Q.parts} (hle : U ≤ W)
-      (hneUW : refinementParent hQP U ≠ refinementParent hQP W) :
-      R.IsRegularPair (2 * δ) U.1 W.1 ∧
-        ∀ c, |(pairColorDensity R c U.1 W.1 : ℝ) -
-          pairColorDensity S c (refinementParent hQP U).1 (refinementParent hQP W).1| ≤ δ := by
-    refine ⟨isRegularPair_iff.2 fun c s hs t ht hs' ht' ↦ ?_, fun c ↦ ?_⟩
-    · rw [hdens_eq hle hs ht, hdens_eq hle subset_rfl subset_rfl]
-      exact isRegularPair_iff.1 (hreg U W hneUW).1 c s hs t ht hs' ht'
-    · rw [hdens_eq hle subset_rfl subset_rfl]
-      exact (hreg U W hneUW).2 c
-  rcases le_total A' B' with hle | hle
-  · exact hfwd hle hne
-  · refine ⟨(hfwd hle hne.symm).1.symm, fun c ↦ ?_⟩
-    have he := (hfwd hle hne.symm).2 (S.rev c)
-    have he' : |(pairColorDensity R (R.rev c) B'.1 A'.1 : ℝ) -
-        pairColorDensity S (S.rev c) (refinementParent hQP B').1 (refinementParent hQP A').1| ≤ δ :=
-      by simpa only [hRrev] using he
-    simpa only [pairColorDensity_swap] using he'
 
 open Classical in
 /-- Bound the edits of the glued system `R` on every fine block `A'.1 ×ˢ B'.1` in both orientations.
@@ -690,13 +385,16 @@ theorem exists_recoloring_of_refinement [Fintype κ] (S : PairColorSystem κ V)
   let order : LinearOrder Q.parts := LinearOrder.lift' (Fintype.equivFin Q.parts)
     (Fintype.equivFin Q.parts).injective
   choose T hrev hkeep hprop using S.exists_local_refinement_recoloring hQP hδ hηδ hsize
-  obtain ⟨R, hRrev, hlocal⟩ := S.exists_cellwise_refinement_recoloring Q order T hrev
+  obtain ⟨R, hRrev, hlocal⟩ := S.exists_cellwise_recoloring Q order T hrev
   refine ⟨R, hRrev, fun A hA B hB hAB A' hA' hA'A B' hB' hB'B ↦ ?_, ?_⟩
   · have hpA : refinementParent hQP ⟨A', hA'⟩ = ⟨A, hA⟩ := (refinementParent_eq_iff hQP).2 hA'A
     have hpB : refinementParent hQP ⟨B', hB'⟩ = ⟨B, hB⟩ := (refinementParent_eq_iff hQP).2 hB'B
     have hne : refinementParent hQP ⟨A', hA'⟩ ≠ refinementParent hQP ⟨B', hB'⟩ := by
       rw [hpA, hpB]; exact fun h ↦ hAB (congrArg Subtype.val h)
-    obtain ⟨hr, hd⟩ := S.isRegularPair_of_cellwise_refinement R hQP order T hRrev hlocal
+    obtain ⟨hr, hd⟩ := S.isRegularPair_of_cellwise Q order T R hlocal hRrev (fun _ _ ↦ Ne.symm)
+      (p := fun U W c ↦
+        (pairColorDensity S c (refinementParent hQP U).1 (refinementParent hQP W).1 : ℝ))
+      (fun U W c _ ↦ congrArg Rat.cast (pairColorDensity_swap S c _ _))
       (fun U W h ↦ ⟨(hprop U W h).1, (hprop U W h).2.1⟩) hne
     exact ⟨hr, fun c ↦ by simpa only [hpA, hpB] using hd c⟩
   · have hcover : (univ.filter fun q : V × V ↦ R.colorOfPair q.1 q.2 ≠ S.colorOfPair q.1 q.2) ⊆
@@ -722,48 +420,6 @@ end RefinementRecoloring
 section Main
 
 variable {κ V : Type*} [Fintype V] [DecidableEq V]
-
-/-- Counting edited distinct pairs in `{p : V × V // p.1 ≠ p.2}` agrees with counting edited pairs
-in `V × V` via `PairColorSystem.colorOfPair`. -/
-theorem card_color_ne_eq_card_colorOfPair_ne {κ' : Type*} (S : PairColorSystem κ V)
-    (T : PairColorSystem κ' V) (g : κ → κ')
-    [DecidablePred fun q : {p : V × V // p.1 ≠ p.2} ↦ T.color q ≠ g (S.color q)]
-    [DecidablePred fun p : V × V ↦ T.colorOfPair p.1 p.2 ≠ (S.colorOfPair p.1 p.2).map g] :
-    #{q : {p : V × V // p.1 ≠ p.2} | T.color q ≠ g (S.color q)} =
-      #{p : V × V | T.colorOfPair p.1 p.2 ≠ (S.colorOfPair p.1 p.2).map g} := by
-  refine card_bij (fun q _ ↦ q.1) (fun q hq ↦ ?_) (fun _ _ _ _ h ↦ Subtype.ext h)
-    (fun p hp ↦ ?_)
-  · simp only [mem_filter, mem_univ, true_and] at hq ⊢
-    rwa [T.colorOfPair_of_ne q.2, S.colorOfPair_of_ne q.2, Option.map_some, ne_eq, Option.some_inj]
-  · simp only [mem_filter, mem_univ, true_and] at hp
-    have hpne : p.1 ≠ p.2 := fun h ↦ hp (by simp [h])
-    refine ⟨⟨p, hpne⟩, mem_filter.2 ⟨mem_univ _, ?_⟩, rfl⟩
-    rwa [T.colorOfPair_of_ne hpne, S.colorOfPair_of_ne hpne, Option.map_some, ne_eq,
-      Option.some_inj] at hp
-
-open Classical in
-/-- On an equipartition `P`, `PairColorSystem.fillDiagonal` edits at most `|V|² / #P.parts` ordered
-vertex pairs. -/
-theorem card_fillDiagonal_colorOfPair_ne_le_of_isEquipartition (S : PairColorSystem κ V)
-    {P : Finpartition (univ : Finset V)} (hP : P.IsEquipartition) :
-    (#{p : V × V | (S.fillDiagonal P).colorOfPair p.1 p.2 ≠
-        (S.colorOfPair p.1 p.2).map some} : ℝ) ≤ (Fintype.card V : ℝ) ^ 2 / #P.parts := by
-  classical
-  have hnat : ∑ A ∈ P.parts, #A * (#A - 1) ≤ Fintype.card V * (Fintype.card V / #P.parts) := by
-    calc ∑ A ∈ P.parts, #A * (#A - 1)
-        ≤ ∑ A ∈ P.parts, #A * (Fintype.card V / #P.parts) := sum_le_sum fun A hA ↦ by
-          have hA1 := hP.card_part_le_average_add_one hA
-          rw [card_univ] at hA1
-          exact Nat.mul_le_mul_left _ (Nat.sub_le_iff_le_add.2 hA1)
-      _ = (∑ A ∈ P.parts, #A) * (Fintype.card V / #P.parts) := (sum_mul _ _ _).symm
-      _ = Fintype.card V * (Fintype.card V / #P.parts) := by rw [P.sum_card_parts, card_univ]
-  rw [S.card_fillDiagonal_colorOfPair_ne P]
-  calc ((∑ A ∈ P.parts, #A * (#A - 1) : ℕ) : ℝ)
-      ≤ ((Fintype.card V * (Fintype.card V / #P.parts) : ℕ) : ℝ) := mod_cast hnat
-    _ = (Fintype.card V : ℝ) * ((Fintype.card V / #P.parts : ℕ) : ℝ) := by push_cast; rfl
-    _ ≤ (Fintype.card V : ℝ) * ((Fintype.card V : ℝ) / #P.parts) :=
-        mul_le_mul_of_nonneg_left (Nat.cast_div_le) (Nat.cast_nonneg _)
-    _ = (Fintype.card V : ℝ) ^ 2 / #P.parts := by ring
 
 /-- Extract the fine-cell size threshold from `pairColorApproximationFloor`. -/
 private theorem fine_part_size_of_floor {k l m₀ m : ℕ} {ε : ℝ} {F : ℕ → ℝ}
@@ -845,13 +501,13 @@ private theorem isPairColorRegular_fillDiagonal_of_refinement {k : ℕ} {ε : �
       ∀ A ∈ P.parts, ∀ B ∈ P.parts, A ≠ B → ∀ c,
         |(pairColorDensity (R.fillDiagonal P) c A B : ℝ) -
           c.elim 0 (fun c ↦ (pairColorDensity S c A B : ℝ))| ≤ min ε (F #P.parts) := by
-  let δ := pairColorApproxScale ε F #P.parts
+  set δ := pairColorApproxScale ε F #P.parts with hδdef
   have hδ : 0 < δ := pairColorApproxScale_pos hε hF
   have hτ : 0 < min ε (F #P.parts) := lt_min hε hF
   have h4δ : 4 * δ ≤ min ε (F #P.parts) := by
     have hp := (pow_le_of_le_one (le_min zero_le_one hτ.le) (min_le_left _ _) (n := 3)
       (by norm_num)).trans (min_le_right 1 _)
-    rw [show δ = _ from pairColorApproxScale_def ε F #P.parts]; linarith
+    rw [hδdef, pairColorApproxScale_def]; linarith
   have hlarge (A : Finset V) (hA : A ∈ P.parts) : 1 < F #P.parts * #A := by
     obtain ⟨A', hA', hA'A⟩ := exists_le_of_le hQP hA
     have hk1 : (1 : ℝ) ≤ (k + 1 : ℝ) ^ 3 :=
@@ -869,7 +525,7 @@ private theorem isPairColorRegular_fillDiagonal_of_refinement {k : ℕ} {ε : �
         ((hRfine A hA B hB hAB A' hA' hA'A B' hB' hB'B).2 c).trans (by linarith))).mono
       (min_le_right _ _)
     have hp := pow_le_pow_left₀ (by positivity) (min_le_right 1 (min ε (F #P.parts))) 3
-    rw [pairColorApproxScale_def]; linarith
+    rw [hδdef, pairColorApproxScale_def]; linarith
   refine ⟨R.isPairColorRegular_fillDiagonal P hlarge hRreg, fun A hA B hB hAB c ↦ ?_⟩
   rw [R.pairColorDensity_fillDiagonal_of_ne P hA hB hAB subset_rfl subset_rfl]
   cases c with
@@ -907,6 +563,8 @@ theorem exists_regular_approximation [Fintype κ] (S : PairColorSystem κ V)
   classical
   let k := Fintype.card κ
   let t₀ := max l ⌈4 / ε⌉₊
+  -- Phase 1: split each seed cell equitably into `t₀ = max l ⌈4 / ε⌉₊` parts so `#P.parts` meets
+  -- both `l` and the `⌈4 / ε⌉₊` diagonal-cleanup threshold.
   have hVpos : 0 < Fintype.card V :=
     (one_le_pairColorApproximationFloor k ε F l #P₀.parts).trans hcard
   have hne_univ : (univ : Finset V).Nonempty := card_pos.1 (by rwa [card_univ])
@@ -914,6 +572,8 @@ theorem exists_regular_approximation [Fintype κ] (S : PairColorSystem κ V)
   have ht₀_pos : 1 ≤ t₀ := (Nat.one_le_ceil_iff.2 (by positivity)).trans (le_max_right l _)
   obtain ⟨P₁, hP₁, hP₁card, hP₁P₀, -⟩ := hP₀.exists_refining_equipartition_card_eq_mul P₀ le_rfl
     (by omega : t₀ ≠ 0) (by rw [card_univ]; exact (le_max_left _ _).trans hcard)
+  -- Phase 2: apply two-scale strong regularity on `P₁` to obtain equipartitions `Q ≤ P ≤ P₁` with
+  -- energy gap at most `ε² / (4 (k + 1))` and small fine irregular mass.
   obtain ⟨P, Q, hQP, hPP₁, hP, hQ, hPcard, hQcard, hgap, hirr⟩ := S.exists_strong_equipartition P₁
     hP₁ (g := ε ^ 2 / (4 * (k + 1 : ℝ))) (by positivity)
     (fun m ↦ pairColorApproxFineSchedule_pos k hε (hF m))
@@ -921,6 +581,8 @@ theorem exists_regular_approximation [Fintype κ] (S : PairColorSystem κ V)
     rwa [hP₁card] at hPcard
   have ht₀_P : t₀ ≤ #P.parts :=
     (Nat.le_mul_of_pos_right t₀ hP₀_pos).trans (hP₁card.symm.trans_le (card_mono hPP₁))
+  -- Phase 3: recolor off-diagonal fine blocks of `Q ≤ P` toward the coarse densities of `P`,
+  -- coupling on regular fine blocks and resampling independently on irregular fine blocks.
   let δ := pairColorApproxScale ε F #P.parts
   have hδ : 0 < δ := pairColorApproxScale_pos hε (hF #P.parts)
   have hsize : ∀ A' ∈ Q.parts, 8 * (k + 1 : ℝ) ^ 3 ≤ δ ^ 6 * #A' := fun _ hA' ↦
@@ -930,25 +592,18 @@ theorem exists_regular_approximation [Fintype κ] (S : PairColorSystem κ V)
       div_le_div_iff₀ (by positivity) (by norm_num)]
     nlinarith [show 0 ≤ δ ^ 3 by positivity]
   obtain ⟨R, hRrev, hRfine, hRedit⟩ := S.exists_recoloring_of_refinement hQP hδ hηδ hsize
+  -- Phase 4: amalgamate the fine `(2 * δ)`-regular blocks onto `P` and fill diagonal coarse cells.
   obtain ⟨hTreg, hTdens⟩ :=
     isPairColorRegular_fillDiagonal_of_refinement S R hQP hε (hF #P.parts) hsize hRfine
   refine ⟨P, R.fillDiagonal P, hPP₁.trans hP₁P₀, hP, (le_max_left l _).trans ht₀_P, hmM,
     funext fun c ↦ by simp [hRrev], hTreg, hTdens, ?_⟩
-  have hsub : (univ.filter fun p : V × V ↦ (R.fillDiagonal P).colorOfPair p.1 p.2 ≠
-        (S.colorOfPair p.1 p.2).map some) ⊆
-      (univ.filter fun p : V × V ↦ R.colorOfPair p.1 p.2 ≠ S.colorOfPair p.1 p.2) ∪
-        (univ.filter fun p : V × V ↦ (R.fillDiagonal P).colorOfPair p.1 p.2 ≠
-          (R.colorOfPair p.1 p.2).map some) := fun p hp ↦ by
-    simp only [mem_union, mem_filter, mem_univ, true_and] at hp ⊢
-    by_cases h : R.colorOfPair p.1 p.2 = S.colorOfPair p.1 p.2
-    · exact Or.inr (by simpa only [h] using hp)
-    · exact Or.inl h
+  -- Phase 5: bound total pair edits by off-diagonal recoloring edits plus diagonal cleanup edits.
   have htri : (#{p : V × V | (R.fillDiagonal P).colorOfPair p.1 p.2 ≠
         (S.colorOfPair p.1 p.2).map some} : ℝ) ≤
       (#{p : V × V | R.colorOfPair p.1 p.2 ≠ S.colorOfPair p.1 p.2} : ℝ) +
         (#{p : V × V | (R.fillDiagonal P).colorOfPair p.1 p.2 ≠
           (R.colorOfPair p.1 p.2).map some} : ℝ) :=
-    mod_cast (card_le_card hsub).trans (card_union_le _ _)
+    mod_cast S.card_fillDiagonal_colorOfPair_ne_le_add P R
   have hdiag := R.card_fillDiagonal_colorOfPair_ne_le_of_isEquipartition hP
   have hbud := approx_edit_budget_le (Fintype.card V : ℝ) hε (hF #P.parts)
     (sub_nonneg.2 (S.energy_mono_of_refines hQP)) hgap ((le_max_right l _).trans ht₀_P)

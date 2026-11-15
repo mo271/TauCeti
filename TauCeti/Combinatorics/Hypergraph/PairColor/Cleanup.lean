@@ -25,7 +25,10 @@ vertex partition, with one fresh reversal-fixed color. The edit bound charges ir
 rectangles and within-cell distinct pairs separately. These constructions are used to replace
 a lower skeleton that is regular outside a small exceptional set by an everywhere regular one.
 
-The two existence theorems are `PairColorSystem.exists_recoloring_regular_offDiag` and
+The cellwise gluing and regularity-transfer helpers `PairColorSystem.exists_cellwise_recoloring`
+and `PairColorSystem.isRegularPair_of_cellwise` assemble local block recolorings along a linear
+order on `P.parts` and transfer regularity and target-density bounds to both orientations. The two
+main existence theorems are `PairColorSystem.exists_recoloring_regular_offDiag` and
 `PairColorSystem.exists_recoloring_isPairColorRegular`. Neither requires equitable cells;
 the size assumption depends only on the tolerance and the size of the original palette.
 
@@ -70,7 +73,9 @@ private theorem exists_local_recoloring [Fintype κ] (hε : 0 < ε)
 
 variable (order : LinearOrder P.parts) (T : P.parts → P.parts → PairColorSystem κ V)
 
-private theorem exists_cellwise_recoloring
+/-- Symmetrically glue local block pair-color systems `T A B` with common palette reversal `S.rev`
+along a linear order on `P.parts`, selecting `T (min A B) (max A B)` on `A ×ˢ B`. -/
+theorem exists_cellwise_recoloring
     (hrev : ∀ A B, (T A B).rev = S.rev) :
     ∃ R : PairColorSystem κ V, R.rev = S.rev ∧
       ∀ A B : P.parts, order.le A B → ∀ x ∈ A.1, ∀ y ∈ B.1,
@@ -126,31 +131,39 @@ private theorem recoloring_agrees (hRrev : R.rev = S.rev)
       x (P.mem_part_self.2 (mem_univ _)), hkeep _ _ (hgood.imp Eq.symm IsRegularPair.symm)]
 
 include hlocal in
-private theorem regular_density_of_cellwise (hRrev : R.rev = S.rev)
-    (hreg : ∀ A B : P.parts, A ≠ B → (T A B).IsRegularPair (2 * ε) A B ∧
-      ∀ c, |(pairColorDensity (T A B) c A B : ℝ) - pairColorDensity S c A B| ≤ ε)
-    (A B : P.parts) (hne : A ≠ B) : R.IsRegularPair (2 * ε) A B ∧
-      ∀ c, |(pairColorDensity R c A B : ℝ) - pairColorDensity S c A B| ≤ ε := by
+/-- Transfer `η`-regularity and target-density accuracy `δ` from local systems `T A B` glued along
+`order` to both orientations of `R`, for any symmetric cell-pair predicate `good` and
+reversal-equivariant target densities `p`. -/
+theorem isRegularPair_of_cellwise (hRrev : R.rev = S.rev)
+    {good : P.parts → P.parts → Prop} (hgood_symm : ∀ A B, good A B → good B A)
+    {p : P.parts → P.parts → κ → ℝ} (hp_rev : ∀ A B c, good A B → p B A (S.rev c) = p A B c)
+    {η δ : ℝ}
+    (hreg : ∀ A B : P.parts, good A B → (T A B).IsRegularPair η A.1 B.1 ∧
+      ∀ c, |(pairColorDensity (T A B) c A.1 B.1 : ℝ) - p A B c| ≤ δ)
+    {A B : P.parts} (hAB : good A B) :
+    R.IsRegularPair η A.1 B.1 ∧
+      ∀ c, |(pairColorDensity R c A.1 B.1 : ℝ) - p A B c| ≤ δ := by
   let : LinearOrder P.parts := order
   let : LE P.parts := order.toLE
-  have hdensity (A B : P.parts) (hAB : A ≤ B) {s t : Finset V} (hs : s ⊆ A.1)
+  have hdensity (A B : P.parts) (hle : A ≤ B) {s t : Finset V} (hs : s ⊆ A.1)
       (ht : t ⊆ B.1) (c : κ) : pairColorDensity R c s t = pairColorDensity (T A B) c s t :=
-    pairColorDensity_congr (fun x hx y hy ↦ hlocal A B hAB x (hs hx) y (ht hy)) c
-  have hregular (A B : P.parts) (hAB : A ≤ B) (hne : A ≠ B) :
-      R.IsRegularPair (2 * ε) A B := by
+    pairColorDensity_congr (fun x hx y hy ↦ hlocal A B hle x (hs hx) y (ht hy)) c
+  have hregular (A B : P.parts) (hle : A ≤ B) (hgood : good A B) :
+      R.IsRegularPair η A.1 B.1 := by
     apply isRegularPair_iff.2
     intro c s hs t ht hsc htc
-    rw [hdensity A B hAB hs ht, hdensity A B hAB (Subset.refl _) (Subset.refl _)]
-    exact isRegularPair_iff.1 (hreg A B hne).1 c s hs t ht hsc htc
+    rw [hdensity A B hle hs ht, hdensity A B hle (Subset.refl _) (Subset.refl _)]
+    exact isRegularPair_iff.1 (hreg A B hgood).1 c s hs t ht hsc htc
   rcases le_total A B with hle | hle
-  · refine ⟨hregular A B hle hne, fun c ↦ ?_⟩
+  · refine ⟨hregular A B hle hAB, fun c ↦ ?_⟩
     rw [hdensity A B hle (Subset.refl _) (Subset.refl _)]
-    exact (hreg A B hne).2 c
-  · refine ⟨(hregular B A hle hne.symm).symm, fun c ↦ ?_⟩
-    have he := (hreg B A hne.symm).2 (S.rev c)
-    rw [← hdensity B A hle (Subset.refl _) (Subset.refl _)] at he
-    have he' : |(pairColorDensity R (R.rev c) B A : ℝ) -
-        pairColorDensity S (S.rev c) B A| ≤ ε := by simpa only [hRrev] using he
+    exact (hreg A B hAB).2 c
+  · have hBA : good B A := hgood_symm A B hAB
+    refine ⟨(hregular B A hle hBA).symm, fun c ↦ ?_⟩
+    have he := (hreg B A hBA).2 (S.rev c)
+    rw [← hdensity B A hle (Subset.refl _) (Subset.refl _), hp_rev A B c hAB] at he
+    have he' : |(pairColorDensity R (R.rev c) B.1 A.1 : ℝ) - p A B c| ≤ δ := by
+      simpa only [hRrev] using he
     simpa only [pairColorDensity_swap] using he'
 
 open Classical in
@@ -192,12 +205,14 @@ theorem exists_recoloring_regular_offDiag [Fintype κ] (hε : 0 < ε)
   choose T hrev hkeep hreg using S.exists_local_recoloring P hε hsize
   obtain ⟨R, hRrev, hlocal⟩ := S.exists_cellwise_recoloring P order T hrev
   have hagree := S.recoloring_agrees P order T R hlocal hRrev hkeep
-  have hpairs := S.regular_density_of_cellwise P order T R hlocal hRrev hreg
+  have hpairs {A B : P.parts} (hne : A ≠ B) :=
+    S.isRegularPair_of_cellwise P order T R hlocal hRrev (fun _ _ ↦ Ne.symm)
+      (fun U W c _ ↦ congrArg Rat.cast (pairColorDensity_swap S c U.1 W.1)) hreg hne
   refine ⟨R, hRrev, hagree, ?_, ?_, S.card_edits_le_irregularPairs P R hagree⟩
   · intro A hA B hB hne
-    exact (hpairs ⟨A, hA⟩ ⟨B, hB⟩ (fun h ↦ hne (congrArg Subtype.val h))).1
+    exact (hpairs (A := ⟨A, hA⟩) (B := ⟨B, hB⟩) (fun h ↦ hne (congrArg Subtype.val h))).1
   · intro A hA B hB hne
-    exact (hpairs ⟨A, hA⟩ ⟨B, hB⟩ (fun h ↦ hne (congrArg Subtype.val h))).2
+    exact (hpairs (A := ⟨A, hA⟩) (B := ⟨B, hB⟩) (fun h ↦ hne (congrArg Subtype.val h))).2
 
 open Classical in
 /-- Replace a lower skeleton by an everywhere regular one on the same cells. The palette
@@ -232,18 +247,8 @@ theorem exists_recoloring_isPairColorRegular [Fintype κ] (hε : 0 < ε)
     cases c with
     | none => simp [hε.le]
     | some c => simpa only [Option.elim_some] using hdens A hA B hB hAB c
-  · have hsub : (univ.filter fun p : V × V ↦ (R.fillDiagonal P).colorOfPair p.1 p.2 ≠
-          (S.colorOfPair p.1 p.2).map some) ⊆
-        (univ.filter fun p : V × V ↦ R.colorOfPair p.1 p.2 ≠ S.colorOfPair p.1 p.2) ∪
-          (univ.filter fun p : V × V ↦ (R.fillDiagonal P).colorOfPair p.1 p.2 ≠
-            (R.colorOfPair p.1 p.2).map some) := by
-      intro p hp
-      simp only [mem_union, mem_filter, mem_univ, true_and] at hp ⊢
-      by_cases h : R.colorOfPair p.1 p.2 = S.colorOfPair p.1 p.2
-      · exact Or.inr (by simpa only [h] using hp)
-      · exact Or.inl h
-    exact (card_le_card hsub).trans (card_union_le _ _ |>.trans
-      (add_le_add hedit (R.card_fillDiagonal_colorOfPair_ne P).le))
+  · exact (S.card_fillDiagonal_colorOfPair_ne_le_add P R).trans
+      (add_le_add hedit (R.card_fillDiagonal_colorOfPair_ne P).le)
 
 end PairColorSystem
 
