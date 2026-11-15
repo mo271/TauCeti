@@ -12,6 +12,7 @@ import TauCeti.Analysis.SpecialFunctions.Exp.Periodic
 import TauCeti.Data.Int.MulPred
 import TauCeti.LinearAlgebra.Matrix.SpecialLinearGroup.Basic
 import TauCeti.LinearAlgebra.Matrix.SpecialLinearGroup.ModularGroup
+import TauCeti.NumberTheory.LegendreSymbol.Complex
 import TauCeti.NumberTheory.Modular.ConjugateTranslation
 
 /-!
@@ -190,29 +191,6 @@ private noncomputable def kroneckerEvenForm (γ : SL(2, ℤ)) : ℂ :=
 private noncomputable def kroneckerForm (γ : SL(2, ℤ)) : ℂ :=
   if Odd (γ 1 0) then kroneckerOddForm γ else kroneckerEvenForm γ
 
-private theorem isCoprime_eight_three : IsCoprime (8 : ℤ) 3 :=
-  ⟨2, -5, by norm_num⟩
-
-private theorem chi4_mul_cexp_pi_mul_I_div_twelve {x y d : ℤ} (hd : Odd d)
-    (hdvd : 24 ∣ x - y + 6 * (d - 1)) :
-    (χ₄ d : ℂ) * cexp (π * I * (x : ℂ) / 12) = cexp (π * I * (y : ℂ) / 12) := by
-  obtain ⟨k, hk⟩ := hd
-  rcases (by omega : d % 4 = 1 ∨ d % 4 = 3) with hd1 | hd3
-  · have h6 : (24 : ℤ) ∣ 6 * (d - 1) :=
-      ⟨d / 4, by omega⟩
-    have hxy : (2 * 12 : ℤ) ∣ x - y := by simpa using dvd_sub hdvd h6
-    rw [ZMod.χ₄_int_one_mod_four hd1, Int.cast_one, one_mul]
-    exact Complex.exp_pi_mul_I_mul_div_eq_of_dvd (n := 12) hxy
-  · have h6 : (24 : ℤ) ∣ 6 * (d - 1) + 12 :=
-      ⟨d / 4 + 1, by omega⟩
-    have hxy : (2 * 12 : ℤ) ∣ x - y - 12 := by
-      have hsub := dvd_sub hdvd h6
-      rwa [show x - y + 6 * (d - 1) - (6 * (d - 1) + 12) = x - y - 12 by ring,
-        show (24 : ℤ) = 2 * 12 by norm_num] at hsub
-    have hexp : cexp (π * I * (x : ℂ) / 12) = -cexp (π * I * (y : ℂ) / 12) :=
-      Complex.exp_pi_mul_I_mul_div_eq_neg_of_dvd (n := 12) (by norm_num) hxy
-    rw [ZMod.χ₄_int_three_mod_four hd3, Int.cast_neg, Int.cast_one, hexp, neg_one_mul, neg_neg]
-
 private theorem kroneckerOddForm_mul_T (γ : SL(2, ℤ)) (hc : 0 < γ 1 0) (hodd : Odd (γ 1 0)) :
     kroneckerOddForm (γ * T) = cexp (π * I / 12) * kroneckerOddForm γ := by
   have hcodd : Odd (γ 1 0).natAbs := Int.natAbs_odd.mpr hodd
@@ -241,18 +219,52 @@ private theorem kroneckerOddForm_mul_T (γ : SL(2, ℤ)) (hc : 0 < γ 1 0) (hodd
     Int.cast_add, Int.cast_one, mul_add, mul_one, add_div, Complex.exp_add]
   ring
 
-private theorem kroneckerEvenForm_mul_T (γ : SL(2, ℤ)) (heven : Even (γ 1 0)) :
-    kroneckerEvenForm (γ * T) = cexp (π * I / 12) * kroneckerEvenForm γ := by
-  have hdiff : evenPhaseInt (γ 0 0) (γ 0 0 + γ 0 1) (γ 1 0) (γ 1 0 + γ 1 1) -
+private theorem evenPhaseInt_mul_T_sub (γ : SL(2, ℤ)) :
+    evenPhaseInt (γ 0 0) (γ 0 0 + γ 0 1) (γ 1 0) (γ 1 0 + γ 1 1) -
       (evenPhaseInt (γ 0 0) (γ 0 1) (γ 1 0) (γ 1 1) + 1) =
       -(γ 0 0 + 2 * γ 0 1) * (γ 1 0 * (γ 1 0 ^ 2 - 1)) - 3 * γ 1 0 * (γ 1 0 - 1) := by
-    unfold evenPhaseInt
-    linear_combination -((γ 1 0) ^ 2 - 1) * γ.fin_two_mul_sub_mul_eq_one
-  have h3 : 3 ∣ evenPhaseInt (γ 0 0) (γ 0 0 + γ 0 1) (γ 1 0) (γ 1 0 + γ 1 1) -
+  unfold evenPhaseInt
+  linear_combination -(γ 1 0 ^ 2 - 1) * γ.fin_two_mul_sub_mul_eq_one
+
+private theorem three_dvd_evenPhaseInt_mul_T_sub (γ : SL(2, ℤ)) :
+    3 ∣ evenPhaseInt (γ 0 0) (γ 0 0 + γ 0 1) (γ 1 0) (γ 1 0 + γ 1 1) -
       (evenPhaseInt (γ 0 0) (γ 0 1) (γ 1 0) (γ 1 1) + 1) := by
-    rw [hdiff]
-    exact dvd_sub (dvd_mul_of_dvd_right (Int.three_dvd_mul_sq_sub_one _) _)
-      ⟨γ 1 0 * (γ 1 0 - 1), by ring⟩
+  rw [evenPhaseInt_mul_T_sub]
+  exact dvd_sub (dvd_mul_of_dvd_right (Int.three_dvd_mul_sq_sub_one _) _)
+    ⟨γ 1 0 * (γ 1 0 - 1), by ring⟩
+
+private theorem eight_dvd_evenPhaseInt_mul_T_sub_of_emod_four_eq_zero {γ : SL(2, ℤ)}
+    (hc0 : γ 1 0 % 4 = 0) :
+    8 ∣ evenPhaseInt (γ 0 0) (γ 0 0 + γ 0 1) (γ 1 0) (γ 1 0 + γ 1 1) -
+      (evenPhaseInt (γ 0 0) (γ 0 1) (γ 1 0) (γ 1 1) + 1) := by
+  have heven : Even (γ 1 0) := ⟨γ 1 0 / 2, by omega⟩
+  obtain ⟨qa, ha_eq⟩ :=
+    Matrix.SpecialLinearGroup.odd_apply_zero_zero_of_even_apply_one_zero heven
+  let qc := γ 1 0 / 4
+  have hc_eq : γ 1 0 = 4 * qc := by omega
+  rw [evenPhaseInt_mul_T_sub, hc_eq, ha_eq]
+  exact ⟨-qc * (4 * qc - 1) * ((qa + γ 0 1) * (4 * qc + 1) + 2 * qc + 2), by ring⟩
+
+private theorem eight_dvd_evenPhaseInt_mul_T_sub_add_of_emod_four_eq_two {γ : SL(2, ℤ)}
+    (hc2 : γ 1 0 % 4 = 2) :
+    8 ∣ evenPhaseInt (γ 0 0) (γ 0 0 + γ 0 1) (γ 1 0) (γ 1 0 + γ 1 1) -
+      (evenPhaseInt (γ 0 0) (γ 0 1) (γ 1 0) (γ 1 1) + 1) + 6 * (-γ 1 1 - 1) := by
+  have heven : Even (γ 1 0) := ⟨γ 1 0 / 2, by omega⟩
+  obtain ⟨qa, ha_eq⟩ :=
+    Matrix.SpecialLinearGroup.odd_apply_zero_zero_of_even_apply_one_zero heven
+  obtain ⟨qd, hd_eq⟩ :=
+    Matrix.SpecialLinearGroup.odd_apply_one_one_of_even_apply_one_zero heven
+  let qc := γ 1 0 / 4
+  have hc_eq : γ 1 0 = 4 * qc + 2 := by omega
+  have hdet := γ.fin_two_mul_sub_mul_eq_one
+  rw [evenPhaseInt_mul_T_sub]
+  rw [ha_eq, hc_eq, hd_eq] at hdet ⊢
+  exact ⟨-(((2 * qa + 1) + 2 * γ 0 1) * (4 * qc + 2) + 3) * (2 * qc * (qc + 1)) +
+      3 * (qd - qc) * qa - γ 0 1 * (6 * qc + 3) - 3,
+    by linear_combination -6 * hdet⟩
+
+private theorem kroneckerEvenForm_mul_T (γ : SL(2, ℤ)) (heven : Even (γ 1 0)) :
+    kroneckerEvenForm (γ * T) = cexp (π * I / 12) * kroneckerEvenForm γ := by
   have hc4 : γ 1 0 % 4 = 0 ∨ γ 1 0 % 4 = 2 := by obtain ⟨k, hk⟩ := heven; omega
   rw [kroneckerEvenForm, kroneckerEvenForm, γ.mul_T_apply_zero_zero, γ.mul_T_apply_zero_one,
     γ.mul_T_apply_one_zero, γ.mul_T_apply_one_one]
@@ -260,50 +272,35 @@ private theorem kroneckerEvenForm_mul_T (γ : SL(2, ℤ)) (heven : Even (γ 1 0)
   · have hmod : γ 1 0 ≡ 0 [ZMOD 4] := by rw [Int.ModEq]; omega
     have hk : kroneckerSym (γ 1 0) (γ 1 0 + γ 1 1) = kroneckerSym (γ 1 0) (γ 1 1) :=
       kroneckerSym_mod_right' (.inl hmod) (by simp)
-    obtain ⟨qa, ha_eq⟩ :=
-      Matrix.SpecialLinearGroup.odd_apply_zero_zero_of_even_apply_one_zero heven
-    let qc := γ 1 0 / 4
-    have hc_eq : γ 1 0 = 4 * qc := by omega
-    have h8 : 8 ∣ evenPhaseInt (γ 0 0) (γ 0 0 + γ 0 1) (γ 1 0) (γ 1 0 + γ 1 1) -
-        (evenPhaseInt (γ 0 0) (γ 0 1) (γ 1 0) (γ 1 1) + 1) := by
-      rw [hdiff, hc_eq, ha_eq]
-      exact ⟨-qc * (4 * qc - 1) * ((qa + γ 0 1) * (4 * qc + 1) + 2 * qc + 2), by ring⟩
     have hdvd : (2 * 12 : ℤ) ∣ evenPhaseInt (γ 0 0) (γ 0 0 + γ 0 1) (γ 1 0) (γ 1 0 + γ 1 1) -
         (evenPhaseInt (γ 0 0) (γ 0 1) (γ 1 0) (γ 1 1) + 1) := by
-      simpa using isCoprime_eight_three.mul_dvd h8 h3
-    have hexp :
-        cexp (π * I * (evenPhaseInt (γ 0 0) (γ 0 0 + γ 0 1) (γ 1 0) (γ 1 0 + γ 1 1) : ℂ) / 12) =
-          cexp (π * I * ((evenPhaseInt (γ 0 0) (γ 0 1) (γ 1 0) (γ 1 1) + 1 : ℤ) : ℂ) / 12) :=
-      Complex.exp_pi_mul_I_mul_div_eq_of_dvd (n := 12) hdvd
+      simpa using IsCoprime.mul_dvd ⟨2, -5, by norm_num⟩
+        (eight_dvd_evenPhaseInt_mul_T_sub_of_emod_four_eq_zero hc0)
+        (three_dvd_evenPhaseInt_mul_T_sub γ)
+    have hexp := Complex.exp_pi_mul_I_mul_div_eq_of_dvd (n := 12) hdvd
+    simp only [Int.cast_ofNat] at hexp
     rw [hk, hexp, Int.cast_add, Int.cast_one, mul_add, mul_one, add_div, Complex.exp_add]
     ring
   · have hmod : γ 1 0 ≡ 2 [ZMOD 4] := by rw [Int.ModEq]; omega
     have hk : kroneckerSym (γ 1 0) (γ 1 0 + γ 1 1) =
         χ₄ ((-γ 1 1 : ℤ) : ZMod 4) * kroneckerSym (γ 1 0) (γ 1 1) := by
       rw [add_comm (γ 1 0) (γ 1 1), kroneckerSym_add_self_right_of_modEq_two hmod (γ 1 1),
-        Int.cast_neg]
-      congr 1
-      generalize ((γ 1 1 : ℤ) : ZMod 4) = x
-      revert x
-      decide
+        Int.cast_neg, χ₄_neg]
     have hd_odd : Odd (-γ 1 1) :=
       odd_neg.mpr (Matrix.SpecialLinearGroup.odd_apply_one_one_of_even_apply_one_zero heven)
-    have h8 : 8 ∣ evenPhaseInt (γ 0 0) (γ 0 0 + γ 0 1) (γ 1 0) (γ 1 0 + γ 1 1) -
-        (evenPhaseInt (γ 0 0) (γ 0 1) (γ 1 0) (γ 1 1) + 1) + 6 * (-γ 1 1 - 1) := by
-      rw [hdiff]
-      refine (ZMod.intCast_zmod_eq_zero_iff_dvd _ 8).mp ?_
-      have hdet := γ.intCast_fin_two_mul_sub_mul_eq_one (R := ZMod 8)
-      have hc_eq : γ 1 0 = 4 * (γ 1 0 / 4) + 2 := by omega
-      rw [hc_eq] at hdet ⊢
-      push_cast at hdet ⊢
-      generalize ((γ 0 0 : ℤ) : ZMod 8) = a, ((γ 0 1 : ℤ) : ZMod 8) = b,
-        ((γ 1 0 / 4 : ℤ) : ZMod 8) = qc, ((γ 1 1 : ℤ) : ZMod 8) = d at hdet ⊢
-      revert a b qc d
-      decide
-    have h3' : 3 ∣ evenPhaseInt (γ 0 0) (γ 0 0 + γ 0 1) (γ 1 0) (γ 1 0 + γ 1 1) -
+    have h24 : 24 ∣ evenPhaseInt (γ 0 0) (γ 0 0 + γ 0 1) (γ 1 0) (γ 1 0 + γ 1 1) -
         (evenPhaseInt (γ 0 0) (γ 0 1) (γ 1 0) (γ 1 1) + 1) + 6 * (-γ 1 1 - 1) :=
-      dvd_add h3 ⟨2 * (-γ 1 1 - 1), by ring⟩
-    have hexp := chi4_mul_cexp_pi_mul_I_div_twelve hd_odd (isCoprime_eight_three.mul_dvd h8 h3')
+      IsCoprime.mul_dvd ⟨2, -5, by norm_num⟩
+        (eight_dvd_evenPhaseInt_mul_T_sub_add_of_emod_four_eq_two hc2)
+        (dvd_add (three_dvd_evenPhaseInt_mul_T_sub γ) ⟨2 * (-γ 1 1 - 1), by ring⟩)
+    have hdvd : (4 * 12 : ℤ) ∣
+        2 * (evenPhaseInt (γ 0 0) (γ 0 0 + γ 0 1) (γ 1 0) (γ 1 0 + γ 1 1) -
+          (evenPhaseInt (γ 0 0) (γ 0 1) (γ 1 0) (γ 1 1) + 1)) + 12 * (-γ 1 1 - 1) := by
+      obtain ⟨k, hk⟩ := h24
+      exact ⟨k, by linear_combination 2 * hk⟩
+    have hexp :=
+      ZMod.χ₄_intCast_mul_exp_pi_mul_I_mul_div_eq_of_odd_of_dvd (n := 12) hd_odd (by norm_num) hdvd
+    simp only [Int.cast_ofNat] at hexp
     rw [hk, Int.cast_mul, mul_right_comm, hexp, Int.cast_add, Int.cast_one, mul_add, mul_one,
       add_div, Complex.exp_add]
     ring
@@ -383,12 +380,15 @@ private theorem kroneckerOddForm_eq_kroneckerEvenForm (γ : SL(2, ℤ)) (hc : 0 
     let qc := γ 1 0 / 4
     rcases id hdodd with ⟨qd, hqd⟩
     have hc_eq : γ 1 0 = 4 * qc + 3 := by omega
-    have hdvd : 24 ∣ oddPhaseInt (γ 0 0) (γ 0 1) (γ 1 0) (γ 1 1) -
-        evenPhaseInt (γ 0 0) (γ 0 1) (γ 1 0) (γ 1 1) + 6 * (γ 1 1 - 1) := by
+    have hdvd : (4 * 12 : ℤ) ∣ 2 * (oddPhaseInt (γ 0 0) (γ 0 1) (γ 1 0) (γ 1 1) -
+        evenPhaseInt (γ 0 0) (γ 0 1) (γ 1 0) (γ 1 1)) + 12 * (γ 1 1 - 1) := by
       unfold oddPhaseInt evenPhaseInt
       rw [hc_eq, hqd]
       exact ⟨(qc + 1) * qd, by ring⟩
-    rw [hk, Int.cast_mul, mul_right_comm, chi4_mul_cexp_pi_mul_I_div_twelve hdodd hdvd, mul_comm]
+    have hexp :=
+      ZMod.χ₄_intCast_mul_exp_pi_mul_I_mul_div_eq_of_odd_of_dvd (n := 12) hdodd (by norm_num) hdvd
+    simp only [Int.cast_ofNat] at hexp
+    rw [hk, Int.cast_mul, mul_right_comm, hexp, mul_comm]
 
 private theorem kroneckerOddForm_mul_S_of_even (γ : SL(2, ℤ)) (hd : 0 < γ 1 1) :
     cexp (π * I / 4) * kroneckerEvenForm (γ * S) = kroneckerOddForm γ := by
@@ -414,22 +414,24 @@ private theorem kroneckerEvenForm_mul_S_of_odd (γ : SL(2, ℤ)) (hc : γ 1 0 �
   have hk : kroneckerSym (-γ 1 0) (γ 1 1) = χ₄ (γ 1 1) * kroneckerSym (γ 1 0) (γ 1 1) := by
     rw [neg_eq_neg_one_mul, kroneckerSym_mul_left (by norm_num) hc,
       kroneckerSym_neg_one_left_of_odd hdodd]
-  have hdvd : 24 ∣ (oddPhaseInt (γ 0 1) (-γ 0 0) (γ 1 1) (-γ 1 0) + 3) -
-      evenPhaseInt (γ 0 0) (γ 0 1) (γ 1 0) (γ 1 1) + 6 * (γ 1 1 - 1) := by
-    have hz : (oddPhaseInt (γ 0 1) (-γ 0 0) (γ 1 1) (-γ 1 0) + 3) -
-        evenPhaseInt (γ 0 0) (γ 0 1) (γ 1 0) (γ 1 1) + 6 * (γ 1 1 - 1) = 0 := by
+  have hdvd : (4 * 12 : ℤ) ∣ 2 * ((oddPhaseInt (γ 0 1) (-γ 0 0) (γ 1 1) (-γ 1 0) + 3) -
+      evenPhaseInt (γ 0 0) (γ 0 1) (γ 1 0) (γ 1 1)) + 12 * (γ 1 1 - 1) := by
+    have hz : 2 * ((oddPhaseInt (γ 0 1) (-γ 0 0) (γ 1 1) (-γ 1 0) + 3) -
+        evenPhaseInt (γ 0 0) (γ 0 1) (γ 1 0) (γ 1 1)) + 12 * (γ 1 1 - 1) = 0 := by
       unfold oddPhaseInt evenPhaseInt
-      linear_combination -γ 1 0 * γ 1 1 * γ.fin_two_mul_sub_mul_eq_one
+      linear_combination -2 * γ 1 0 * γ 1 1 * γ.fin_two_mul_sub_mul_eq_one
     rw [hz]
-    exact dvd_zero 24
+    exact dvd_zero _
   have hexp1 : cexp (π * I / 4) *
       cexp (π * I * (oddPhaseInt (γ 0 1) (-γ 0 0) (γ 1 1) (-γ 1 0) : ℂ) / 12) =
       cexp (π * I * ((oddPhaseInt (γ 0 1) (-γ 0 0) (γ 1 1) (-γ 1 0) + 3 : ℤ) : ℂ) / 12) := by
     rw [← Complex.exp_add]; congr 1; push_cast; ring
+  have hexp2 :=
+    ZMod.χ₄_intCast_mul_exp_pi_mul_I_mul_div_eq_of_odd_of_dvd (n := 12) hdodd (by norm_num) hdvd
+  simp only [Int.cast_ofNat] at hexp2
   rw [kroneckerOddForm, kroneckerEvenForm, γ.mul_S_apply_zero_zero, γ.mul_S_apply_zero_one,
     γ.mul_S_apply_one_zero, γ.mul_S_apply_one_one, hk, ← mul_assoc,
-    mul_comm (cexp (π * I / 4)), mul_assoc, hexp1, Int.cast_mul, mul_right_comm,
-    chi4_mul_cexp_pi_mul_I_div_twelve hdodd hdvd, mul_comm]
+    mul_comm (cexp (π * I / 4)), mul_assoc, hexp1, Int.cast_mul, mul_right_comm, hexp2, mul_comm]
 
 private theorem kroneckerForm_of_mul_S (γ : SL(2, ℤ)) (hc : 0 < γ 1 0) (hd : 0 < γ 1 1) :
     cexp (π * I / 4) * kroneckerForm (γ * S) = kroneckerForm γ := by
@@ -471,22 +473,25 @@ private theorem etaMultiplier_eq_kroneckerEvenForm_of_d_odd_c_neg (γ : SL(2, �
   have hk : kroneckerSym (-γ 1 0) (-γ 1 1) = χ₄ (γ 1 1) * kroneckerSym (γ 1 0) (γ 1 1) := by
     rw [kroneckerSym_neg_right_of_nonneg (by omega), neg_eq_neg_one_mul,
       kroneckerSym_mul_left (by norm_num) hc.ne, kroneckerSym_neg_one_left_of_odd hd]
-  have hdvd : 24 ∣ (evenPhaseInt (-γ 0 0) (-γ 0 1) (-γ 1 0) (-γ 1 1) + 6) -
-      evenPhaseInt (γ 0 0) (γ 0 1) (γ 1 0) (γ 1 1) + 6 * (γ 1 1 - 1) := by
-    have hz : (evenPhaseInt (-γ 0 0) (-γ 0 1) (-γ 1 0) (-γ 1 1) + 6) -
-        evenPhaseInt (γ 0 0) (γ 0 1) (γ 1 0) (γ 1 1) + 6 * (γ 1 1 - 1) = 0 := by
+  have hdvd : (4 * 12 : ℤ) ∣ 2 * ((evenPhaseInt (-γ 0 0) (-γ 0 1) (-γ 1 0) (-γ 1 1) + 6) -
+      evenPhaseInt (γ 0 0) (γ 0 1) (γ 1 0) (γ 1 1)) + 12 * (γ 1 1 - 1) := by
+    have hz : 2 * ((evenPhaseInt (-γ 0 0) (-γ 0 1) (-γ 1 0) (-γ 1 1) + 6) -
+        evenPhaseInt (γ 0 0) (γ 0 1) (γ 1 0) (γ 1 1)) + 12 * (γ 1 1 - 1) = 0 := by
       unfold evenPhaseInt; ring
     rw [hz]
-    exact dvd_zero 24
-  have hexp : cexp (π * I / 2) *
+    exact dvd_zero _
+  have hexp1 : cexp (π * I / 2) *
       cexp (π * I * (evenPhaseInt (-γ 0 0) (-γ 0 1) (-γ 1 0) (-γ 1 1) : ℂ) / 12) =
       cexp (π * I * ((evenPhaseInt (-γ 0 0) (-γ 0 1) (-γ 1 0) (-γ 1 1) + 6 : ℤ) : ℂ) / 12) := by
     rw [← Complex.exp_add]; congr 1; push_cast; ring
+  have hexp2 :=
+    ZMod.χ₄_intCast_mul_exp_pi_mul_I_mul_div_eq_of_odd_of_dvd (n := 12) hd (by norm_num) hdvd
+  simp only [Int.cast_ofNat] at hexp2
   rw [etaMultiplier_eq_exp_mul_etaMultiplier_neg_of_c_neg hc, hpos, kroneckerEvenForm,
     kroneckerEvenForm]
   simp only [Matrix.SpecialLinearGroup.coe_neg, Matrix.neg_apply]
-  rw [hk, ← mul_assoc, mul_comm (cexp (π * I / 2)), mul_assoc, hexp, Int.cast_mul,
-    mul_right_comm, chi4_mul_cexp_pi_mul_I_div_twelve hd hdvd, mul_comm]
+  rw [hk, ← mul_assoc, mul_comm (cexp (π * I / 2)), mul_assoc, hexp1, Int.cast_mul,
+    mul_right_comm, hexp2, mul_comm]
 
 private theorem etaMultiplier_eq_kroneckerEvenForm_of_d_odd (γ : SL(2, ℤ)) (hd : Odd (γ 1 1)) :
     etaMultiplier γ = kroneckerEvenForm γ := by

@@ -133,61 +133,73 @@ namespace Matrix.SpecialLinearGroup
 open ModularGroup
 
 /-- The top-left entry of `γ * T ^ n` for `γ ∈ SL₂(ℤ)`. -/
+@[simp]
 theorem mul_T_zpow_apply_zero_zero (γ : SL(2, ℤ)) (n : ℤ) :
     (γ * T ^ n) 0 0 = γ 0 0 := by
   simp [coe_mul, coe_T_zpow, Matrix.mul_apply, Fin.sum_univ_two]
 
 /-- The top-right entry of `γ * T ^ n` for `γ ∈ SL₂(ℤ)`. -/
+@[simp]
 theorem mul_T_zpow_apply_zero_one (γ : SL(2, ℤ)) (n : ℤ) :
     (γ * T ^ n) 0 1 = γ 0 0 * n + γ 0 1 := by
   simp [coe_mul, coe_T_zpow, Matrix.mul_apply, Fin.sum_univ_two]
 
 /-- The bottom-left entry of `γ * T ^ n` for `γ ∈ SL₂(ℤ)`. -/
+@[simp]
 theorem mul_T_zpow_apply_one_zero (γ : SL(2, ℤ)) (n : ℤ) :
     (γ * T ^ n) 1 0 = γ 1 0 := by
   simp [coe_mul, coe_T_zpow, Matrix.mul_apply, Fin.sum_univ_two]
 
 /-- The bottom-right entry of `γ * T ^ n` for `γ ∈ SL₂(ℤ)`. -/
+@[simp]
 theorem mul_T_zpow_apply_one_one (γ : SL(2, ℤ)) (n : ℤ) :
     (γ * T ^ n) 1 1 = γ 1 0 * n + γ 1 1 := by
   simp [coe_mul, coe_T_zpow, Matrix.mul_apply, Fin.sum_univ_two]
 
 /-- The top-left entry of `γ * T` for `γ ∈ SL₂(ℤ)`. -/
+@[simp]
 theorem mul_T_apply_zero_zero (γ : SL(2, ℤ)) :
     (γ * T) 0 0 = γ 0 0 := by
   simpa using γ.mul_T_zpow_apply_zero_zero 1
 
 /-- The top-right entry of `γ * T` for `γ ∈ SL₂(ℤ)`. -/
+@[simp]
 theorem mul_T_apply_zero_one (γ : SL(2, ℤ)) :
     (γ * T) 0 1 = γ 0 0 + γ 0 1 := by
   simpa using γ.mul_T_zpow_apply_zero_one 1
 
 /-- The bottom-left entry of `γ * T` for `γ ∈ SL₂(ℤ)`. -/
+@[simp]
 theorem mul_T_apply_one_zero (γ : SL(2, ℤ)) :
     (γ * T) 1 0 = γ 1 0 := by
   simpa using γ.mul_T_zpow_apply_one_zero 1
 
 /-- The bottom-right entry of `γ * T` for `γ ∈ SL₂(ℤ)`. -/
+@[simp]
 theorem mul_T_apply_one_one (γ : SL(2, ℤ)) :
     (γ * T) 1 1 = γ 1 0 + γ 1 1 := by
   simpa using γ.mul_T_zpow_apply_one_one 1
 
 /-- The top-left entry of `γ * S` for `γ ∈ SL₂(ℤ)`. -/
+@[simp]
 theorem mul_S_apply_zero_zero (γ : SL(2, ℤ)) :
     (γ * S) 0 0 = γ 0 1 := by
   simp [coe_mul, coe_S, Matrix.mul_apply, Fin.sum_univ_two]
 
 /-- The top-right entry of `γ * S` for `γ ∈ SL₂(ℤ)`. -/
+@[simp]
 theorem mul_S_apply_zero_one (γ : SL(2, ℤ)) :
     (γ * S) 0 1 = -γ 0 0 := by
   simp [coe_mul, coe_S, Matrix.mul_apply, Fin.sum_univ_two]
 
 /-- The bottom-left entry of `γ * S` for `γ ∈ SL₂(ℤ)`. -/
+@[simp]
 theorem mul_S_apply_one_zero (γ : SL(2, ℤ)) :
     (γ * S) 1 0 = γ 1 1 := by
   simp [coe_mul, coe_S, Matrix.mul_apply, Fin.sum_univ_two]
 
 /-- The bottom-right entry of `γ * S` for `γ ∈ SL₂(ℤ)`. -/
+@[simp]
 theorem mul_S_apply_one_one (γ : SL(2, ℤ)) :
     (γ * S) 1 1 = -γ 1 0 := by
   simp [coe_mul, coe_S, Matrix.mul_apply, Fin.sum_univ_two]

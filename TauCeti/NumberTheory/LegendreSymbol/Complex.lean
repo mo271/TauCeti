@@ -10,9 +10,10 @@ public import Mathlib.NumberTheory.LegendreSymbol.Complex
 public import Mathlib.RingTheory.IntegralClosure.IsIntegralClosure.Basic
 public import TauCeti.Algebra.AddCircle
 public import TauCeti.Analysis.SpecialFunctions.Complex.Circle.Basic
+import TauCeti.Analysis.SpecialFunctions.Exp.Periodic
 
 /-!
-# Complex values of characters of finite fields
+# Complex values of characters of finite fields and residue rings
 
 Mathlib's `AddChar.FiniteField.primitiveChar_to_Complex` is the canonical primitive additive
 character of a finite field `F` with values in `ℂ`, and
@@ -23,13 +24,19 @@ residue fields of a number field can then be read in a domain containing its rin
 
 A Legendre symbol `(θ/p) = ±1` is also an eighth root of unity, `e^{2πi · 2(1 - (θ/p))/8}`; this is
 the form in which it enters the Gauss-sum invariants of finite quadratic modules, which take values
-in `ℤ/8`.
+in `ℤ/8`. Likewise, at an odd integer `d`, the mod-`4` quadratic character `ZMod.χ₄ d = ±1` equals
+`exp(π i (d - 1) / 2)`, allowing a factor of `χ₄ d` multiplying `exp(π i x / n)` to be absorbed into
+the phase modulo `2 n`.
 
 ## Main results
 
 * `TauCeti.exists_primitive_addChar_integralClosure`: `F` has a primitive additive character with
   values in the algebraic integers of `ℂ`.
 * `TauCeti.legendreSym_eq_expCircle`: `(θ/p) = e^{2πi · 2(1 - (θ/p))/8}` for `θ` prime to `p`.
+* `ZMod.χ₄_intCast_eq_exp_of_odd`,
+  `ZMod.χ₄_intCast_mul_exp_pi_mul_I_mul_div_eq_of_odd_of_dvd`: for odd `d : ℤ`,
+  `(χ₄ d : ℂ) = exp(π i (d - 1) / 2)`, so `(χ₄ d : ℂ) * exp(π i x / n) = exp(π i y / n)` when
+  `n ≠ 0` and `4 n ∣ 2 (x - y) + n (d - 1)`.
 -/
 
 public section
@@ -62,3 +69,45 @@ theorem legendreSym_eq_expCircle {p : ℕ} [Fact p.Prime] {θ : ℤ} (hθ : (θ 
     simp
 
 end TauCeti
+
+namespace ZMod
+
+open Complex Real
+
+/-- For an odd integer `d`, the character value `χ₄ d = ±1` is `exp(π i (d - 1) / 2)`:
+`(d - 1) / 2` is even when `d ≡ 1 (mod 4)` and odd when `d ≡ 3 (mod 4)`. The hypothesis `Odd d` is
+needed: at `d = 0` the left side is `0` while the right side has norm `1`. -/
+theorem χ₄_intCast_eq_exp_of_odd {d : ℤ} (hd : Odd d) :
+    (χ₄ d : ℂ) = cexp (π * I * ((d - 1 : ℤ) : ℂ) / 2) := by
+  have hd4 : d % 4 = 1 ∨ d % 4 = 3 := by obtain ⟨k, hk⟩ := hd; omega
+  rcases hd4 with hd1 | hd3
+  · rw [χ₄_int_one_mod_four hd1, Int.cast_one]
+    simpa using (Complex.exp_pi_mul_I_mul_div_eq_of_dvd (x := d - 1) (y := 0) (n := 2)
+      ⟨d / 4, by omega⟩).symm
+  · rw [χ₄_int_three_mod_four hd3, Int.cast_neg, Int.cast_one]
+    simpa using (Complex.exp_pi_mul_I_mul_div_eq_neg_of_dvd (x := d - 1) (y := 0) (n := 2)
+      (by norm_num) ⟨d / 4, by omega⟩).symm
+
+/-- Absorbing an odd `χ₄ d` sign into a rational-multiple-of-`π i` exponential: for odd `d` and
+`n ≠ 0`, `(χ₄ d : ℂ) * exp(π i x / n) = exp(π i y / n)` whenever `4 n ∣ 2 (x - y) + n (d - 1)`.
+The hypothesis `n ≠ 0` is needed: at `x = y = n = 0` and `d = 3` the divisibility holds while
+`-1 ≠ 1`. -/
+theorem χ₄_intCast_mul_exp_pi_mul_I_mul_div_eq_of_odd_of_dvd {x y n d : ℤ} (hd : Odd d)
+    (hn : n ≠ 0) (hdvd : 4 * n ∣ 2 * (x - y) + n * (d - 1)) :
+    (χ₄ d : ℂ) * cexp (π * I * (x : ℂ) / n) = cexp (π * I * (y : ℂ) / n) := by
+  have hnC : (n : ℂ) ≠ 0 := Int.cast_ne_zero.mpr hn
+  have harg : π * I * ((d - 1 : ℤ) : ℂ) / 2 + π * I * (x : ℂ) / n =
+      π * I * ((2 * x + n * (d - 1) : ℤ) : ℂ) / ((2 * n : ℤ) : ℂ) := by
+    push_cast
+    field_simp
+    ring
+  have hy : π * I * (y : ℂ) / n = π * I * ((2 * y : ℤ) : ℂ) / ((2 * n : ℤ) : ℂ) := by
+    push_cast
+    field_simp
+  have hdvd' : 2 * (2 * n) ∣ (2 * x + n * (d - 1)) - 2 * y := by
+    simpa [show 2 * (2 * n) = 4 * n by ring,
+      show 2 * x + n * (d - 1) - 2 * y = 2 * (x - y) + n * (d - 1) by ring] using hdvd
+  rw [χ₄_intCast_eq_exp_of_odd hd, ← Complex.exp_add, harg, hy]
+  exact Complex.exp_pi_mul_I_mul_div_eq_of_dvd hdvd'
+
+end ZMod

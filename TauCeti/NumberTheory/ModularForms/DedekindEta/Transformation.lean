@@ -285,9 +285,7 @@ theorem etaMultiplier_of_c_eq_one (γ : SL(2, ℤ)) (hc : γ 1 0 = 1) :
   rw [Matrix.det_fin_two, hc, mul_one] at hdet
   have hfactor : γ = T ^ (γ 0 0) * S * T ^ (γ 1 1) := by
     ext i j
-    fin_cases i <;> fin_cases j <;>
-      simp [Matrix.SpecialLinearGroup.coe_mul, coe_T_zpow, coe_S,
-        Matrix.mul_apply, Fin.sum_univ_two, hc]
+    fin_cases i <;> fin_cases j <;> simp [coe_T_zpow, hc]
     omega
   rw [congrArg etaMultiplier hfactor, etaMultiplier_mul_T_zpow,
     etaMultiplier_T_zpow_mul, etaMultiplier_S,
