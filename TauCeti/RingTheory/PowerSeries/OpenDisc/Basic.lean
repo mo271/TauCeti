@@ -39,7 +39,7 @@ No ultrametric hypothesis is needed for the algebraic structure: products and Ha
 only lose an arbitrarily small amount of radius, which the open condition absorbs. Thus over any
 normed ring the series on the open disc of radius `R₀` form a subring
 `PowerSeries.OnOpenDisc.subring R R₀`, stable under Hasse derivatives and bounded coefficient
-maps.
+maps, and an algebra over every commutative base of `R`.
 
 The geometric series `∑ aⁿ Xⁿ` lies on the open disc of radius `‖a‖⁻¹`
 (`PowerSeries.onOpenDisc_mk_pow`), but for `a ≠ 0` and a multiplicative norm it is not
@@ -54,6 +54,8 @@ on the open unit disc (`PowerSeries.onOpenDisc_log`).
 
 * `PowerSeries.OnOpenDisc`: `f` is restricted at every radius `0 < r < R₀`.
 * `PowerSeries.OnOpenDisc.subring`: the subring of series on the open disc of radius `R₀`.
+* `TauCeti.PowerSeries.instAlgebraOnOpenDiscSubring`: the algebra structure on
+  `PowerSeries.OnOpenDisc.subring R R₀` over any commutative base of `R`.
 
 ## Main results
 
@@ -83,6 +85,9 @@ on the open unit disc (`PowerSeries.onOpenDisc_log`).
   `f(aX)` lies on the open disc of radius `R₀`.
 * `PowerSeries.onOpenDisc_log`: over a normed field of characteristic zero, `log (1 + X)` lies on
   the open unit disc.
+* `TauCeti.PowerSeries.coe_algebraMap_onOpenDiscSubring` and
+  `TauCeti.PowerSeries.coe_smul_onOpenDiscSubring`: scalar maps and scalar multiplication agree
+  with those on formal power series.
 
 ## References
 
@@ -418,3 +423,65 @@ theorem onOpenDisc_log : (log K).OnOpenDisc 1 :=
 end NormedField
 
 end PowerSeries
+
+namespace TauCeti.PowerSeries
+
+section Algebra
+
+variable {R : Type*} [NormedRing R] {R₀ : ℝ}
+
+/-- An algebra structure on the coefficients induces one on power series on the open disc through
+constant series. Scalars act as on the ambient formal series, and the coefficient ring need not be
+commutative or ultrametric. -/
+noncomputable instance instAlgebraOnOpenDiscSubring {S : Type*} [CommSemiring S] [Algebra S R] :
+    Algebra S (PowerSeries.OnOpenDisc.subring R R₀) where
+  smul s f := ⟨s • (f : PowerSeries R), by
+    rw [Algebra.smul_def, PowerSeries.algebraMap_apply]
+    exact (PowerSeries.onOpenDisc_C (algebraMap S R s)).mul f.2⟩
+  algebraMap := (algebraMap S (PowerSeries R)).codRestrict _ fun s ↦ by
+    rw [PowerSeries.algebraMap_apply]
+    exact PowerSeries.onOpenDisc_C _
+  commutes' s f := Subtype.ext <| by
+    simpa only [Subring.coe_mul, RingHom.codRestrict_apply] using
+      Algebra.commutes s (f : PowerSeries R)
+  smul_def' s f := Subtype.ext <| by
+    rw [Subring.coe_mul, RingHom.codRestrict_apply]
+    convert Algebra.smul_def s (f : PowerSeries R) using 1
+
+-- Verify that the `ℕ`- and `ℤ`-algebra module structures agree definitionally with the additive
+-- monoid and group module structures on the open-disc subring.
+example : (instAlgebraOnOpenDiscSubring (R := R) (R₀ := R₀) (S := ℕ)).toModule =
+    AddCommMonoid.toNatModule :=
+  rfl
+
+example : (instAlgebraOnOpenDiscSubring (R := R) (R₀ := R₀) (S := ℤ)).toModule =
+    AddCommGroup.toIntModule _ :=
+  rfl
+
+/-- A scalar maps to the constant open-disc series of its image in the coefficient ring. -/
+@[simp]
+theorem coe_algebraMap_onOpenDiscSubring {S : Type*} [CommSemiring S] [Algebra S R] (s : S) :
+    (algebraMap S (PowerSeries.OnOpenDisc.subring R R₀) s : PowerSeries R) =
+      PowerSeries.C (algebraMap S R s) := by
+  calc
+    _ = algebraMap S (PowerSeries R) s := (rfl)
+    _ = _ := PowerSeries.algebraMap_apply
+
+/-- Scalars act on open-disc series as on their underlying formal power series. -/
+@[simp]
+theorem coe_smul_onOpenDiscSubring {S : Type*} [CommSemiring S] [Algebra S R] (s : S)
+    (f : PowerSeries.OnOpenDisc.subring R R₀) :
+    ((s • f : PowerSeries.OnOpenDisc.subring R R₀) : PowerSeries R) =
+      s • (f : PowerSeries R) := (rfl)
+
+/-- Scalar towers on the coefficients induce scalar towers on power series on the open disc. -/
+instance instIsScalarTowerOnOpenDiscSubring {S T : Type*} [CommSemiring S] [CommSemiring T]
+    [Algebra S R] [Algebra T R] [SMul S T] [IsScalarTower S T R] :
+    IsScalarTower S T (PowerSeries.OnOpenDisc.subring R R₀) where
+  smul_assoc s t f := Subtype.ext <| by
+    simp only [coe_smul_onOpenDiscSubring]
+    exact smul_assoc s t (f : PowerSeries R)
+
+end Algebra
+
+end TauCeti.PowerSeries
