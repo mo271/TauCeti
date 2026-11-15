@@ -10,7 +10,6 @@ public import Mathlib.Algebra.Polynomial.Degree.Operations
 public import Mathlib.RingTheory.MvPolynomial.Homogeneous
 public import Mathlib.RingTheory.RootsOfUnity.PrimitiveRoots
 import Mathlib.Algebra.MvPolynomial.NoZeroDivisors
-import Mathlib.RingTheory.MvPowerSeries.NoZeroDivisors
 -- `IsPrimitiveRoot.sum_zpow_pow_eq`, the orthogonality of the characters of `ℤ ⧸ n`.
 import TauCeti.RingTheory.RootsOfUnity.Basic
 import TauCeti.RingTheory.MvPolynomial.Initial.Weight
@@ -97,27 +96,9 @@ theorem aeval_smul_of_algebra {σ R S A : Type*}
 `j`-th basis vector: every other monomial involves a variable other than `X_j`. -/
 theorem coeff_single_eq_eval {σ R : Type*} [CommSemiring R] [DecidableEq σ]
     {p : MvPolynomial σ R} {n : ℕ} (hp : p.IsHomogeneous n) (j : σ) :
-    p.coeff (Finsupp.single j n) = _root_.MvPolynomial.eval (Pi.single j 1) p := by
-  conv_rhs => rw [p.as_sum]
-  rw [map_sum, Finset.sum_eq_single (Finsupp.single j n)]
-  · simp [_root_.MvPolynomial.eval_monomial]
-  · intro s hs hne
-    obtain ⟨i, hij, hi⟩ : ∃ i, i ≠ j ∧ s i ≠ 0 := by
-      by_contra! h
-      have hs' : s = Finsupp.single j (s j) := Finsupp.ext fun i ↦ by
-        by_cases hi : i = j
-        · simp [hi]
-        · simp [hi, h i hi]
-      have hdeg := hp (_root_.MvPolynomial.mem_support_iff.mp hs)
-      rw [hs'] at hdeg
-      simp only [Finsupp.weight_apply, Finsupp.sum_single_index, Pi.one_apply, smul_eq_mul,
-        mul_one] at hdeg
-      exact hne (hs'.trans (by rw [hdeg]))
-    rw [_root_.MvPolynomial.eval_monomial, Finsupp.prod,
-      Finset.prod_eq_zero (Finsupp.mem_support_iff.mpr hi)
-        (by rw [Pi.single_eq_of_ne hij, zero_pow hi]), mul_zero]
-  · intro h
-    simp [_root_.MvPolynomial.notMem_support_iff.mp h]
+    p.coeff (Finsupp.single j n) = _root_.MvPolynomial.eval (Pi.single j 1) p :=
+  IsWeightedHomogeneous.coeff_single_eq_eval (w := (1 : σ → ℕ))
+    (by simp only [Pi.one_apply, smul_eq_mul, mul_one]; exact hp) fun _ h ↦ by simpa using h
 
 /-- A homogeneous polynomial of positive degree has zero constant coefficient. -/
 theorem constantCoeff_eq_zero {σ R : Type*} [CommSemiring R]
@@ -190,45 +171,9 @@ theorem of_mul_left {σ R : Type*} [CommSemiring R] [NoZeroDivisors R] {p q : Mv
     {n : ℕ} (h : (p * q).IsHomogeneous n) (hq : q ≠ 0) : p.IsHomogeneous p.totalDegree := by
   obtain rfl | hp := eq_or_ne p 0
   · exact isHomogeneous_zero _ _ _
-  have hpq : p * q ≠ 0 := mul_ne_zero hp hq
-  have hweight (s : σ →₀ ℕ) : Finsupp.weight 1 s = s.degree := by
-    rw [Pi.one_def, ← Finsupp.degree_eq_weight_one]
-  -- As a power series, a polynomial has order at most the degree of each of its monomials, hence
-  -- at most its total degree.
-  have horder {r : MvPolynomial σ R} {s : σ →₀ ℕ} (hs : s ∈ r.support) :
-      (r : MvPowerSeries σ R).order ≤ s.degree :=
-    MvPowerSeries.order_le (by rwa [_root_.MvPolynomial.coeff_coe, ← mem_support_iff])
-  have hle {r : MvPolynomial σ R} (hr : r ≠ 0) :
-      (r : MvPowerSeries σ R).order ≤ r.totalDegree := by
-    obtain ⟨s, hs⟩ := support_nonempty.mpr hr
-    exact (horder hs).trans (by exact_mod_cast le_totalDegree hs)
-  obtain ⟨a, ha⟩ := ENat.ne_top_iff_exists.mp ((hle hp).trans_lt (ENat.natCast_lt_top _)).ne
-  obtain ⟨b, hb⟩ := ENat.ne_top_iff_exists.mp ((hle hq).trans_lt (ENat.natCast_lt_top _)).ne
-  -- The product is homogeneous of degree `n`, so `n` is its order.
-  have hn : ((p * q : MvPolynomial σ R) : MvPowerSeries σ R).order = n := by
-    obtain ⟨s, hs⟩ := support_nonempty.mpr hpq
-    have hdeg {s : σ →₀ ℕ} (hs : s ∈ (p * q).support) : s.degree = n :=
-      hweight s ▸ h (mem_support_iff.mp hs)
-    rw [MvPowerSeries.order_eq_nat]
-    refine ⟨⟨s, by rwa [_root_.MvPolynomial.coeff_coe, ← mem_support_iff], hdeg hs⟩,
-      fun s hs' ↦ ?_⟩
-    rw [_root_.MvPolynomial.coeff_coe, ← notMem_support_iff]
-    exact fun hs ↦ hs'.ne (hdeg hs)
-  -- Orders and total degrees of the factors both add up to `n`, so the order `a` of `p` is its
-  -- total degree, and every monomial of `p` has degree between the two.
-  rw [_root_.MvPolynomial.coe_mul, MvPowerSeries.order_mul, ← ha, ← hb] at hn
-  have hdeg := _root_.MvPolynomial.totalDegree_mul_of_isDomain hp hq
-  rw [h.totalDegree hpq] at hdeg
-  have hap := ha ▸ hle hp
-  have hbq := hb ▸ hle hq
-  norm_cast at hn hap hbq
-  intro s hs
-  have h₁ := ha ▸ horder (mem_support_iff.mpr hs)
-  have h₂ := le_totalDegree (mem_support_iff.mpr hs)
-  rw [Finsupp.sum, ← Finsupp.degree_apply] at h₂
-  norm_cast at h₁
-  rw [hweight]
-  omega
+  obtain ⟨a, _, hpa, _, _⟩ := IsWeightedHomogeneous.exists_of_mul h (mul_ne_zero hp hq)
+  rw [IsHomogeneous.totalDegree hpa hp]
+  exact hpa
 
 /-- Without zero divisors, the right factor of a homogeneous product with nonzero left factor is
 homogeneous, of degree its total degree. -/
