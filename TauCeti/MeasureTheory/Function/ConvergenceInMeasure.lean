@@ -22,12 +22,17 @@ uses monotonicity of the (outer) measure; the index runs along an arbitrary
 filter, matching the generality of `MeasureTheory.TendstoInMeasure`.
 
 Convergence in mean square also implies convergence in measure, with integrability of the
-squared deviations required only eventually along the filter.
+squared deviations required only eventually along the filter. Pointwise constants, sums,
+negations, differences, and bounded scalar multiples preserve convergence in measure without
+measurability or finite-measure assumptions.
 
 ## Main results
 
 * `MeasureTheory.tendstoInMeasure_of_tendsto_integral_norm_sq`: convergence in mean square
   implies convergence in measure for any measure and filter.
+* `MeasureTheory.tendstoInMeasure_const`, `MeasureTheory.TendstoInMeasure.add`,
+  `MeasureTheory.TendstoInMeasure.neg`, `MeasureTheory.TendstoInMeasure.sub`, and
+  `MeasureTheory.TendstoInMeasure.const_smul`: algebraic closure of convergence in measure.
 * `TauCeti.tendstoInMeasure_of_tendsto_measure_rate_lt_edist`: the `edist`
   form, for an `ℝ≥0∞`-valued rate and a target with an extended distance.
 * `TauCeti.tendstoInMeasure_of_tendsto_measure_rate_lt_dist`: the `dist`
@@ -135,5 +140,73 @@ theorem tendstoInMeasure_of_tendsto_integral_norm_sq {Ω E ι : Type*}
     (Eventually.of_forall fun _ ↦ zero_le) ?_
   filter_upwards [hint] with k hk
   exact TauCeti.meas_ge_le_integral_norm_sq_div_sq hk hε
+
+/-- A sequence independent of the index converges in measure to itself along any filter. -/
+theorem tendstoInMeasure_const {Ω E ι : Type*} {mΩ : MeasurableSpace Ω}
+    {μ : Measure Ω} [PseudoEMetricSpace E] {l : Filter ι} (g : Ω → E) :
+    TendstoInMeasure μ (fun _ ↦ g) l g := by
+  intro ε hε
+  simpa [hε.not_ge] using tendsto_const_nhds
+
+/-- Convergence in measure is preserved under pointwise addition, without measurability or
+finite-measure assumptions. -/
+theorem TendstoInMeasure.add {Ω E ι : Type*} {mΩ : MeasurableSpace Ω}
+    {μ : Measure Ω} [SeminormedAddCommGroup E] {l : Filter ι}
+    {f₁ f₂ : ι → Ω → E} {g₁ g₂ : Ω → E}
+    (h₁ : TendstoInMeasure μ f₁ l g₁) (h₂ : TendstoInMeasure μ f₂ l g₂) :
+    TendstoInMeasure μ (f₁ + f₂) l (g₁ + g₂) := by
+  rw [tendstoInMeasure_iff_norm] at h₁ h₂ ⊢
+  intro ε hε
+  have hhalf : 0 < ε / 2 := half_pos hε
+  have hsum := (h₁ (ε / 2) hhalf).add (h₂ (ε / 2) hhalf)
+  rw [zero_add] at hsum
+  refine tendsto_of_tendsto_of_tendsto_of_le_of_le tendsto_const_nhds hsum
+    (fun _ ↦ zero_le) fun k ↦ ?_
+  refine (measure_mono fun ω hω ↦ ?_).trans (measure_union_le _ _)
+  simp only [Set.mem_ofPred_eq, Pi.add_apply, Set.mem_union] at hω ⊢
+  by_contra! hlt
+  have htri : ‖f₁ k ω + f₂ k ω - (g₁ ω + g₂ ω)‖ ≤
+      ‖f₁ k ω - g₁ ω‖ + ‖f₂ k ω - g₂ ω‖ := by
+    simpa only [add_sub_add_comm] using norm_add_le (f₁ k ω - g₁ ω) (f₂ k ω - g₂ ω)
+  linarith [hlt.1, hlt.2]
+
+/-- Convergence in measure is preserved under pointwise negation. -/
+theorem TendstoInMeasure.neg {Ω E ι : Type*} {mΩ : MeasurableSpace Ω}
+    {μ : Measure Ω} [SeminormedAddCommGroup E] {l : Filter ι}
+    {f : ι → Ω → E} {g : Ω → E} (h : TendstoInMeasure μ f l g) :
+    TendstoInMeasure μ (-f) l (-g) := by
+  rw [tendstoInMeasure_iff_norm] at h ⊢
+  intro ε hε
+  refine (h ε hε).congr fun k ↦ ?_
+  congr 1
+  ext ω
+  simp only [Set.mem_ofPred_eq, Pi.neg_apply, neg_sub_neg, norm_sub_rev]
+
+/-- Convergence in measure is preserved under pointwise subtraction. -/
+theorem TendstoInMeasure.sub {Ω E ι : Type*} {mΩ : MeasurableSpace Ω}
+    {μ : Measure Ω} [SeminormedAddCommGroup E] {l : Filter ι}
+    {f₁ f₂ : ι → Ω → E} {g₁ g₂ : Ω → E}
+    (h₁ : TendstoInMeasure μ f₁ l g₁) (h₂ : TendstoInMeasure μ f₂ l g₂) :
+    TendstoInMeasure μ (f₁ - f₂) l (g₁ - g₂) := by
+  simpa only [sub_eq_add_neg] using h₁.add h₂.neg
+
+/-- Convergence in measure is preserved under scalar multiplication by a constant. -/
+theorem TendstoInMeasure.const_smul {𝕜 Ω E ι : Type*} {mΩ : MeasurableSpace Ω}
+    {μ : Measure Ω} [SeminormedRing 𝕜] [SeminormedAddCommGroup E] [Module 𝕜 E]
+    [IsBoundedSMul 𝕜 E] {l : Filter ι} {f : ι → Ω → E} {g : Ω → E}
+    (h : TendstoInMeasure μ f l g) (c : 𝕜) :
+    TendstoInMeasure μ (fun k ω ↦ c • f k ω) l (fun ω ↦ c • g ω) := by
+  rw [tendstoInMeasure_iff_norm] at h ⊢
+  intro ε hε
+  rcases eq_or_lt_of_le (norm_nonneg c) with hc | hc
+  · refine tendsto_const_nhds.congr fun k ↦ (measure_mono_null (fun ω hω ↦ ?_) measure_empty).symm
+    simp only [Set.mem_ofPred_eq, ← smul_sub] at hω
+    have hle := (norm_smul_le c (f k ω - g ω)).trans_eq (by rw [← hc, zero_mul])
+    exact absurd (hε.trans_le (hω.trans hle)) (lt_irrefl 0)
+  · refine tendsto_of_tendsto_of_tendsto_of_le_of_le tendsto_const_nhds
+      (h (ε / ‖c‖) (div_pos hε hc)) (fun _ ↦ zero_le) fun k ↦ ?_
+    refine measure_mono fun ω hω ↦ ?_
+    simp only [Set.mem_ofPred_eq, ← smul_sub] at hω ⊢
+    exact (div_le_iff₀' hc).2 (hω.trans (norm_smul_le c (f k ω - g ω)))
 
 end MeasureTheory
