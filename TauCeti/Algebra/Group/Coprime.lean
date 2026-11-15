@@ -36,11 +36,34 @@ virtual characters induced from `p`-elementary subgroups.
 * `TauCeti.mem_of_forall_prime_exists_pow_mem` and its additive form
   `TauCeti.mem_of_forall_prime_exists_nsmul_mem`: membership from prime-to-`p` powers, one
   prime at a time, in any subgroup (or additive subgroup) of a group.
+* `TauCeti.eq_of_pow_eq_of_coprime` and its additive form
+  `TauCeti.eq_of_nsmul_eq_of_coprime`: in any monoid, coprime powers inject on `n`-torsion.
 -/
 
 public section
 
 namespace TauCeti
+
+/-- **Coprime powers inject on `n`-torsion.** In any monoid, if `m` and `n` are coprime natural
+numbers and `x ^ n = 1` and `y ^ n = 1`, then `x ^ m = y ^ m` implies `x = y` (with no
+commutativity assumption on `x` and `y`). -/
+@[to_additive /-- **Coprime multiples inject on `n`-torsion.** In any additive monoid, if `m` and
+`n` are coprime natural numbers and `n • x = 0` and `n • y = 0`, then `m • x = m • y` implies
+`x = y`. -/]
+theorem eq_of_pow_eq_of_coprime {M : Type*} [Monoid M] {x y : M} {m n : ℕ}
+    (hmn : m.Coprime n) (hx : x ^ n = 1) (hy : y ^ n = 1) (hxy : x ^ m = y ^ m) : x = y := by
+  rcases eq_or_ne n 0 with rfl | hn0
+  · rw [Nat.coprime_zero_right] at hmn
+    simpa [hmn] using hxy
+  rcases eq_or_ne n 1 with rfl | hn1
+  · rw [pow_one] at hx hy
+    exact hx.trans hy.symm
+  obtain ⟨k, -, hk⟩ := Nat.exists_mul_mod_eq_one_of_coprime hmn (by omega)
+  calc x = x ^ (m * k % n) := by rw [hk, pow_one]
+    _ = (x ^ m) ^ k := by rw [← pow_eq_pow_mod _ hx, pow_mul]
+    _ = (y ^ m) ^ k := by rw [hxy]
+    _ = y ^ (m * k % n) := by rw [← pow_mul, pow_eq_pow_mod _ hy]
+    _ = y := by rw [hk, pow_one]
 
 /-- For coprime `n` and `m`, every element `y` of a group factors as a product of an integer power
 of `y ^ n` and an integer power of `y ^ m`, the exponents being the Bézout coefficients of `n` and

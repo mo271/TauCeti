@@ -6,8 +6,11 @@ Authors: The Tau Ceti contributors
 module
 
 public import Mathlib.RingTheory.Ideal.Norm.RelNorm
+public import Mathlib.RingTheory.Ideal.Pointwise
+public import Mathlib.RingTheory.IsGaloisGroup.Defs
 public import Mathlib.RingTheory.RamificationInertia.Basic
--- Proof-only: the factorisation of an extended maximal ideal into the primes above it.
+-- Proof-only: Galois group equivalence with ring automorphisms, and prime factorisation.
+import Mathlib.FieldTheory.Galois.IsGaloisGroup
 import Mathlib.RingTheory.DedekindDomain.Factorization
 
 /-!
@@ -33,12 +36,15 @@ this consequence.
   formula `N(P) = p ^ f(P ∣ p)` with every `f` equal to `1`, stated without the separability
   hypothesis of Mathlib's `Ideal.relNorm_eq_pow_of_isMaximal`, so that it applies to inseparable
   extensions of function fields in positive characteristic.
-* `Ideal.prod_map_galRestrict_eq_map_relNorm`, `Ideal.prod_map_algEquiv_eq_map_relNorm`: in a
-  Galois extension, the product of the Galois conjugates of an ideal `I` of `B` equals the
-  extension `(relNorm A I).map (algebraMap A B)` of its relative norm.
+* `Ideal.prod_smul_eq_map_relNorm`, `Ideal.prod_map_algEquiv_eq_map_relNorm`,
+  `Ideal.prod_map_galRestrict_eq_map_relNorm`: in a Galois extension, the product of the Galois
+  conjugates of an ideal `I` of `B` equals the extension `(relNorm A I).map (algebraMap A B)` of
+  its relative norm.
 -/
 
 public section
+
+open scoped Pointwise
 
 namespace Ideal
 
@@ -138,11 +144,12 @@ In the `AKLB` setup with `L / K` Galois, the product of the translates of `I : I
 `Gal(L/K)` equals `(relNorm A I).map (algebraMap A B)`. -/
 theorem prod_map_galRestrict_eq_map_relNorm
     (K L : Type*) [Field K] [Field L] [Algebra A K] [IsFractionRing A K]
-    [Algebra B L] [IsFractionRing B L] [Algebra K L] [Algebra A L]
+    [Algebra B L] [Algebra K L] [Algebra A L]
     [IsScalarTower A K L] [IsScalarTower A B L] [IsIntegralClosure B A L]
     [FiniteDimensional K L] [IsGalois K L] (I : Ideal B) :
     (∏ σ : Gal(L/K), I.map (galRestrict A K L B σ)) = (relNorm A I).map (algebraMap A B) := by
   classical
+  have := IsIntegralClosure.isFractionRing_of_finite_extension A K L B
   -- Every generator `N(x)` of `(relNorm A I).map (algebraMap A B)` is `∏ σ, σ x ∈ ∏ σ, σ I`.
   have hle : (relNorm A I).map (algebraMap A B) ≤
       ∏ σ : Gal(L/K), I.map (galRestrict A K L B σ) := by
@@ -179,6 +186,25 @@ theorem prod_map_algEquiv_eq_map_relNorm [IsGalois (FractionRing A) (FractionRin
   have : IsIntegralClosure B A (FractionRing B) := .of_isIntegrallyClosed _ _ _
   rw [← (galRestrict A (FractionRing A) (FractionRing B) B).toEquiv.prod_comp]
   exact prod_map_galRestrict_eq_map_relNorm (FractionRing A) (FractionRing B) I
+
+/-- **The product of Galois translates of an ideal is the extension of its relative norm.**
+When a finite group `G` acts on `B` as a Galois group over `A`, the product `∏ σ : G, σ • I` equals
+`(relNorm A I).map (algebraMap A B)`. -/
+theorem prod_smul_eq_map_relNorm (G : Type*) [Group G] [Fintype G] [MulSemiringAction G B]
+    [IsGaloisGroup G A B] (I : Ideal B) :
+    (∏ σ : G, σ • I) = (relNorm A I).map (algebraMap A B) := by
+  classical
+  let := FractionRing.liftAlgebra A (FractionRing B)
+  have := FractionRing.isScalarTower_liftAlgebra A (FractionRing B)
+  let := IsFractionRing.mulSemiringAction G B (FractionRing B)
+  have : IsGalois (FractionRing A) (FractionRing B) :=
+    IsGaloisGroup.isGalois G (FractionRing A) (FractionRing B)
+  have hsmul (σ : G) : σ • I = I.map (IsGaloisGroup.mulEquivAlgEquiv G A B σ) := by
+    rw [pointwise_smul_def, ← map_coe (f := IsGaloisGroup.mulEquivAlgEquiv G A B σ)]
+    exact congr_arg (I.map ·) (RingHom.ext fun _ ↦ by simp)
+  simp_rw [hsmul]
+  exact ((IsGaloisGroup.mulEquivAlgEquiv G A B).toEquiv.prod_comp (I.map ·)).trans
+    (prod_map_algEquiv_eq_map_relNorm I)
 
 end Ideal
 

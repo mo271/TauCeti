@@ -35,9 +35,9 @@ zero ideal, which has no prime factors, is the trivial character.
   `Ideal.powerResidueSymbol`.
 * `Ideal.powerResidueSymbolIdeal_mul_right`: `(α / 𝔞 𝔟)_n = (α / 𝔞)_n (α / 𝔟)_n` for nonzero
   `𝔞` and `𝔟`.
-* `Ideal.powerResidueSymbolIdeal_prod_right`: `(α / ∏ᵢ 𝔞ᵢ)_n = ∏ᵢ (α / 𝔞ᵢ)_n` for nonzero factors.
 * `Ideal.powerResidueSymbolIdeal_mul_right_intCast`: the same for a rational integer `m`, read in
   each quotient.
+* `Ideal.powerResidueSymbolIdeal_prod_right`: `(α / ∏ᵢ 𝔞ᵢ)_n = ∏ᵢ (α / 𝔞ᵢ)_n` for nonzero factors.
 * `Ideal.powerResidueSymbolIdeal_pow_right`: `(α / 𝔞 ^ k)_n = ((α / 𝔞)_n) ^ k`.
 * `Ideal.powerResidueSymbolIdeal_top`: `(α / 𝓞 K)_n = 1`.
 * `Ideal.powerResidueSymbolIdeal_bot`: the symbol at the zero ideal is the trivial character.
