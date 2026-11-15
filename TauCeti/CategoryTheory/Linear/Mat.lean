@@ -5,32 +5,47 @@ Authors: The Tau Ceti contributors
 -/
 module
 
+public import Mathlib.Algebra.Algebra.Equiv
 public import Mathlib.CategoryTheory.Linear.LinearFunctor
-public import Mathlib.CategoryTheory.Preadditive.Mat
+public import Mathlib.LinearAlgebra.Matrix.StdBasis
 public import TauCeti.CategoryTheory.Linear.Biproduct
+public import TauCeti.CategoryTheory.Preadditive.Mat
 
 /-!
-# Linear structure on the matrix category
+# Linear structure and standard bases on matrix categories
 
 Mathlib equips the additive envelope `Mat_ C` of a preadditive category `C`, whose objects are
 finite families of objects of `C` and whose morphisms are matrices of morphisms of `C`, with its
-preadditive structure only. This file shows that an `R`-linear structure on `C` also passes to
-`Mat_ C`, with scalars acting entrywise on matrices.
+preadditive structure only, and leaves `Mat R` unequipped with scalar multiplication or standard
+bases.
 
-The embedding `Mat_.embedding C` is then `R`-linear, and so are the functor
-`F.mapMat_ : Mat_ C ⥤ Mat_ D` and, when `D` has finite biproducts, the extension
-`Mat_.lift F : Mat_ C ⥤ D` of an `R`-linear functor `F : C ⥤ D`.
+In the first half of this file, we show that an `R`-linear structure on `C` passes to `Mat_ C`,
+with scalars acting entrywise on matrices, so that `Mat_.embedding C`, `F.mapMat_`, and
+`Mat_.lift F` are `R`-linear.
 
-Together with the linear structure on `Karoubi C` (`TauCeti/CategoryTheory/Linear/Karoubi.lean`),
-this makes the additive and idempotent envelope `Karoubi (Mat_ C)` of an `R`-linear category
-`R`-linear.
+In the second half of this file, we equip `Mat R` with:
 
-## Main results
+* Entrywise `S`-module structure on `M ⟶ N` (`Mat.homLinearEquiv`) over any semiring `R`, together
+  with the `S`-linear category instance `Linear S (Mat R)` over any ring `R` and scalar semiring `S`
+  satisfying `[IsScalarTower S R R]` and `[SMulCommClass S R R]`.
+* The standard `R`-basis `Mat.basisHom M N : Module.Basis (M × N) R (M ⟶ N)` of matrix units, its
+  coordinates (`Mat.basisHom_repr_apply`), and the matrix-unit composition law
+  `Mat.basisHom_comp_basisHom`.
+* The endomorphism ring and algebra isomorphisms `Mat.endUnitRingEquiv : End (Mat.unit R) ≃+* Rᵐᵒᵖ`
+  and `Mat.endUnitAlgEquiv : End (Mat.unit R) ≃ₐ[R] R`.
+* `S`-linearity of scalar extension `(Mat.mapRingHom φ.toRingHom).Linear S` along an `S`-algebra
+  homomorphism `φ : R₁ →ₐ[S] R₂`.
 
-* `CategoryTheory.Mat_.smul_apply`: scalars act entrywise on matrices.
-* The instance `CategoryTheory.Linear R (Mat_ C)`.
-* The instances `(Mat_.embedding C).Linear R`, `F.mapMat_.Linear R` and
-  `(Mat_.lift F).Linear R` for an `R`-linear functor `F`.
+## Main declarations
+
+* `CategoryTheory.Linear R (Mat_ C)` and linearity of `Mat_.embedding C`, `F.mapMat_`, and
+  `Mat_.lift F`.
+* `CategoryTheory.Mat.instLinear`: `Linear S (Mat R)` across arbitrary universes.
+* `CategoryTheory.Mat.basisHom`, `CategoryTheory.Mat.basisHom_comp_basisHom`: standard matrix-unit
+  basis of `M ⟶ N` and its composition formula.
+* `CategoryTheory.Mat.endUnitRingEquiv`, `CategoryTheory.Mat.endUnitAlgEquiv`: endomorphisms of
+  `Mat.unit R`.
+* `CategoryTheory.Mat.instLinearMapRingHomAlgHom`: linearity of `Mat.mapRingHom` for `AlgHom`s.
 -/
 
 public section
@@ -38,6 +53,8 @@ public section
 namespace CategoryTheory
 
 open Limits
+
+section Mat_
 
 universe w v₁ u₁ u₂
 
@@ -92,4 +109,169 @@ instance lift_linear [HasFiniteBiproducts E] (F : C ⥤ E) [F.Additive] [F.Linea
 
 end Mat_
 
+end Mat_
+
+namespace Mat
+
+universe w u
+
+section Semiring
+
+variable {R : Type u} [Semiring R] {S : Type w} [Semiring S] [Module S R]
+
+/-- Morphisms in `Mat R` carry an entrywise `S`-module structure whenever `R` is an `S`-module. -/
+instance instModuleHom (M N : Mat R) : Module S (M ⟶ N) :=
+  inferInstanceAs <| Module S (Matrix M N R)
+
+@[simp]
+theorem smul_apply {M N : Mat R} (s : S) (f : M ⟶ N) (i : M) (j : N) :
+    (s • f) i j = s • f i j :=
+  (rfl)
+
+/-- The tautological `S`-linear equivalence `(M ⟶ N) ≃ₗ[S] Matrix M N R`. -/
+def homLinearEquiv (S : Type w) [Semiring S] [Module S R] (M N : Mat R) :
+    (M ⟶ N) ≃ₗ[S] Matrix M N R :=
+  LinearEquiv.refl S (Matrix M N R)
+
+@[simp]
+theorem homLinearEquiv_apply (S : Type w) [Semiring S] [Module S R] {M N : Mat R}
+    (f : M ⟶ N) (i : M) (j : N) :
+    homLinearEquiv S M N f i j = f i j :=
+  (rfl)
+
+@[simp]
+theorem homLinearEquiv_symm_apply (S : Type w) [Semiring S] [Module S R] {M N : Mat R}
+    (A : Matrix M N R) (i : M) (j : N) :
+    (homLinearEquiv S M N).symm A i j = A i j :=
+  (rfl)
+
+/-- The standard `R`-basis of matrix units on `M ⟶ N` in `Mat R`, indexed by `M × N`. -/
+noncomputable def basisHom (M N : Mat R) : Module.Basis (M × N) R (M ⟶ N) :=
+  let _ : Fintype M := @FintypeCat.fintype M
+  (Matrix.stdBasis R M N).map (homLinearEquiv R M N).symm
+
+/-- The `(i, j)` matrix unit in `Mat.basisHom M N` is `Matrix.single i j 1`. -/
+theorem basisHom_apply (M N : Mat R) [DecidableEq M] [DecidableEq N] (p : M × N) :
+    (basisHom M N p : Matrix M N R) = Matrix.single p.1 p.2 1 := by
+  let _ : Fintype M := @FintypeCat.fintype M
+  unfold basisHom homLinearEquiv
+  exact (Module.Basis.map_apply _ _ p).trans (Matrix.stdBasis_eq_single R p.1 p.2)
+
+/-- Coordinates in the standard basis `Mat.basisHom M N` are the matrix entries. -/
+@[simp]
+theorem basisHom_repr_apply {M N : Mat R} (f : M ⟶ N) (p : M × N) :
+    (basisHom M N).repr f p = f p.1 p.2 := by
+  let _ : Fintype M := @FintypeCat.fintype M
+  unfold basisHom homLinearEquiv Matrix.stdBasis
+  simp
+  rfl
+
+/-- Composition of standard matrix units in `Mat R`: `E_{i, j} ≫ E_{k, l} = δ_{j, k} E_{i, l}`. -/
+@[simp]
+theorem basisHom_comp_basisHom (M N P : Mat R) [DecidableEq N] (p : M × N) (q : N × P) :
+    basisHom M N p ≫ basisHom N P q =
+      if p.2 = q.1 then basisHom M P (p.1, q.2) else 0 := by
+  classical
+  let _ : Fintype N := @FintypeCat.fintype N
+  have hp : (basisHom M N p : Matrix M N R) = Matrix.single p.1 p.2 1 := basisHom_apply M N p
+  have hq : (basisHom N P q : Matrix N P R) = Matrix.single q.1 q.2 1 := basisHom_apply N P q
+  have hmul :
+      (basisHom M N p ≫ basisHom N P q : Matrix M P R) =
+        Matrix.single p.1 p.2 (1 : R) * Matrix.single q.1 q.2 (1 : R) :=
+    Matrix.ext fun i k ↦
+      (comp_apply R (basisHom M N p) (basisHom N P q) i k).trans
+        ((Finset.sum_congr rfl fun j _ ↦
+          congrArg₂ (· * ·)
+            (congrArg (fun m : Matrix M N R ↦ m i j) hp)
+            (congrArg (fun m : Matrix N P R ↦ m j k) hq)).trans
+          (Matrix.mul_apply (M := Matrix.single p.1 p.2 (1 : R))
+            (N := Matrix.single q.1 q.2 (1 : R)) (i := i) (k := k)).symm)
+  by_cases h : p.2 = q.1
+  · refine hmul.trans ?_
+    have hsame :
+        Matrix.single p.1 p.2 (1 : R) * Matrix.single q.1 q.2 (1 : R) =
+          Matrix.single p.1 q.2 (1 : R) := by
+      rw [← h, Matrix.single_mul_single_same, one_mul]
+    exact hsame.trans ((basisHom_apply M P (p.1, q.2)).symm.trans (ite_eq_left h).symm)
+  · have hzero : Matrix.single p.1 p.2 (1 : R) * Matrix.single q.1 q.2 (1 : R) = 0 := by simp [h]
+    exact hmul.trans (hzero.trans (ite_eq_right h).symm)
+
+end Semiring
+
+section Ring
+
+attribute [local instance] FintypeCat.fintype in
+/-- `Mat R` is an `S`-linear category whenever `R` is a ring and `S` acts centrally on `R`. -/
+instance instLinear (S : Type w) (R : Type u) [Semiring S] [Ring R] [Module S R]
+    [IsScalarTower S R R] [SMulCommClass S R R] : Linear S (Mat R) where
+  homModule M N := instModuleHom M N
+  smul_comp _ _ _ s f g := Matrix.ext fun i k ↦
+    (comp_apply R (s • f) g i k).trans
+      ((Finset.sum_congr rfl fun j _ ↦ smul_mul_assoc s (f i j) (g j k)).trans
+        ((Finset.smul_sum (r := s)).symm.trans (congrArg (s • ·) (comp_apply R f g i k)).symm))
+  comp_smul _ _ _ f s g := Matrix.ext fun i k ↦
+    (comp_apply R f (s • g) i k).trans
+      ((Finset.sum_congr rfl fun j _ ↦ mul_smul_comm s (f i j) (g j k)).trans
+        ((Finset.smul_sum (r := s)).symm.trans (congrArg (s • ·) (comp_apply R f g i k)).symm))
+
+/-- Endomorphisms of `Mat.unit R` form a ring isomorphic to `Rᵐᵒᵖ`, since multiplication in
+`End X` reverses categorical composition (`(f * g).asHom = g.asHom ≫ f.asHom`). -/
+def endUnitRingEquiv (R : Type u) [Ring R] : End (unit R) ≃+* Rᵐᵒᵖ where
+  toFun f := MulOpposite.op (f.asHom PUnit.unit PUnit.unit)
+  invFun r := End.of (Matrix.of fun _ _ ↦ r.unop)
+  left_inv _ := End.ext (Matrix.ext fun ⟨⟩ ⟨⟩ ↦ rfl)
+  right_inv _ := rfl
+  map_mul' f g :=
+    (congrArg MulOpposite.op
+      (comp_apply_eq_single g.asHom f.asHom PUnit.unit PUnit.unit PUnit.unit
+        fun ⟨⟩ h ↦ absurd rfl h)).trans
+      (MulOpposite.op_mul _ _)
+  map_add' _ _ := rfl
+
+@[simp]
+theorem endUnitRingEquiv_apply {R : Type u} [Ring R] (f : End (unit R)) :
+    endUnitRingEquiv R f = MulOpposite.op (f.asHom PUnit.unit PUnit.unit) :=
+  (rfl)
+
+@[simp]
+theorem endUnitRingEquiv_symm_asHom_apply {R : Type u} [Ring R] (r : Rᵐᵒᵖ) (x y : unit R) :
+    ((endUnitRingEquiv R).symm r).asHom x y = r.unop :=
+  (rfl)
+
+/-- Over a commutative ring `R`, `End (Mat.unit R)` is canonically `R`-algebra isomorphic to `R`. -/
+def endUnitAlgEquiv (R : Type u) [CommRing R] : End (unit R) ≃ₐ[R] R where
+  toFun f := f.asHom PUnit.unit PUnit.unit
+  invFun r := End.of (Matrix.of fun _ _ ↦ r)
+  left_inv _ := End.ext (Matrix.ext fun ⟨⟩ ⟨⟩ ↦ rfl)
+  right_inv _ := rfl
+  map_mul' f g :=
+    (comp_apply_eq_single g.asHom f.asHom PUnit.unit PUnit.unit PUnit.unit
+      fun ⟨⟩ h ↦ absurd rfl h).trans (mul_comm _ _)
+  map_add' _ _ := rfl
+  commutes' r := by
+    change (r • (𝟙 (unit R) : unit R ⟶ unit R)) PUnit.unit PUnit.unit = r
+    exact (congrArg (r * ·) (id_apply_self R (unit R) PUnit.unit)).trans (mul_one r)
+
+@[simp]
+theorem endUnitAlgEquiv_apply {R : Type u} [CommRing R] (f : End (unit R)) :
+    endUnitAlgEquiv R f = f.asHom PUnit.unit PUnit.unit :=
+  (rfl)
+
+@[simp]
+theorem endUnitAlgEquiv_symm_asHom_apply {R : Type u} [CommRing R] (r : R) (x y : unit R) :
+    ((endUnitAlgEquiv R).symm r).asHom x y = r :=
+  (rfl)
+
+/-- Base change along an `S`-algebra homomorphism `φ : R₁ →ₐ[S] R₂` is an `S`-linear functor
+`Mat R₁ ⥤ Mat R₂`. -/
+instance instLinearMapRingHomAlgHom {S : Type w} {R₁ R₂ : Type u} [CommSemiring S]
+    [Ring R₁] [Ring R₂] [Algebra S R₁] [Algebra S R₂] (φ : R₁ →ₐ[S] R₂) :
+    (mapRingHom φ.toRingHom).Linear S where
+  map_smul f s := Matrix.ext fun i j ↦ map_smul φ s (f i j)
+
+end Ring
+
+end Mat
+
 end CategoryTheory
+
