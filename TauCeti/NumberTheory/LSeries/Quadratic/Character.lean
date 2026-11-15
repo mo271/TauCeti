@@ -31,8 +31,9 @@ information about possible exceptional zeros used in Siegel's theorem.
 
 * `DirichletCharacter.LFunction_pos_of_one_lt`: for a quadratic character `χ` and real `s > 1`,
   `0 < L(s, χ)`.
-* `DirichletCharacter.LFunction_apply_one_pos`: for a nontrivial quadratic character `χ`,
-  `0 < L(1, χ)`.
+* `DirichletCharacter.LFunction_apply_one_pos` and
+  `DirichletCharacter.norm_LFunction_one_eq_re`: for a nontrivial quadratic character `χ`,
+  `0 < L(1, χ)` and `‖L(1, χ)‖ = Re L(1, χ)`.
 * `DirichletCharacter.LFunction_pos_of_one_le`: for a nontrivial quadratic character `χ` and
   real `s ≥ 1`, `0 < L(s, χ)`.
 * `DirichletCharacter.LFunction_pos_of_forall_ne_zero`,
@@ -103,6 +104,11 @@ theorem LFunction_apply_one_pos (hχ : χ.IsQuadratic) (hχ₁ : χ ≠ 1) :
   rw [← ofReal_one]
   exact ge_of_tendsto hc.tendsto <| eventually_nhdsWithin_of_forall fun s hs ↦
     (LFunction_pos_of_one_lt hχ hs).le
+
+/-- For a nontrivial quadratic Dirichlet character `χ`, `‖L(1, χ)‖ = Re L(1, χ)`. -/
+theorem norm_LFunction_one_eq_re (hχ : χ.IsQuadratic) (hχ₁ : χ ≠ 1) :
+    ‖χ.LFunction 1‖ = (χ.LFunction 1).re :=
+  (Complex.re_eq_norm.mpr (LFunction_apply_one_pos hχ hχ₁).le).symm
 
 /-- The continued `L`-function of a nontrivial quadratic Dirichlet character is a positive real
 number at every real point `s ≥ 1`. -/

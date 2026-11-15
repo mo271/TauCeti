@@ -33,15 +33,17 @@ have absolute value one.
 
 * `MulChar.IsQuadratic.changeLevel`: lifting a quadratic Dirichlet character to a multiple of its
   level leaves it quadratic.
-* `DirichletCharacter.isQuadratic_changeLevel_iff`: at a nonzero target level, a lifted
-  character is quadratic exactly when the original character is quadratic.
+* `DirichletCharacter.isQuadratic_changeLevel_iff` and
+  `DirichletCharacter.isQuadratic_primitiveCharacter_iff`: at a nonzero target level (and hence for
+  `primitiveCharacter` at every level), lifting preserves and reflects being quadratic.
 * `DirichletCharacter.isQuadratic_mul`: the common-level product of two quadratic characters is
   quadratic.
 * `DirichletCharacter.isQuadratic_iff_eq_one_or_eq_quadraticChar`: at a prime level, the quadratic
   characters are the principal one and the Legendre character.
-* `DirichletCharacter.conductor_changeLevel_quadraticChar`: for odd `p`, with values in a
-  nontrivial ring of characteristic other than `2`, the Legendre character lifted to a nonzero
-  multiple of `p` has conductor `p`.
+* `DirichletCharacter.conductor_changeLevel_quadraticChar` and
+  `DirichletCharacter.isPrimitive_quadraticChar_ringHomComp`: for odd `p`, with values in a
+  nontrivial ring of characteristic other than `2`, the Legendre character is primitive and its lift
+  to any nonzero multiple of `p` has conductor `p`.
 * `DirichletCharacter.isQuadratic_of_forall_im_eq_zero`: a complex Dirichlet character with real
   values is quadratic.
 
@@ -79,6 +81,22 @@ theorem isQuadratic_changeLevel_iff {R : Type*} [CommRing R]
     rw [← ha.unit_spec, ← hu, ZMod.unitsMap_val]
     exact hv
   · exact Or.inl (MulChar.map_nonunit χ ha)
+
+/-- The primitive character associated to `χ` is quadratic if and only if `χ` is quadratic. -/
+@[simp]
+theorem isQuadratic_primitiveCharacter_iff {R : Type*} [CommRing R] {n : ℕ}
+    (χ : DirichletCharacter R n) :
+    χ.primitiveCharacter.IsQuadratic ↔ χ.IsQuadratic := by
+  obtain rfl | hn := eq_zero_or_neZero n
+  · have hchg := χ.changeLevel_primitiveCharacter
+    have hc : χ.conductor = 0 := conductor_eq_zero_iff_level_eq_zero.mpr rfl
+    revert hchg
+    generalize χ.conductor = c, χ.conductor_dvd_level = hdvd, χ.primitiveCharacter = ψ at hc ⊢
+    subst hc
+    rintro rfl
+    rw [changeLevel_self]
+  · conv_rhs => rw [← χ.changeLevel_primitiveCharacter]
+    exact (isQuadratic_changeLevel_iff χ.conductor_dvd_level).symm
 
 /-- The product of two quadratic characters, taken at the least common multiple of their levels,
 is quadratic. -/
@@ -150,6 +168,15 @@ theorem conductor_changeLevel_quadraticChar [Nontrivial R] (hR : ringChar R ≠ 
   rw [conductor_changeLevel]
   refine ((Nat.dvd_prime hp).mp (conductor_dvd_level _)).resolve_left fun h1 ↦ ?_
   exact quadraticChar_ringHomComp_ne_one hR hp2 (eq_one_iff_conductor_eq_one.mpr h1)
+
+/-- For an odd prime `p`, the Legendre character with values in a nontrivial ring `R` of
+characteristic other than `2` is primitive. -/
+theorem isPrimitive_quadraticChar_ringHomComp [Nontrivial R] (hR : ringChar R ≠ 2) (hp2 : p ≠ 2) :
+    IsPrimitive ((quadraticChar (ZMod p)).ringHomComp (Int.castRingHom R)) := by
+  have hp : p.Prime := Fact.out
+  have : NeZero p := ⟨hp.ne_zero⟩
+  have hcond := conductor_changeLevel_quadraticChar hR hp2 dvd_rfl
+  rwa [changeLevel_self, ← isPrimitive_def] at hcond
 
 end Prime
 

@@ -30,8 +30,9 @@ Dirichlet vertical line of integration applies the four-edge form to `[σ₁, σ
 
 * `TauCeti.Contour.classicalResidueTheorem_rectBoundary`: the residue theorem for
   `Complex.rectBoundary z w`.
-* `TauCeti.Contour.integral_boundary_rect_eq_sum_residue`: the four-edge expansion of the rectangle
-  residue theorem, generalizing `Complex.integral_boundary_rect_eq_zero_of_differentiableOn`.
+* `TauCeti.Contour.integral_boundary_rect_eq_sum_residue`: the four-edge residue counterpart of
+  `Complex.integral_boundary_rect_eq_zero_of_differentiableOn` for `ℂ`-valued functions analytic on
+  a neighborhood of the rectangle off `S`.
 
 ## References
 

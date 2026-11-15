@@ -15,7 +15,6 @@ import Mathlib.MeasureTheory.Function.Floor
 import Mathlib.MeasureTheory.Function.LpSeminorm.Basic
 import Mathlib.NumberTheory.Harmonic.EulerMascheroni
 import Mathlib.NumberTheory.Harmonic.ZetaAsymp
-import Mathlib.NumberTheory.LSeries.DirichletContinuation
 import TauCeti.Analysis.MellinTransform.Basic
 import TauCeti.NumberTheory.LSeries.SumCoeff
 
@@ -48,7 +47,8 @@ open scoped Topology
 namespace TauCeti
 
 private lemma norm_sub_natFloor_le_one {t : ℝ} (ht : 0 ≤ t) : ‖(t : ℂ) - ⌊t⌋₊‖ ≤ 1 := by
-  have hcast : (t : ℂ) - ⌊t⌋₊ = ((t - (⌊t⌋₊ : ℝ) : ℝ) : ℂ) := by push_cast; rfl
+  have hcast : (t : ℂ) - ⌊t⌋₊ = ((t - (⌊t⌋₊ : ℝ) : ℝ) : ℂ) := by
+    rw [ofReal_sub, ofReal_natCast]
   rw [hcast, norm_real, Real.norm_of_nonneg (sub_nonneg.mpr (Nat.floor_le ht))]
   linarith [Nat.lt_floor_add_one t]
 
@@ -159,12 +159,11 @@ theorem riemannZeta_eq_div_sub_mul_integral {s : ℂ} (hs : 0 < s.re) (hs₁ : s
 
 private lemma norm_riemannZeta_one_le_one : ‖riemannZeta 1‖ ≤ 1 := by
   have h4pi : (0 : ℝ) < 4 * Real.pi := by positivity
-  have h4pi_eq : (4 : ℂ) * Real.pi = ((4 * Real.pi : ℝ) : ℂ) := by push_cast; rfl
+  have h4pi_eq : (4 : ℂ) * Real.pi = ((4 * Real.pi : ℝ) : ℂ) := by
+    rw [ofReal_mul, ofReal_ofNat]
   have hcast : riemannZeta 1 =
       (((Real.eulerMascheroniConstant - Real.log (4 * Real.pi)) / 2 : ℝ) : ℂ) := by
-    rw [riemannZeta_one, h4pi_eq, ← ofReal_log h4pi.le]
-    push_cast
-    rfl
+    rw [riemannZeta_one, h4pi_eq, ← ofReal_log h4pi.le, ← ofReal_sub, ← ofReal_ofNat, ← ofReal_div]
   rw [hcast, norm_real, Real.norm_eq_abs, abs_div, abs_of_pos (by norm_num : (0 : ℝ) < 2),
     div_le_one (by norm_num), abs_le]
   have hγ_lt := Real.eulerMascheroniConstant_lt_two_thirds

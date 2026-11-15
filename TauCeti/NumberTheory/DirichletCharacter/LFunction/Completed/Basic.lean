@@ -14,7 +14,8 @@ public import TauCeti.NumberTheory.DirichletCharacter.LFunction.Conjugate
 /-!
 # Completed Dirichlet L-functions
 
-These results supplement Mathlib's continued Dirichlet functions with meromorphy and conjugation.
+These results supplement Mathlib's continued Dirichlet functions with analyticity, meromorphy, and
+conjugation.
 For a nonprincipal character the two polar terms of Mathlib's Hurwitz decomposition cancel, so the
 completed function is Mathlib's entire periodic completion `ZMod.completedLFunction₀`.
 The functions themselves are Mathlib's, without any change of representative. The conjugation
@@ -83,18 +84,26 @@ theorem meromorphic_completedLFunction : Meromorphic χ.completedLFunction := by
   rw [funext (ZMod.completedLFunction_eq (χ ·))]
   fun_prop
 
+/-- The continued L-function of a Dirichlet character is analytic except possibly at `s = 1`
+for the principal character. -/
+theorem analyticAt_LFunction {s : ℂ} (h1 : s ≠ 1 ∨ χ ≠ 1) : AnalyticAt ℂ χ.LFunction s := by
+  rw [Complex.analyticAt_iff_eventually_differentiableAt]
+  have he1 : ∀ᶠ z in 𝓝 s, z ≠ 1 ∨ χ ≠ 1 := by
+    rcases h1 with h1 | h1
+    · filter_upwards [eventually_ne_nhds h1] with z hz using Or.inl hz
+    · exact Filter.Eventually.of_forall fun _ ↦ Or.inr h1
+  filter_upwards [he1] with z hz1
+  exact χ.differentiableAt_LFunction z hz1
+
 /-- Every Dirichlet character has a meromorphic continued L-function on the whole plane. -/
 theorem meromorphic_LFunction : Meromorphic χ.LFunction := by
   intro z
-  rcases eq_or_ne z 0 with rfl | hz0
-  · refine (DifferentiableOn.analyticOnNhd
-      (fun w (hw : w ∈ ({1}ᶜ : Set ℂ)) ↦
-        (differentiableAt_LFunction χ w (Or.inl hw)).differentiableWithinAt)
-      isOpen_compl_singleton 0 zero_ne_one).meromorphicAt
-  · refine ((χ.meromorphic_completedLFunction z).mul
-      (χ.differentiable_inv_gammaFactor.analyticAt z).meromorphicAt).congr ?_
-    filter_upwards [nhdsWithin_le_nhds (eventually_ne_nhds hz0)] with w hw
+  rcases eq_or_ne z 1 with rfl | hz1
+  · refine ((χ.meromorphic_completedLFunction 1).mul
+      (χ.differentiable_inv_gammaFactor.analyticAt 1).meromorphicAt).congr ?_
+    filter_upwards [nhdsWithin_le_nhds (eventually_ne_nhds one_ne_zero)] with w hw
     rw [Pi.mul_apply, χ.LFunction_eq_completed_div_gammaFactor w (Or.inl hw), div_eq_mul_inv]
+  · exact (χ.analyticAt_LFunction (Or.inl hz1)).meromorphicAt
 
 /-- For a nonprincipal character the completed L-function is the entire periodic completion
 `ZMod.completedLFunction₀` of the character values. -/

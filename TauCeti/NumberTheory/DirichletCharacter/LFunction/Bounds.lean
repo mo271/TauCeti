@@ -140,7 +140,10 @@ theorem norm_LFunction_one_le_one_add_log (hχ : χ ≠ 1) :
         Set.Ioc_union_Ioi_eq_Ioi hN]
     _ ≤ 1 + Real.log N := by linarith
 
-private theorem LFunctionTrivChar₁_eq_mul (s : ℂ) :
+/-- For a positive level `N`, the entire regularization `LFunctionTrivChar₁ N` of the principal
+character modulo `N` factors at every `s : ℂ` into its deleted Euler factors times
+`LFunctionTrivChar₁ 1`. -/
+theorem LFunctionTrivChar₁_eq_mul (s : ℂ) :
     LFunctionTrivChar₁ N s =
       (∏ p ∈ N.primeFactors, (1 - (p : ℂ) ^ (-s))) * LFunctionTrivChar₁ 1 s := by
   rcases eq_or_ne s 1 with rfl | hs₁

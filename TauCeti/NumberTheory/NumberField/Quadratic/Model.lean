@@ -11,7 +11,6 @@ public import Mathlib.NumberTheory.FundamentalDiscriminant
 public import Mathlib.RingTheory.QuadraticAlgebra
 public import TauCeti.NumberTheory.NumberField.Quadratic.ComplexEmbedding
 public import TauCeti.NumberTheory.NumberField.IntegralSqrt
-import TauCeti.NumberTheory.FundamentalDiscriminant
 
 /-!
 # The ring of integers of the model `ℚ(√d)`
@@ -359,11 +358,11 @@ theorem discr_eq_of_mod_four_eq_one : NumberField.discr (QuadraticAlgebra ℚ (d
 end ModFourEqOne
 
 /-- **The discriminant of `ℚ(√d)` for a fundamental discriminant `d`.** When `d` is a nonsquare
-fundamental discriminant, the model `QuadraticAlgebra ℚ d 0` has field discriminant `d`: for
-`d ≡ 1 (mod 4)` it is already squarefree, while for `d = 4 m` with `m` squarefree and
-`m ≡ 2, 3 (mod 4)` the element `ω / 2` is an integral square root of `m`. -/
+fundamental discriminant, the model `QuadraticAlgebra ℚ d 0` has field discriminant `d`. -/
 theorem discr_eq_of_isFundamentalDiscr (hd : Int.IsFundamentalDiscr d) :
     NumberField.discr (QuadraticAlgebra ℚ (d : ℚ) 0) = d := by
+  -- For `d ≡ 1 (mod 4)`, `d` is squarefree; for `d = 4 m` with `m` squarefree and
+  -- `m ≡ 2, 3 (mod 4)`, `ω / 2` is an integral square root of `m`.
   rcases Int.isFundamentalDiscr_iff_squarefree.mp hd with ⟨hd4, hsf⟩ | ⟨hd4, hmsf, hm4⟩
   · exact discr_eq_of_mod_four_eq_one hsf hd4
   · obtain ⟨m, rfl⟩ : (4 : ℤ) ∣ d := Int.dvd_of_emod_eq_zero hd4

@@ -7,7 +7,6 @@ module
 
 public import Mathlib.NumberTheory.LSeries.DirichletContinuation
 public import TauCeti.Data.Nat.GCD
-public import TauCeti.NumberTheory.MulChar.Basic
 import Mathlib.NumberTheory.LegendreSymbol.QuadraticChar.Basic
 import TauCeti.NumberTheory.DirichletCharacter.LFunction.Bounds
 import TauCeti.NumberTheory.DirichletCharacter.LFunction.ChangeLevel
@@ -23,32 +22,35 @@ import TauCeti.NumberTheory.LSeries.Quadratic.Pair.Sign
 For every `ε > 0`, there exists a constant `c > 0` such that every nonprincipal quadratic Dirichlet
 character `χ` modulo `q` satisfies `c * q ^ (-ε) ≤ Re L(1, χ)`.
 
-The proof follows Goldfeld's contour-shifting method for primitive characters, combined with the
-zero-free versus exceptional-zero dichotomy on `(1 - δ, 1)` for `δ = min (1 / 4) (ε / 20)` and the
-deleted-Euler-factor comparison `DirichletCharacter.exists_norm_LFunction_changeLevel_le_rpow`:
+Writing `F(s) = ζ(s) L(s, χ) L(s, ψ) L(s, χ.mul ψ)` for the four-factor product attached to two
+characters `χ` mod `M` and `ψ` mod `N`, the proof follows Goldfeld's contour-shifting method for
+primitive characters, combined with the zero-free versus exceptional-zero dichotomy on `(1 - δ, 1)`
+for `δ = min (1 / 4) (ε / 20)` and the deleted-Euler-factor comparison
+`DirichletCharacter.exists_norm_LFunction_changeLevel_le_rpow`:
 
 1. Dividing Goldfeld's three-factor residue bound
    (`DirichletCharacter.exists_pos_mul_rpow_le_re_LFunction_one_mul`) by the elementary upper bound
-   `L(1, ρ) ≤ 1 + log L ≤ 2 δ⁻¹ L ^ δ` for `ρ = ψ` and `ρ = χ.mul ψ` yields the two-character lower
-   bound `c (1 - β)³ (M N)^{-10(1 - β)} ≤ Re L(1, χ)` whenever `Re F(β) ≤ 0` on `[3 / 4, 1)`.
+   `Re L(1, ρ) ≤ 1 + log L ≤ 2 (1 - β)⁻¹ L ^ (1 - β)` for `ρ = ψ` and `ρ = χ.mul ψ` yields the
+   two-character lower bound `c (1 - β)³ (M N)^{-10(1 - β)} ≤ Re L(1, χ)` whenever `Re F(β) ≤ 0` on
+   `[3 / 4, 1)`.
 2. In particular, if `L(β, ψ) = 0` for `β ∈ [3 / 4, 1)` and `χ.mul ψ ≠ 1`, then `F(β) = 0` gives
    `c (1 - β)³ (M N)^{-10(1 - β)} ≤ Re L(1, χ)`.
-3. If no primitive nonprincipal quadratic character vanishes on `(1 - δ, 1)`, pairing any primitive
-   `χ` of conductor `q` with the Legendre character modulo `3` (or modulo `5` when `q = 3`) produces
-   a nonprincipal product whose primitive character is also nonvanishing on `(1 - δ, 1)`, so
-   `F(1 - δ) ≤ 0` (`DirichletCharacter.pair_nonpos_of_forall_ne_zero`) and
-   `Re L(1, χ) ≫ δ³ q^{-10 δ}`.
+3. If `L(·, ρ)` has no zero on `(1 - δ, 1)` for any primitive nonprincipal quadratic character `ρ`,
+   pairing any primitive `χ` of conductor `q` with the Legendre character modulo `3` (or modulo `5`
+   when `q = 3`) produces a nonprincipal product whose primitive character also has nonvanishing
+   `L`-function on `(1 - δ, 1)`, so `F(1 - δ) ≤ 0`
+   (`DirichletCharacter.pair_nonpos_of_forall_ne_zero`) and `Re L(1, χ) ≫ δ³ q^{-10 δ}`.
 4. Otherwise, fixing one primitive nonprincipal quadratic character `ψ` with a real zero
-   `β ∈ (1 - δ, 1)` bounds `Re L(1, χ)` for every primitive `χ ≠ ψ` via step 2, while `χ = ψ` is a
-   single positive value `Re L(1, ψ) > 0`. Passing from an arbitrary nonprincipal quadratic
-   character modulo `q` to its primitive character costs at most `O_ε(q ^ (ε / 2))`, giving the
-   general theorem across all moduli. The resulting constant `c` depends on the hypothetical zero
-   `β` and is therefore ineffective.
+   `L(β, ψ) = 0` for `β ∈ (1 - δ, 1)` bounds `Re L(1, χ)` for every primitive `χ ≠ ψ` via step 2,
+   while `χ = ψ` is a single positive value `Re L(1, ψ) > 0`. Passing from an arbitrary nonprincipal
+   quadratic character modulo `q` to its primitive character costs at most `O_ε(q ^ (ε / 2))`,
+   giving the general theorem across all moduli. The resulting constant `c` depends on the
+   hypothetical zero `β` and is therefore ineffective.
 
 ## Main results
 
 * `DirichletCharacter.exists_pos_mul_rpow_le_re_LFunction_one_of_re_nonpos`: two-character `L(1, χ)`
-  lower bound from `Re F(β) ≤ 0`.
+  lower bound from `Re (ζ(β) L(β, χ) L(β, ψ) L(β, χ.mul ψ)) ≤ 0`.
 * `DirichletCharacter.exists_pos_mul_rpow_le_re_LFunction_one_of_eq_zero`: two-character `L(1, χ)`
   lower bound from a real zero `L(β, ψ) = 0` in `[3 / 4, 1)`.
 * `DirichletCharacter.exists_pos_mul_rpow_le_re_LFunction_one_of_forall_ne_zero`: effective uniform
@@ -85,9 +87,11 @@ private lemma re_LFunction_one_le_two_mul_inv_mul_rpow {L : ℕ} [NeZero L]
   exact (Complex.re_le_norm _).trans <|
     (ρ.norm_LFunction_one_le_one_add_log hρ).trans (by linarith)
 
-/-- **Two-character lower bound for `Re L(1, χ)` from `Re F(β) ≤ 0`.** Dividing Goldfeld's residue
-lower bound by `Re L(1, ψ)` and `Re L(1, χ.mul ψ)` bounds `Re L(1, χ)` below by
-`c (1 - β)³ (M N)^{-10(1 - β)}` whenever `3 / 4 ≤ β < 1` and `Re F(β) ≤ 0`. -/
+/-- **Two-character lower bound for `Re L(1, χ)` from nonpositivity at `β`.** There exists an
+absolute constant `c > 0` such that for nonprincipal quadratic characters `χ` mod `M` and `ψ` mod
+`N` with `χ.mul ψ ≠ 1` and `3 / 4 ≤ β < 1`, if
+`Re (ζ(β) L(β, χ) L(β, ψ) L(β, χ.mul ψ)) ≤ 0`, then
+`c (1 - β)³ (M N)^{-10(1 - β)} ≤ Re L(1, χ)`. -/
 theorem exists_pos_mul_rpow_le_re_LFunction_one_of_re_nonpos :
     ∃ c : ℝ, 0 < c ∧ ∀ {M N : ℕ} [NeZero M] [NeZero N]
       (χ : DirichletCharacter ℂ M) (ψ : DirichletCharacter ℂ N),
@@ -140,9 +144,10 @@ theorem exists_pos_mul_rpow_le_re_LFunction_one_of_re_nonpos :
         rw [inv_mul_cancel₀ hδ₀.ne', ← Real.rpow_add hMN0, hzero_exp, Real.rpow_zero]
         ring
 
-/-- **Two-character lower bound from an exceptional real zero.** If a nonprincipal quadratic
-character `ψ` mod `N` vanishes at `β ∈ [3 / 4, 1)`, then every nonprincipal quadratic character `χ`
-mod `M` with `χ.mul ψ ≠ 1` satisfies `c (1 - β)³ (M N)^{-10(1 - β)} ≤ Re L(1, χ)`. -/
+/-- **Two-character lower bound from an exceptional real zero.** If the `L`-function `L(·, ψ)` of a
+nonprincipal quadratic character `ψ` mod `N` vanishes at `β ∈ [3 / 4, 1)`, then every nonprincipal
+quadratic character `χ` mod `M` with `χ.mul ψ ≠ 1` satisfies
+`c (1 - β)³ (M N)^{-10(1 - β)} ≤ Re L(1, χ)`. -/
 theorem exists_pos_mul_rpow_le_re_LFunction_one_of_eq_zero :
     ∃ c : ℝ, 0 < c ∧ ∀ {M N : ℕ} [NeZero M] [NeZero N]
       (χ : DirichletCharacter ℂ M) (ψ : DirichletCharacter ℂ N),
@@ -153,18 +158,6 @@ theorem exists_pos_mul_rpow_le_re_LFunction_one_of_eq_zero :
   exact ⟨c, hc, fun {M N} _ _ χ ψ hχq hψq hχ hψ hχψ {β} hβ₀ hβ₁ hβ0 ↦
     hbound χ ψ hχq hψq hχ hψ hχψ hβ₀ hβ₁ (by simp [hβ0])⟩
 
-private lemma isPrimitive_quadraticChar_ringHomComp {p : ℕ} [Fact p.Prime] (hp2 : p ≠ 2) :
-    IsPrimitive ((quadraticChar (ZMod p)).ringHomComp (Int.castRingHom ℂ)) ∧
-    ((quadraticChar (ZMod p)).ringHomComp (Int.castRingHom ℂ)).IsQuadratic ∧
-    ((quadraticChar (ZMod p)).ringHomComp (Int.castRingHom ℂ) :
-      DirichletCharacter ℂ p) ≠ 1 := by
-  have hp : p.Prime := Fact.out
-  have : NeZero p := ⟨hp.ne_zero⟩
-  have hcond := conductor_changeLevel_quadraticChar (R := ℂ) (by simp) hp2 dvd_rfl
-  rw [changeLevel_self] at hcond
-  exact ⟨by rw [isPrimitive_def]; exact hcond, (quadraticChar_isQuadratic (ZMod p)).comp _,
-    quadraticChar_ringHomComp_ne_one (by simp) hp2⟩
-
 private lemma mul_LFunction_ne_zero_of_forall_primitive {M N : ℕ} [NeZero M] [NeZero N]
     {χ : DirichletCharacter ℂ M} {ψ : DirichletCharacter ℂ N}
     (hχq : χ.IsQuadratic) (hψq : ψ.IsQuadratic) (hχψ : χ.mul ψ ≠ 1) {β : ℝ} (hβ₀ : 0 < β)
@@ -174,10 +167,9 @@ private lemma mul_LFunction_ne_zero_of_forall_primitive {M N : ℕ} [NeZero M] [
   have : NeZero (χ.mul ψ).conductor := ⟨(χ.mul ψ).conductor_ne_zero⟩
   have hρp : (χ.mul ψ).primitiveCharacter.IsPrimitive := (χ.mul ψ).primitiveCharacter_isPrimitive
   have hρq : (χ.mul ψ).primitiveCharacter.IsQuadratic :=
-    (isQuadratic_changeLevel_iff (χ.mul ψ).conductor_dvd_level).mp
-      ((changeLevel_primitiveCharacter (χ.mul ψ)).symm ▸ isQuadratic_mul hχq hψq)
-  have hρ1 : (χ.mul ψ).primitiveCharacter ≠ 1 := fun h1 ↦ hχψ <| by
-    rw [← changeLevel_primitiveCharacter (χ.mul ψ), h1, map_one]
+    (isQuadratic_primitiveCharacter_iff (χ.mul ψ)).mpr (isQuadratic_mul hχq hψq)
+  have hρ1 : (χ.mul ψ).primitiveCharacter ≠ 1 :=
+    (primitiveCharacter_eq_one_iff (χ.mul ψ)).not.mpr hχψ
   intro σ hσ
   have hσ0 : 0 < (σ : ℂ).re := by simp; linarith [hσ.1]
   have hσ1 : (σ : ℂ) ≠ 1 := by exact_mod_cast hσ.2.ne
@@ -187,9 +179,9 @@ private lemma mul_LFunction_ne_zero_of_forall_primitive {M N : ℕ} [NeZero M] [
   exact hzero (χ.mul ψ).conductor (χ.mul ψ).primitiveCharacter hρp hρq hρ1 σ hσ
 
 /-- **Effective uniform `L(1, χ)` lower bound under a real zero-free interval.** There is an
-absolute constant `c > 0` such that whenever `0 < δ ≤ 1 / 4` and no primitive nonprincipal quadratic
-character vanishes on `(1 - δ, 1)`, every primitive nonprincipal quadratic character `χ` modulo `q`
-satisfies `c * δ ^ 3 * q ^ (-10 * δ) ≤ Re L(1, χ)`. -/
+absolute constant `c > 0` such that whenever `0 < δ ≤ 1 / 4` and `L(·, ρ)` has no zero on
+`(1 - δ, 1)` for any primitive nonprincipal quadratic character `ρ`, every primitive nonprincipal
+quadratic character `χ` modulo `q` satisfies `c * δ ^ 3 * q ^ (-10 * δ) ≤ Re L(1, χ)`. -/
 theorem exists_pos_mul_rpow_le_re_LFunction_one_of_forall_ne_zero :
     ∃ c : ℝ, 0 < c ∧ ∀ {δ : ℝ}, 0 < δ → δ ≤ 1 / 4 →
       (∀ (q : ℕ) [NeZero q] (ρ : DirichletCharacter ℂ q),
@@ -205,8 +197,10 @@ theorem exists_pos_mul_rpow_le_re_LFunction_one_of_forall_ne_zero :
       c₀ * (5 : ℝ) ^ (-(5 / 2 : ℝ)) * δ ^ 3 * (q : ℝ) ^ (-10 * δ) ≤ (χ.LFunction 1).re := by
     have hp : p.Prime := Fact.out
     have : NeZero p := ⟨hp.ne_zero⟩
-    obtain ⟨hψp, hψq, hψ1⟩ := isPrimitive_quadraticChar_ringHomComp hp2
     set ψ : DirichletCharacter ℂ p := (quadraticChar (ZMod p)).ringHomComp (Int.castRingHom ℂ)
+    have hψp : ψ.IsPrimitive := isPrimitive_quadraticChar_ringHomComp (by simp) hp2
+    have hψq : ψ.IsQuadratic := (quadraticChar_isQuadratic (ZMod p)).comp _
+    have hψ1 : ψ ≠ 1 := quadraticChar_ringHomComp_ne_one (by simp) hp2
     have hχψ : χ.mul ψ ≠ 1 := fun h1 ↦ by
       rcases (hχp.mul_eq_one_iff hψp hψq).mp h1 with ⟨heq, -⟩
       exact hqp heq
@@ -214,11 +208,7 @@ theorem exists_pos_mul_rpow_le_re_LFunction_one_of_forall_ne_zero :
     have hsign := pair_nonpos_of_forall_ne_zero hχq hψq hχ1 hψ1 hχψ hβ₀ (by linarith) fun σ hσ ↦
       ⟨hzero q χ hχp hχq hχ1 σ hσ, hzero p ψ hψp hψq hψ1 σ hσ,
         mul_LFunction_ne_zero_of_forall_primitive hχq hψq hχψ hβ₀ hzero σ hσ⟩
-    have hre0 : (riemannZeta ((1 - δ : ℝ) : ℂ) * χ.LFunction (1 - δ : ℝ) *
-        ψ.LFunction (1 - δ : ℝ) * (χ.mul ψ).LFunction (1 - δ : ℝ)).re ≤ 0 := by
-      have hnn := (Complex.nonneg_iff.mp (neg_nonneg.mpr hsign)).1
-      simp only [neg_re] at hnn
-      linarith
+    have hre0 := (Complex.nonpos_iff.mp hsign).1
     have hmain := hbound χ ψ hχq hψq hχ1 hψ1 hχψ (β := 1 - δ) (by linarith) (by linarith) hre0
     have hsub : 1 - (1 - δ) = δ := by ring
     rw [hsub] at hmain
@@ -293,10 +283,9 @@ theorem quadratic_LFunction_siegel {ε : ℝ} (hε : 0 < ε) :
   refine ⟨c₁ / A, div_pos hc₁ hA, fun q _ χ hχq hχ1 ↦ ?_⟩
   have : NeZero χ.conductor := ⟨χ.conductor_ne_zero⟩
   have hχ₀q : χ.primitiveCharacter.IsQuadratic :=
-    (isQuadratic_changeLevel_iff χ.conductor_dvd_level).mp
-      (χ.changeLevel_primitiveCharacter.symm ▸ hχq)
-  have hχ₀1 : χ.primitiveCharacter ≠ 1 := fun h1 ↦ hχ1 <| by
-    rw [← χ.changeLevel_primitiveCharacter, h1, map_one]
+    (isQuadratic_primitiveCharacter_iff χ).mpr hχq
+  have hχ₀1 : χ.primitiveCharacter ≠ 1 :=
+    (primitiveCharacter_eq_one_iff χ).not.mpr hχ1
   have hq0 : 0 < (q : ℝ) := Nat.cast_pos.mpr (NeZero.pos q)
   have hcond_le : (χ.conductor : ℝ) ≤ q :=
     Nat.cast_le.mpr (Nat.le_of_dvd (NeZero.pos q) χ.conductor_dvd_level)
@@ -310,12 +299,7 @@ theorem quadratic_LFunction_siegel {ε : ℝ} (hε : 0 < ε) :
   have hcmp : ‖χ.primitiveCharacter.LFunction 1‖ ≤ A * (q : ℝ) ^ (ε / 2) * ‖χ.LFunction 1‖ := by
     simpa only [χ.changeLevel_primitiveCharacter] using
       (hchg χ.conductor q χ.primitiveCharacter χ.conductor_dvd_level 1 (by simp) (Or.inl hχ₀1)).2
-  obtain ⟨hpos, him⟩ := Complex.pos_iff.mp (LFunction_apply_one_pos hχq hχ1)
-  have heq : χ.LFunction 1 = ((χ.LFunction 1).re : ℂ) := Complex.ext rfl him.symm
-  have hnorm_re : ‖χ.LFunction 1‖ = (χ.LFunction 1).re := by
-    conv_lhs => rw [heq]
-    rw [norm_real, Real.norm_of_nonneg hpos.le]
-  rw [hnorm_re] at hcmp
+  rw [norm_LFunction_one_eq_re hχq hχ1] at hcmp
   have hexp : -ε = -(ε / 2) - ε / 2 := by ring
   rw [hexp, sub_eq_add_neg, Real.rpow_add hq0]
   have hdiv : c₁ / A * ((q : ℝ) ^ (-(ε / 2)) * (q : ℝ) ^ (-(ε / 2))) =

@@ -12,7 +12,8 @@ public import TauCeti.NumberTheory.DirichletCharacter.Quadratic
 
 Primitive Dirichlet characters are identified by their lifts to a common nonzero level. Equality
 of the lifts forces equality of the original levels, because changing level preserves the
-conductor. This gives an equality criterion without choosing representatives at prime arguments.
+conductor. This gives an equality criterion without choosing representatives at prime arguments; in
+particular, the primitive character associated to `χ` is principal if and only if `χ` is principal.
 
 For primitive quadratic characters, their product at the least common multiple level is principal
 exactly when the original characters coincide, including their levels. This separates the
@@ -25,6 +26,22 @@ public section
 namespace DirichletCharacter
 
 variable {R : Type*} {N M L : ℕ}
+
+/-- The primitive character associated to `χ` is principal if and only if `χ` is principal. -/
+@[simp]
+theorem primitiveCharacter_eq_one_iff [CommMonoidWithZero R] (χ : DirichletCharacter R N) :
+    χ.primitiveCharacter = 1 ↔ χ = 1 := by
+  obtain rfl | hN := eq_zero_or_neZero N
+  · have hchg := χ.changeLevel_primitiveCharacter
+    have hc : χ.conductor = 0 := conductor_eq_zero_iff_level_eq_zero.mpr rfl
+    revert hchg
+    generalize χ.conductor = c, χ.conductor_dvd_level = hdvd, χ.primitiveCharacter = ψ at hc ⊢
+    subst hc
+    rintro rfl
+    rw [changeLevel_self]
+  · refine ⟨fun h ↦ by rw [← χ.changeLevel_primitiveCharacter, h, map_one], ?_⟩
+    rintro rfl
+    exact primitiveCharacter_one
 
 /-- Two primitive characters have equal lifts to a common nonzero level exactly when their levels
 and characters agree. The existential equality transports the first character to the second

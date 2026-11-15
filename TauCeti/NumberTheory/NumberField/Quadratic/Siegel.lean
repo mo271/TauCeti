@@ -49,15 +49,17 @@ ineffective; determining the exact list for `B = 1` requires separate effective 
 * `TauCeti.NumberField.imaginary_discr_bounded_of_classNumber_le` and
   `TauCeti.NumberField.imaginary_natAbs_discr_bounded_of_classNumber_le`: uniform upper bounds on
   `|discr L|` from `classNumber L ≤ B`.
-* `TauCeti.NumberField.lt_imaginary_classNumber_of_natAbs_discr_gt`: uniform divergence of the
-  imaginary quadratic class number with `|discr L|`.
-* `TauCeti.NumberField.finite_isFundamentalDiscr_neg_classNumber_le`: finiteness of negative
-  fundamental discriminants `D` with `classNumber ℚ(√D) ≤ B`.
+* `TauCeti.NumberField.exists_lt_imaginary_classNumber_of_lt_natAbs_discr`: uniform divergence of
+  the imaginary quadratic class number with `|discr L|`.
+* `TauCeti.NumberField.finite_isFundamentalDiscr_neg_classNumber_le` and
+  `TauCeti.NumberField.finite_isFundamentalDiscr_neg_classNumber_eq`: finiteness of negative
+  fundamental discriminants `D` with `classNumber ℚ(√D) ≤ B` (respectively `= B`).
 * `TauCeti.NumberField.finite_squarefree_neg_classNumber_le` and
   `TauCeti.NumberField.finite_squarefree_neg_classNumber_eq`: finiteness of negative squarefree `d`
   with `classNumber ℚ(√d) ≤ B` (respectively `= B`).
-* `TauCeti.NumberField.exists_finset_neg_squarefree_classNumber_le_iff`: finite `ℚ`-algebra
-  isomorphism classification of imaginary quadratic fields with `classNumber L ≤ B`.
+* `TauCeti.NumberField.exists_finset_neg_squarefree_classNumber_le_iff_existsUnique_algEquiv`:
+  finite `ℚ`-algebra isomorphism classification of imaginary quadratic fields with
+  `classNumber L ≤ B`.
 
 ## References
 
@@ -143,7 +145,7 @@ theorem imaginary_natAbs_discr_bounded_of_classNumber_le (B : ℕ) :
 
 /-- **Uniform divergence of the imaginary quadratic class number.** For every `B`, all imaginary
 quadratic fields of sufficiently large discriminant satisfy `B < classNumber L`. -/
-theorem lt_imaginary_classNumber_of_natAbs_discr_gt (B : ℕ) :
+theorem exists_lt_imaginary_classNumber_of_lt_natAbs_discr (B : ℕ) :
     ∃ D₀ : ℕ, ∀ (L : Type u) [Field L] [NumberField L]
       [NumberField.IsTotallyComplex L], Module.finrank ℚ L = 2 →
       D₀ < (NumberField.discr L).natAbs → B < NumberField.classNumber L := by
@@ -165,6 +167,15 @@ theorem finite_isFundamentalDiscr_neg_classNumber_le (B : ℕ) :
   have hle := hD₀ (QuadraticAlgebra ℚ (D : ℚ) 0) (QuadraticAlgebra.finrank_eq_two _ _) hB
   rw [QuadraticAlgebra.discr_eq_of_isFundamentalDiscr hfund] at hle
   exact ⟨by omega, hneg.le⟩
+
+/-- **Finiteness of negative fundamental discriminants of a prescribed class number.** For every
+`B`, only finitely many negative fundamental discriminants `D` satisfy `classNumber ℚ(√D) = B`. -/
+theorem finite_isFundamentalDiscr_neg_classNumber_eq (B : ℕ) :
+    {D : ℤ | D < 0 ∧ Int.IsFundamentalDiscr D ∧
+      ∀ [Fact (¬ IsSquare D)],
+        NumberField.classNumber (QuadraticAlgebra ℚ (D : ℚ) 0) = B}.Finite :=
+  (finite_isFundamentalDiscr_neg_classNumber_le B).subset fun _ ⟨hneg, hfund, hB⟩ ↦
+    ⟨hneg, hfund, hB.le⟩
 
 private lemma neg_natAbs_discr_le_of_squarefree {d : ℤ} [Fact (¬ IsSquare d)]
     (hneg : d < 0) (hsf : Squarefree d) :
@@ -203,7 +214,7 @@ theorem finite_squarefree_neg_classNumber_eq (B : ℕ) :
 For every `B`, there is a finite set `S` of negative squarefree integers such that an imaginary
 quadratic field `L` has `classNumber L ≤ B` if and only if it is `ℚ`-algebra isomorphic to
 `QuadraticAlgebra ℚ d 0` for a (necessarily unique) `d ∈ S`. -/
-theorem exists_finset_neg_squarefree_classNumber_le_iff (B : ℕ) :
+theorem exists_finset_neg_squarefree_classNumber_le_iff_existsUnique_algEquiv (B : ℕ) :
     ∃ S : Finset ℤ, (∀ d ∈ S, d < 0 ∧ Squarefree d) ∧
       ∀ (L : Type u) [Field L] [NumberField L] [NumberField.IsTotallyComplex L],
         Module.finrank ℚ L = 2 →

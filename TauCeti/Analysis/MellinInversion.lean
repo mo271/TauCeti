@@ -9,6 +9,7 @@ public import Mathlib.Analysis.MellinInversion
 public import TauCeti.Analysis.Contour.Residue.Basic
 import TauCeti.Analysis.Contour.Residue.Rectangle
 import Mathlib.Analysis.Complex.CauchyIntegral
+import Mathlib.Analysis.SpecialFunctions.Complex.Analytic
 import Mathlib.MeasureTheory.Integral.IntegralEqImproper
 
 /-!
@@ -33,7 +34,7 @@ horizontal segments that tends to `0` discharges the horizontal-edge hypotheses.
 
 * `Complex.VerticalIntegrable.integrable_cpow_smul`: the integrand of the Mellin inversion
   integral of a vertically integrable function is integrable.
-* `Complex.tendsto_integral_cpow_mul_zero_of_norm_le`: uniform decay of `f` on horizontal segments
+* `Complex.tendsto_integral_cpow_smul_zero_of_norm_le`: uniform decay of `f` on horizontal segments
   makes the horizontal Mellin segment integrals tend to `0`.
 * `Complex.mellinInv_eq_mellinInv_add_sum_residue`: shifting the vertical line of `mellinInv`
   across finitely many poles in a vertical strip.
@@ -60,14 +61,15 @@ theorem VerticalIntegrable.integrable_cpow_smul {E : Type*} [NormedAddCommGroup 
   · rw [norm_cpow_eq_rpow_re_of_pos hy]
     simp
 
-/-- On a compact real interval `[[σ₁, σ₂]]`, `‖x ^ (-z)‖ = x ^ (-Re z)` is bounded by
-`max (x ^ (-σ₁)) (x ^ (-σ₂))` for `x > 0`, so uniform decay of `f` along horizontal segments makes
-the horizontal Mellin segment integrals tend to `0`. -/
-theorem tendsto_integral_cpow_mul_zero_of_norm_le {f : ℂ → ℂ} {b y : ℝ → ℝ}
-    {σ₁ σ₂ x : ℝ} (hx : 0 < x) (hb : Tendsto b atTop (𝓝 0))
-    (hf : ∀ᶠ T in atTop, ∀ u ∈ [[σ₁, σ₂]], ‖f (u + y T * I)‖ ≤ b T) :
-    Tendsto (fun T : ℝ ↦ ∫ u : ℝ in σ₁..σ₂, (x : ℂ) ^ (-((u : ℂ) + y T * I)) * f (u + y T * I))
-      atTop (𝓝 0) := by
+/-- For `x > 0`, if `‖f (u + y T * I)‖ ≤ b T` eventually holds along `l` for all
+`u ∈ [[σ₁, σ₂]]` and `b T → 0` along `l`, then the horizontal Mellin segment integrals
+`∫ u in σ₁..σ₂, x ^ (-(u + y T * I)) • f (u + y T * I)` tend to `0` along `l`. -/
+theorem tendsto_integral_cpow_smul_zero_of_norm_le {ι E : Type*} [NormedAddCommGroup E]
+    [NormedSpace ℂ E] {l : Filter ι} {f : ℂ → E} {b y : ι → ℝ}
+    {σ₁ σ₂ x : ℝ} (hx : 0 < x) (hb : Tendsto b l (𝓝 0))
+    (hf : ∀ᶠ T in l, ∀ u ∈ [[σ₁, σ₂]], ‖f (u + y T * I)‖ ≤ b T) :
+    Tendsto (fun T : ι ↦ ∫ u : ℝ in σ₁..σ₂,
+      (x : ℂ) ^ (-((u : ℂ) + y T * I)) • f (u + y T * I)) l (𝓝 0) := by
   set M : ℝ := max (x ^ (-σ₁)) (x ^ (-σ₂))
   have hM0 : 0 ≤ M := le_max_of_le_left (Real.rpow_nonneg hx.le _)
   have hxM {u : ℝ} (hu : u ∈ [[σ₁, σ₂]]) : x ^ (-u) ≤ M := by
@@ -76,13 +78,13 @@ theorem tendsto_integral_cpow_mul_zero_of_norm_le {f : ℂ → ℂ} {b y : ℝ �
     · exact (Real.rpow_le_rpow_of_exponent_le hx1 (by linarith)).trans (le_max_left _ _)
     · exact (Real.rpow_le_rpow_of_exponent_ge hx hx1 (by linarith)).trans (le_max_left _ _)
     · exact (Real.rpow_le_rpow_of_exponent_le hx1 (by linarith)).trans (le_max_right _ _)
-  have hlim : Tendsto (fun T : ℝ ↦ M * b T * |σ₂ - σ₁|) atTop (𝓝 0) := by
+  have hlim : Tendsto (fun T : ι ↦ M * b T * |σ₂ - σ₁|) l (𝓝 0) := by
     simpa using (hb.const_mul M).mul_const |σ₂ - σ₁|
   refine squeeze_zero_norm' ?_ hlim
   filter_upwards [hf] with T hT
   refine intervalIntegral.norm_integral_le_of_norm_le_const fun u hu ↦ ?_
   have hu' : u ∈ [[σ₁, σ₂]] := uIoc_subset_uIcc hu
-  rw [norm_mul, norm_cpow_eq_rpow_re_of_pos hx]
+  rw [norm_smul, norm_cpow_eq_rpow_re_of_pos hx]
   have hre : (-((u : ℂ) + y T * I)).re = -u := by simp
   rw [hre]
   exact mul_le_mul (hxM hu') (hT u hu') (norm_nonneg _) hM0
@@ -145,8 +147,7 @@ theorem mellinInv_eq_mellinInv_add_sum_residue {f : ℂ → ℂ} {S : Finset ℂ
       ∑ s ∈ S with s.re ∈ Ioo σ₁ σ₂, TauCeti.Contour.residue (fun z ↦ (x : ℂ) ^ (-z) * f z) s := by
   set g : ℂ → ℂ := fun z ↦ (x : ℂ) ^ (-z) * f z
   have hx_an (z : ℂ) : AnalyticAt ℂ (fun w : ℂ ↦ (x : ℂ) ^ (-w)) z :=
-    (Differentiable.analyticAt (fun _ ↦
-      differentiableAt_id.neg.const_cpow (Or.inl (ofReal_ne_zero.mpr hx.ne'))) z)
+    analyticAt_const.cpow (by fun_prop) (ofReal_mem_slitPlane.mpr hx)
   have hev : ∀ᶠ T : ℝ in atTop,
       ((2 * Real.pi : ℂ)⁻¹ * ∫ y : ℝ in (-T)..T, g (σ₂ + y * I)) -
         ((2 * Real.pi : ℂ)⁻¹ * ∫ y : ℝ in (-T)..T, g (σ₁ + y * I)) +
