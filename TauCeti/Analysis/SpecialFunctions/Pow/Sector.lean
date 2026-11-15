@@ -21,7 +21,8 @@ from its principal root is `TauCeti.cpow_inv_cpow_of_arg_mem_Ioc`.
 
 * `TauCeti.arg_mem_Icc_iff_norm_mul_cos_le_re` characterizes a closed symmetric sector without
   referring to the discontinuous argument function on the target side.
-* `TauCeti.cpow_inv_re_pos_of_arg_mem_sector` maps an open sector into the right half-plane.
+* `TauCeti.cpow_inv_re_pos_of_arg_mem_sector` maps an open sector into the right half-plane, and
+  `TauCeti.cpow_half_re_pos` specializes this to the principal square root on `Complex.slitPlane`.
 * `TauCeti.arg_mem_Icc_of_arg_mem_sector` passes the closed-sector condition on the open upper
   part of a set to its closed upper part by continuity.
 * `TauCeti.im_I_mul_cpow_inv_eq_zero` sends the boundary rays of a sector to the real axis under
@@ -59,6 +60,15 @@ theorem cpow_inv_re_pos_of_arg_mem_sector {z : ℂ} {β : ℝ} (hβ : 0 < β) (h
     linarith [harg.1]
   · rw [div_lt_iff₀ hβ]
     linarith [harg.2]
+
+/-- The principal square root maps `Complex.slitPlane` into the open right half-plane. -/
+theorem cpow_half_re_pos {z : ℂ} (hz : z ∈ slitPlane) : 0 < (z ^ (1 / 2 : ℂ)).re := by
+  have harg : z.arg ∈ Ioo (-(Real.pi * 2 / 2)) (Real.pi * 2 / 2) := by
+    refine ⟨by linarith [neg_pi_lt_arg z], ?_⟩
+    have hlt : z.arg < Real.pi := (arg_le_pi z).lt_of_ne (slitPlane_arg_ne_pi hz)
+    linarith
+  simpa [one_div] using cpow_inv_re_pos_of_arg_mem_sector (β := 2) two_pos
+    (slitPlane_ne_zero hz) harg
 
 /-- A sector of opening `β * π` with `β < 2` has half-opening less than `π`. -/
 theorem pi_mul_div_two_lt_pi {β : ℝ} (hβ : β < 2) :
