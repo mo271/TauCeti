@@ -11,9 +11,8 @@ public import TauCeti.Geometry.Manifold.Morse.CWModel.Proper
 public import TauCeti.Geometry.Manifold.Morse.Inequalities
 public import TauCeti.Geometry.Manifold.RegularValue.Polynomial
 import Mathlib.Topology.Algebra.Module.FiniteDimension
-import TauCeti.AlgebraicTopology.Cellular.Dimension
+import TauCeti.Geometry.Manifold.Complex.SublevelHomology
 import TauCeti.Topology.CWComplex.Classical.Finite
-import TauCeti.Topology.Maps.Proper.Metric
 
 /-!
 # CW homotopy models of pseudoconvex complex manifolds and closed complex submanifolds
@@ -154,20 +153,9 @@ theorem IsMorse.exists_relCWComplex_homotopyEquiv_sublevel_of_isManifoldStrongly
       RelCWComplex.Finite (univ : Set X) ∧ IsClosedEmbedding j ∧ (∀ x, (h (j x) : M) = x) ∧
       (∀ m, Nonempty (cell (univ : Set X) m ≃
         ↥{x ∈ criticalPoints 𝓘(ℝ, E) f ∩ f ⁻¹' Ioc a b | manifoldMorseIndex 𝓘(ℝ, E) f x = m})) ∧
-      ∀ m, finrank ℂ E + q < m → IsEmpty (cell (univ : Set X) m) := by
-  obtain ⟨X, _, _, j, _, h, hj, hh, ⟨e⟩⟩ :=
-    hf.exists_relCWComplex_homotopyEquiv_sublevel hab hcompact ha hb
-  have hS : (criticalPoints 𝓘(ℝ, E) f ∩ f ⁻¹' Ioc a b).Finite :=
-    (hf.finite_criticalPoints_inter hcompact).subset
-      (inter_subset_inter_right _ (preimage_mono Ioc_subset_Icc_self))
-  have := finite_sigma_criticalPoints_inter hS
-  have hfin : RelCWComplex.Finite (univ : Set X) :=
-    RelCWComplex.finite_of_finite_cells (.of_equiv _ (Equiv.sigmaCongrRight e).symm)
-  have hempty (m : ℕ) (hm : finrank ℂ E + q < m) : IsEmpty (cell (univ : Set X) m) :=
-    ⟨fun c ↦ hm.not_ge <| (e m c).2.2 ▸
-      (hq _ (e m c).2.1).manifoldMorseIndex_le_of_mem_criticalPoints
-        (hf.contMDiff (e m c).1) (e m c).2.1.1⟩
-  exact ⟨X, _, ‹_›, j, ‹_›, h, hfin, hj, hh, fun m ↦ ⟨e m⟩, hempty⟩
+      ∀ m, finrank ℂ E + q < m → IsEmpty (cell (univ : Set X) m) :=
+  hf.exists_relCWComplex_homotopyEquiv_sublevel_of_manifoldMorseIndex_le hab hcompact ha hb
+    fun x hx ↦ (hq x hx).manifoldMorseIndex_le_of_mem_criticalPoints (hf.contMDiff x) hx.1
 
 /-- **Finite CW model of a compact regular sublevel of a strongly `q`-pseudoconvex Morse
 function.** If `b` is a regular value of a real Morse function `f` with compact sublevel `{f ≤ b}`
@@ -183,34 +171,10 @@ theorem IsMorse.exists_cwComplex_homotopyEquiv_sublevel_of_isManifoldStronglyPse
       RelCWComplex.Finite (univ : Set W) ∧ Nonempty (W ≃ₕ {x | f x ≤ b}) ∧
       (∀ m, Nonempty (cell (univ : Set W) m ≃
         ↥{x ∈ criticalPoints 𝓘(ℝ, E) f ∩ {x | f x ≤ b} | manifoldMorseIndex 𝓘(ℝ, E) f x = m})) ∧
-      ∀ m, finrank ℂ E + q < m → IsEmpty (cell (univ : Set W) m) := by
-  obtain ⟨W, _, _, _, hfin, ⟨h⟩, he⟩ :=
-    hf.exists_finite_cwComplex_homotopyEquiv_of_isCompact_sublevel hb hcompact
-  have hempty (m : ℕ) (hm : finrank ℂ E + q < m) : IsEmpty (cell (univ : Set W) m) :=
-    ⟨fun c ↦ hm.not_ge <| ((he m).some c).2.2 ▸
-      (hq _ ((he m).some c).2.1).manifoldMorseIndex_le_of_mem_criticalPoints
-        (hf.contMDiff ((he m).some c).1) ((he m).some c).2.1.1⟩
-  exact ⟨W, _, ‹_›, ‹_›, hfin, ⟨h⟩, he, hempty⟩
-
-/-- On a compact regular sublevel `{f ≤ b}` of a strongly `q`-pseudoconvex Morse function, the
-Betti numbers over any nontrivial ring vanish above degree `finrank ℂ E + q`. -/
-theorem IsMorse.bettiNumber_sublevel_eq_zero_of_isManifoldStronglyPseudoconvexAt
-    {f : M → ℝ} {q : ℕ} (hf : IsMorse 𝓘(ℝ, E) f) {b : ℝ}
-    (hb : IsRegularValue 𝓘(ℝ, E) 𝓘(ℝ) f b) (hcompact : IsCompact {x | f x ≤ b})
-    (hq : ∀ x ∈ criticalPoints 𝓘(ℝ, E) f ∩ {x | f x ≤ b},
-      IsManifoldStronglyPseudoconvexAt E q f x)
-    (k : Type u) [Ring k] [Nontrivial k] {j : ℕ} (hj : finrank ℂ E + q < j) :
-    bettiNumber k {x | f x ≤ b} j = 0 := by
-  obtain ⟨W, _, _, _, _, ⟨h⟩, -, hempty⟩ :=
-    hf.exists_cwComplex_homotopyEquiv_sublevel_of_isManifoldStronglyPseudoconvexAt hb
-      hcompact hq
-  have hzero : IsZero (((AlgebraicTopology.singularHomologyFunctor (ModuleCat.{u} k) j).obj
-      (ModuleCat.of k k)).obj (TopCat.of {x | f x ≤ b})) :=
-    (h.symm.trans (Homeomorph.Set.univ W).symm.toHomotopyEquiv
-      ).isZero_singularHomology_of_isEmpty_cell_gt (ModuleCat.of k k) hempty hj
-  have := ModuleCat.isZero_iff_subsingleton.1 hzero
-  rw [bettiNumber_def]
-  exact finrank_zero_of_subsingleton
+      ∀ m, finrank ℂ E + q < m → IsEmpty (cell (univ : Set W) m) :=
+  hf.exists_finite_cwComplex_homotopyEquiv_of_isCompact_sublevel_of_manifoldMorseIndex_le hb
+    hcompact fun x hx ↦
+      (hq x hx).manifoldMorseIndex_le_of_mem_criticalPoints (hf.contMDiff x) hx.1
 
 section BandInequalities
 
@@ -218,6 +182,7 @@ variable {k : Type u} [DivisionRing k] (V : ModuleCat.{u} k) [Module.Finite k V]
 
 namespace IsMorse
 
+omit [Module.Finite k V] in
 /-- **Vanishing of relative Betti numbers of a strongly `q`-pseudoconvex regular band.** Across a
 compact band `f⁻¹[a, b]` between regular values where `f` is strongly `q`-pseudoconvex at every
 critical point in `(a, b]`, `dim Hⱼ({f ≤ b}, {f ≤ a}; V) = 0` for `j > finrank ℂ E + q`. -/
@@ -227,10 +192,13 @@ theorem finrank_singularHomology_sublevelPair_eq_zero_of_isManifoldStronglyPseud
     (hb : IsRegularValue 𝓘(ℝ, E) 𝓘(ℝ) f b)
     (hq : ∀ x ∈ criticalPoints 𝓘(ℝ, E) f ∩ f ⁻¹' Ioc a b,
       IsManifoldStronglyPseudoconvexAt E q f x) {j : ℕ} (hj : finrank ℂ E + q < j) :
-    finrank k ((sublevelPair f hab).singularHomology V j : ModuleCat k) = 0 :=
-  hf.finrank_singularHomology_sublevelPair_eq_zero_of_manifoldMorseIndex_le V hab hcompact ha hb
-    (fun x hx ↦ (hq x hx).manifoldMorseIndex_le_of_mem_criticalPoints (hf.contMDiff x) hx.1) hj
+    finrank k ((sublevelPair f hab).singularHomology V j : ModuleCat k) = 0 := by
+  have := ModuleCat.isZero_iff_subsingleton.1
+    (hf.isZero_singularHomology_sublevelPair_of_isManifoldStronglyPseudoconvexAt hab hcompact ha hb
+      (criticalPoints_inter_preimage_Ioc_eq_Icc ha ▸ hq) V hj)
+  exact finrank_zero_of_subsingleton
 
+omit [Module.Finite k V] in
 /-- **Vanishing of cobordism Betti numbers of a strongly `q`-pseudoconvex regular band.** Under the
 same hypotheses, `dim Hⱼ(f⁻¹[a, b], f⁻¹(a); V) = 0` for `j > finrank ℂ E + q`. -/
 theorem finrank_singularHomology_bandPair_eq_zero_of_isManifoldStronglyPseudoconvexAt
@@ -320,16 +288,9 @@ theorem IsMorse.exists_cwComplex_subcomplex_homotopyEquiv_of_isManifoldStronglyP
       Monotone W ∧ ⋃ k, (W k : Set X) = univ ∧ (∀ k, RelCWComplex.Finite (W k : Set X)) ∧
       (∀ k m j, j ∈ (W k).I m ↔ f (e m j : M) ≤ a k) ∧
       (∀ k, MapsTo h.symm {x | f x ≤ a k} (W k)) ∧
-      ∀ k, ∃ hW : (W k : Set X) ≃ₕ {x | f x ≤ a k}, ∀ w : W k, (hW w : M) = h w := by
-  obtain ⟨X, _, _, _, h, e, a, W, hmono, htop, hreg, hWmono, hWiUnion, hWfin, hWI, hmaps, hW⟩ :=
-    hf.exists_cwComplex_subcomplex_homotopyEquiv hp hbdd
-  have hempty (m : ℕ) (hm : finrank ℂ E + q < m) : IsEmpty (cell (univ : Set X) m) :=
-    ⟨fun j ↦ hm.not_ge <| (e m j).2.2 ▸
-      (hq _ (e m j).2.1).manifoldMorseIndex_le_of_mem_criticalPoints
-        (hf.contMDiff (e m j).1) (e m j).2.1⟩
-  exact ⟨X, _, ‹_›, ‹_›, h, e, a, W,
-    CWComplex.finiteDimensional_of_isEmpty_cell_gt (univ : Set X) hempty, hempty,
-    hmono, htop, hreg, hWmono, hWiUnion, hWfin, hWI, hmaps, hW⟩
+      ∀ k, ∃ hW : (W k : Set X) ≃ₕ {x | f x ≤ a k}, ∀ w : W k, (hW w : M) = h w :=
+  hf.exists_cwComplex_subcomplex_homotopyEquiv_of_manifoldMorseIndex_le hp hbdd fun x hx ↦
+    (hq x hx).manifoldMorseIndex_le_of_mem_criticalPoints (hf.contMDiff x) hx
 
 /-- **CW homotopy model of a strongly `q`-pseudoconvex Morse exhaustion.** A Hausdorff complex
 `n`-manifold carrying a proper bounded-below real Morse function that is strongly `q`-pseudoconvex
@@ -431,13 +392,11 @@ theorem exists_cwComplex_subcomplex_homotopyEquiv_norm_sq_sub_comp_of_isProperMa
     IsManifold.restrictScalars ℝ (inferInstance : IsManifold 𝓘(ℂ, E) ∞ M)
   obtain ⟨a, hmorse, hap, hbdd, hidx⟩ :=
     exists_isMorse_isProperMap_bddBelow_and_manifoldMorseIndex_norm_sq_sub_comp_le hi hinj hip
-  obtain ⟨X, _, _, _, h, e, r, W, hmono, htop, hreg, hWmono, hWiUnion, hWfin, hWI, hmaps, hW⟩ :=
-    hmorse.exists_cwComplex_subcomplex_homotopyEquiv hap hbdd
-  have hempty (m : ℕ) (hm : finrank ℂ E < m) : IsEmpty (cell (univ : Set X) m) :=
-    ⟨fun j ↦ hm.not_ge <| (e m j).2.2 ▸ hidx _ (e m j).2.1⟩
-  exact ⟨a, X, _, ‹_›, ‹_›, h, e, r, W, hmorse,
-    CWComplex.finiteDimensional_of_isEmpty_cell_gt (univ : Set X) hempty, hempty,
-    hmono, htop, hreg, hWmono, hWiUnion, hWfin, hWI, hmaps, hW⟩
+  obtain ⟨X, _, _, _, h, e, r, W, hfd, hempty, hmono, htop, hreg, hWmono, hWiUnion, hWfin, hWI,
+      hmaps, hW⟩ :=
+    hmorse.exists_cwComplex_subcomplex_homotopyEquiv_of_manifoldMorseIndex_le hap hbdd hidx
+  exact ⟨a, X, _, ‹_›, ‹_›, h, e, r, W, hmorse, hfd, hempty, hmono, htop, hreg, hWmono, hWiUnion,
+    hWfin, hWI, hmaps, hW⟩
 
 /-- **Andreotti–Frankel / Milnor theorem for proper holomorphic immersions.** If a Hausdorff
 complex manifold `M` modeled on `E` admits a smooth proper holomorphic immersion into a

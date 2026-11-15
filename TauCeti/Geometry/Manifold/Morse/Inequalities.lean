@@ -15,6 +15,7 @@ public import TauCeti.Geometry.Manifold.Morse.Deformation.Homology
 import TauCeti.Algebra.BigOperators.AlternatingSum
 import TauCeti.Algebra.BigOperators.Finset.Fiber
 import TauCeti.Algebra.Polynomial.AlternatingSum
+import TauCeti.Geometry.Manifold.Morse.Cell.Band
 
 /-!
 # The Morse inequalities
@@ -772,6 +773,7 @@ theorem IsMorse.sum_range_finrank_singularHomology_bandPair_le (hf : IsMorse I f
 
 namespace IsMorse
 
+omit [Module.Finite k V] in
 /-- If every critical point of `f` in `(a, b]` has Morse index at most `d`, then
 `dim Hₙ({f ≤ b}, {f ≤ a}; V) = 0` for `n > d`. -/
 theorem finrank_singularHomology_sublevelPair_eq_zero_of_manifoldMorseIndex_le
@@ -780,13 +782,12 @@ theorem finrank_singularHomology_sublevelPair_eq_zero_of_manifoldMorseIndex_le
     (hd : ∀ x ∈ criticalPoints I f ∩ f ⁻¹' Ioc a b, manifoldMorseIndex I f x ≤ d)
     {n : ℕ} (hn : d < n) :
     finrank k ((sublevelPair f hab).singularHomology V n : ModuleCat k) = 0 := by
-  have hc : bandCount I f a b n = 0 :=
-    bandCount_eq_zero_of_forall fun x hx hxab ↦ ((hd x ⟨hx, hxab⟩).trans_lt hn).ne
-  have hle := hf.finrank_singularHomology_sublevelPair_le V hab hcompact ha hb n
-  simp only [bandCount] at hc
-  rw [hc, zero_mul] at hle
-  exact Nat.le_zero.1 hle
+  have := ModuleCat.isZero_iff_subsingleton.1
+    (hf.isZero_singularHomology_sublevelPair_of_manifoldMorseIndex_le hab hcompact ha hb
+      (criticalPoints_inter_preimage_Ioc_eq_Icc ha ▸ hd) V hn)
+  exact finrank_zero_of_subsingleton
 
+omit [Module.Finite k V] in
 /-- If every critical point of `f` in `(a, b]` has Morse index at most `d`, then
 `dim Hₙ(f⁻¹[a, b], f⁻¹(a); V) = 0` for `n > d`. -/
 theorem finrank_singularHomology_bandPair_eq_zero_of_manifoldMorseIndex_le

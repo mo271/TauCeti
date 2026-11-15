@@ -8,7 +8,6 @@ module
 public import TauCeti.Geometry.Manifold.Complex.CWModel
 import TauCeti.AlgebraicTopology.Cellular.Dimension
 import TauCeti.AlgebraicTopology.Singular.Sphere
-import TauCeti.Topology.Maps.Proper.Metric
 
 /-!
 # Examples: CW homotopy models of smooth affine curves and sharpness of closedness
@@ -19,7 +18,7 @@ examples and verifies that the closedness hypothesis in Milnor's Theorem 7.2 can
 * **The smooth affine hyperbola `{z ∈ ℂ² | z₀ z₁ - 1 = 0}`.** Its single defining polynomial
   `X₀ X₁ - 1` has partial derivative `∂(X₀ X₁ - 1)/∂X₀ = X₁`, which never vanishes on the hyperbola
   since `z₀ z₁ = 1`. Thus the Jacobian matrix is surjective at every point of the zero locus
-  (`surjective_jacobiMatrixAt_affineHyperbolaPoly`), and
+  (`mulVec_surjective_jacobiMatrixAt_affineHyperbolaPoly`), and
   `TauCeti.exists_cwComplex_homotopyEquiv_affineZeroLocus` gives a finite-dimensional Hausdorff CW
   homotopy model of the hyperbola with no cells in dimensions strictly above `1`
   (`exists_cwComplex_homotopyEquiv_affineHyperbola`).
@@ -50,7 +49,7 @@ open AlgebraicTopology CategoryTheory Function Limits Module MvPolynomial Set To
 open Topology.RelCWComplex
 open scoped ContDiff ContinuousMap Manifold
 
-namespace TauCeti.AffineCWModelExample
+namespace TauCeti.Examples.AffineCWModel
 
 /-- The single defining equation `X₀ X₁ - 1` of the smooth affine hyperbola in `ℂ²`. -/
 def affineHyperbolaPoly : Unit → MvPolynomial (Fin 2) ℂ :=
@@ -62,7 +61,7 @@ theorem affineHyperbolaPoly_apply (u : Unit) :
 
 /-- At every point `z` of the affine hyperbola `z₀ z₁ - 1 = 0`, the coordinate `z₁` is nonzero, so
 `∂(X₀ X₁ - 1)/∂X₀ = z₁ ≠ 0` and the Jacobian matrix is surjective. -/
-theorem surjective_jacobiMatrixAt_affineHyperbolaPoly :
+theorem mulVec_surjective_jacobiMatrixAt_affineHyperbolaPoly :
     ∀ z ∈ affineZeroLocus affineHyperbolaPoly,
       Surjective (jacobiMatrixAt affineHyperbolaPoly z).mulVec := by
   intro z hz
@@ -84,7 +83,7 @@ theorem exists_cwComplex_homotopyEquiv_affineHyperbola :
       Nonempty (affineZeroLocus affineHyperbolaPoly ≃ₕ X) ∧
       ∀ m, 1 < m → IsEmpty (cell (univ : Set X) m) := by
   simpa using exists_cwComplex_homotopyEquiv_affineZeroLocus
-    surjective_jacobiMatrixAt_affineHyperbolaPoly
+    mulVec_surjective_jacobiMatrixAt_affineHyperbolaPoly
 
 /-- Along the closed holomorphic graph embedding `y ↦ ((y : Fin 2 → ℂ), g y)` of the affine
 hyperbola into the `ℓ^∞`-normed product `(Fin 2 → ℂ) × ℂ` determined by an entire function `g`,
@@ -96,7 +95,7 @@ theorem exists_cwComplex_homotopyEquiv_affineHyperbola_graph
       CWComplex.FiniteDimensional (univ : Set X) ∧
       Nonempty (affineZeroLocus affineHyperbolaPoly ≃ₕ X) ∧
       ∀ m, 1 < m → IsEmpty (cell (univ : Set X) m) := by
-  let hp := surjective_jacobiMatrixAt_affineHyperbolaPoly
+  let hp := mulVec_surjective_jacobiMatrixAt_affineHyperbolaPoly
   let _ := affineZeroLocusChartedSpace hp
   have := isManifold_affineZeroLocus hp ∞
   let ι : affineZeroLocus affineHyperbolaPoly → (Fin 2 → ℂ) × ℂ :=
@@ -160,4 +159,4 @@ theorem not_exists_cwComplex_homotopyEquiv_le_two_compl_zero :
   simp at hrank1
   omega
 
-end TauCeti.AffineCWModelExample
+end TauCeti.Examples.AffineCWModel
