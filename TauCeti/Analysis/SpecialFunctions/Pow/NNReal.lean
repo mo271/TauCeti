@@ -117,6 +117,9 @@ On a seminormed group, `x ↦ c * ‖x‖₊ ^ a` tends to `0` at `0` for every 
   finite `x`.
 * `ENNReal.ofReal_mul_inv_two_rpow_div_mul_two_mul`: the Marcinkiewicz constant at height `t / 2`,
   `ofReal (p * 2⁻¹ ^ (1 - p) / (p - 1)) * (2 * A) = ofReal (2 * p * 2 ^ (p - 1) / (p - 1)) * A`.
+* `ENNReal.coe_div_rpow_neg`: `((ε / c : ℝ≥0) : ℝ≥0∞) ^ (-d) = c ^ d * ε ^ (-d)` for nonzero
+  `ε, c : ℝ≥0`.
+* `NNReal.rpow_neg_pow_mul_rpow_pow`: `(r ^ (-γ)) ^ n * (r ^ γ) ^ n = 1` for nonzero `r : ℝ≥0`.
 * `NNReal.rpow_neg_mem_Icc_iff`: an interval of negative powers is equivalent to an interval
   for the reciprocal parameter `α / r`.
 * `TauCeti.tendsto_const_mul_nnnorm_rpow_nhds_zero`: `c * ‖x‖₊ ^ a → 0` as `x → 0` for `0 < a`.
@@ -409,9 +412,23 @@ theorem ofReal_toReal_mul_rpow {x : ℝ≥0∞} {q : ℝ} (h : q < 0 ∨ x ≠ �
   rw [ENNReal.ofReal_mul ENNReal.toReal_nonneg, ENNReal.ofReal_toReal hx, ENNReal.toReal_rpow,
     ENNReal.ofReal_toReal (ENNReal.rpow_ne_top_of_ne_zero hx₀ hx)]
 
+/-- For nonzero `ε, c : ℝ≥0` and any real exponent `d`, `((ε / c : ℝ≥0) : ℝ≥0∞) ^ (-d)` splits as
+`((c ^ d : ℝ≥0) : ℝ≥0∞) * (ε : ℝ≥0∞) ^ (-d)`. -/
+theorem coe_div_rpow_neg {ε c : ℝ≥0} (hε : ε ≠ 0) (hc : c ≠ 0) (d : ℝ) :
+    ((ε / c : ℝ≥0) : ℝ≥0∞) ^ (-d) = ((c ^ d : ℝ≥0) : ℝ≥0∞) * (ε : ℝ≥0∞) ^ (-d) := by
+  rw [div_eq_mul_inv, ENNReal.coe_mul,
+    ENNReal.mul_rpow_of_ne_zero (by exact_mod_cast hε) (by simp [hc]),
+    ENNReal.coe_inv hc, ENNReal.inv_rpow, ← ENNReal.rpow_neg, neg_neg,
+    ← ENNReal.coe_rpow_of_ne_zero hc, mul_comm]
+
 end ENNReal
 
 namespace NNReal
+
+/-- For a nonzero base `r : ℝ≥0`, `(r ^ (-γ)) ^ n` and `(r ^ γ) ^ n` cancel to `1`. -/
+theorem rpow_neg_pow_mul_rpow_pow {r : ℝ≥0} (hr : r ≠ 0) (γ : ℝ) (n : ℕ) :
+    (r ^ (-γ)) ^ n * (r ^ γ) ^ n = 1 := by
+  rw [← mul_pow, ← NNReal.rpow_add hr, neg_add_cancel, NNReal.rpow_zero, one_pow]
 
 /-- For a base greater than one, real powers are ordered exactly by their exponents. -/
 theorem rpow_le_rpow_iff_of_one_lt {b : ℝ≥0} (hb : 1 < b) {x y : ℝ} :

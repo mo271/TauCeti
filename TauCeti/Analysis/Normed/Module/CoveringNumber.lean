@@ -31,6 +31,8 @@ theorem on almost Euclidean sections of finite-dimensional normed spaces.
 * `TauCeti.packingNumber_le_of_subset_closedBall`,
   `TauCeti.coveringNumber_le_of_subset_closedBall`: the corresponding bounds on the packing and
   covering numbers of a subset of a closed ball.
+* `TauCeti.coveringNumber_ball_le_mul_rpow_neg_finrank`: for `0 < ε ≤ 1`, the covering number of
+  `ball x r` (`r : ℝ≥0`) is at most `(2 r + 1) ^ n * ε ^ (-n)`.
 * `TauCeti.exists_finset_isCover_of_subset_closedBall`: a subset of a closed ball of radius `r`
   has an `ε`-net consisting of at most `(1 + 2 r / ε) ^ n` of its points.
 * `TauCeti.exists_finset_isCover_sphere`: the unit sphere has an `η`-net consisting of at most
@@ -114,6 +116,25 @@ theorem coveringNumber_le_of_subset_closedBall (hε : ε ≠ 0) (hA : A ⊆ clos
     (coveringNumber ε A : ℝ≥0∞) ≤ (1 + 2 * r / ε) ^ finrank ℝ E :=
   (ENat.toENNReal_le.2 (coveringNumber_le_packingNumber ε A)).trans
     (packingNumber_le_of_subset_closedBall hε hA)
+
+/-- At small scales `0 < ε ≤ 1`, the covering number of `ball x r` (`r : ℝ≥0`) in a
+finite-dimensional real normed space `E` is at most `(2 r + 1) ^ dim E * ε ^ (-dim E)`. -/
+theorem coveringNumber_ball_le_mul_rpow_neg_finrank (x : E) (r : ℝ≥0)
+    (hε0 : 0 < ε) (hε1 : ε ≤ 1) :
+    (coveringNumber ε (ball x r) : ℝ≥0∞) ≤
+      (((2 * r + 1) ^ finrank ℝ E : ℝ≥0) : ℝ≥0∞) * (ε : ℝ≥0∞) ^ (-(finrank ℝ E : ℝ)) := by
+  refine (coveringNumber_le_of_subset_closedBall hε0.ne' ball_subset_closedBall).trans ?_
+  have hε_inv : (1 : ℝ≥0∞) ≤ (ε : ℝ≥0∞)⁻¹ := ENNReal.one_le_inv.2 (by exact_mod_cast hε1)
+  have h1 : (1 : ℝ≥0∞) + 2 * (r : ℝ≥0∞) / ε ≤ (2 * r + 1 : ℝ≥0) * (ε : ℝ≥0∞)⁻¹ := by
+    calc
+      (1 : ℝ≥0∞) + 2 * (r : ℝ≥0∞) / ε = 1 + 2 * (r : ℝ≥0∞) * (ε : ℝ≥0∞)⁻¹ := by
+        rw [div_eq_mul_inv]
+      _ ≤ (ε : ℝ≥0∞)⁻¹ + 2 * (r : ℝ≥0∞) * (ε : ℝ≥0∞)⁻¹ := by gcongr
+      _ = (2 * r + 1 : ℝ≥0) * (ε : ℝ≥0∞)⁻¹ := by
+        rw [ENNReal.coe_add, ENNReal.coe_mul, ENNReal.coe_ofNat, ENNReal.coe_one]
+        ring
+  refine (pow_le_pow_left' h1 _).trans_eq ?_
+  rw [mul_pow, ENNReal.rpow_neg, ENNReal.rpow_natCast, ENNReal.inv_pow, ENNReal.coe_pow]
 
 /-- A subset `A` of a closed ball of radius `r` in a finite-dimensional real normed space has an
 `ε`-net, for `ε > 0`, consisting of at most `(1 + 2 r / ε) ^ dim E` points of `A`. -/

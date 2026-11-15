@@ -11,6 +11,7 @@ public import Mathlib.Probability.Process.Indistinguishable
 public import Mathlib.Topology.MetricSpace.Holder
 public import Mathlib.Topology.MetricSpace.ProperSpace.Real
 
+import Mathlib.MeasureTheory.Constructions.BorelSpace.Metrizable
 import Mathlib.MeasureTheory.Function.ConvergenceInDistribution
 import Mathlib.Probability.Distributions.Gaussian.HasGaussianLaw.Basic
 import Mathlib.Probability.Distributions.Gaussian.IsGaussianProcess.Basic
@@ -20,6 +21,8 @@ import TauCeti.Probability.Distributions.Gaussian.Continuity
 import TauCeti.Probability.Process.Indistinguishable
 import TauCeti.Probability.Process.Kolmogorov
 import TauCeti.Probability.Process.Kolmogorov.Continuity
+import TauCeti.Topology.Instances.NNReal
+import TauCeti.Topology.MetricSpace.Holder
 
 /-!
 # Continuous modifications of Brownian motion and Wiener measure on `C(ℝ≥0, ℝ)`
@@ -42,9 +45,9 @@ measure.
 
 ## Main statements
 
-* `TauCeti.isBrownianReal_of_dense_brownianRealProjectiveFamily`: an almost-surely continuous,
-  coordinatewise a.e.-measurable process agreeing almost everywhere on a dense time set with a
-  process having `BrownianReal.projectiveFamily` laws is a Brownian motion (`IsBrownianReal`).
+* `TauCeti.isBrownianReal_of_dense_brownianRealProjectiveFamily`: an almost-surely continuous
+  process agreeing almost everywhere on a dense time set with a process having
+  `BrownianReal.projectiveFamily` laws is a Brownian motion (`IsBrownianReal`).
 * `ProbabilityTheory.IsPreBrownianReal.exists_continuous_modification`: every pre-Brownian motion
   admits an all-paths continuous, coordinatewise-measurable modification vanishing everywhere at
   `0` whose sample paths are `γ`-Hölder on `[0, T]` for every `T : ℝ≥0` and `γ < 1 / 2`.
@@ -62,6 +65,13 @@ measure.
 
 ## References
 
+* R. Degenne, D. Ledvinka, É. Marion, P. Pfaffelhuber, *Formalization of Brownian motion in Lean*,
+  arXiv:2511.20118, and `https://github.com/RemyDegenne/brownian-motion` (commit `a7ad7af6`).
+  The construction here (Gaussian projective family on a countable dense subset of `ℝ≥0`,
+  one-dimensional Kolmogorov–Chentsov extension, continuous modification, and pushforward to
+  `C(ℝ≥0, ℝ)`) follows the Brownian motion and Wiener measure architecture of that formalization,
+  combined with finite-dimensional uniqueness on `C(ℝ≥0, ℝ)` from
+  `TauCeti.MeasureTheory.Measure.ContinuousMap`.
 * I. Karatzas, S. E. Shreve, *Brownian Motion and Stochastic Calculus*, second edition,
   Springer, 1991, Chapter 2, §2.
 * S. P. Lalley, *Brownian Motion*, University of Chicago lecture notes, Theorem 1.
@@ -78,8 +88,8 @@ section DenseExtension
 
 /-- Finite linear combinations of a process on `D ⊆ ℝ≥0` with `BrownianReal.projectiveFamily`
 marginals have centered Gaussian laws with the Brownian bilinear variance. -/
-private lemma hasLaw_sum_of_hasLaw_brownianRealProjectiveFamily
-    {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} {D : Set ℝ≥0} {X : D → Ω → ℝ}
+private lemma hasLaw_sum_of_hasLaw_brownianRealProjectiveFamily {Ω : Type*} {mΩ : MeasurableSpace Ω}
+    {P : Measure Ω} {D : Set ℝ≥0} {X : D → Ω → ℝ}
     (hX : ∀ (I : Finset ℝ≥0) (hI : (I : Set ℝ≥0) ⊆ D),
       HasLaw (fun ω (i : I) ↦ X ⟨i.1, hI i.2⟩ ω) (BrownianReal.projectiveFamily I) P)
     {ι : Type*} [Fintype ι] (d : ι → D) (c : ι → ℝ) :
@@ -116,20 +126,29 @@ private lemma hasLaw_sum_of_hasLaw_brownianRealProjectiveFamily
   refine ⟨hW_gauss.aemeasurable, ?_⟩
   rw [hW_gauss.map_eq_gaussianReal, hmean, hvar]
 
-private lemma hasLaw_sum_of_dense_brownianRealProjectiveFamily
-    {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω}
-    {D : Set ℝ≥0} (hD : Dense D) {X : D → Ω → ℝ}
+private lemma aemeasurable_of_dense_brownianRealProjectiveFamily {Ω : Type*}
+    {mΩ : MeasurableSpace Ω} {P : Measure Ω} {D : Set ℝ≥0} (hD : Dense D) {X : D → Ω → ℝ}
     (hX : ∀ (I : Finset ℝ≥0) (hI : (I : Set ℝ≥0) ⊆ D),
       HasLaw (fun ω (i : I) ↦ X ⟨i.1, hI i.2⟩ ω) (BrownianReal.projectiveFamily I) P)
-    {B : ℝ≥0 → Ω → ℝ}
-    (hB_meas : ∀ t, AEMeasurable (B t) P)
-    (hB_cont : ∀ᵐ ω ∂P, Continuous (B · ω))
-    (hB_ae : ∀ d : D, B d.1 =ᵐ[P] X d)
+    {B : ℝ≥0 → Ω → ℝ} (hB_cont : ∀ᵐ ω ∂P, Continuous (B · ω))
+    (hB_ae : ∀ d : D, B d.1 =ᵐ[P] X d) (t : ℝ≥0) : AEMeasurable (B t) P := by
+  obtain ⟨u, huD, hu⟩ := mem_closure_iff_seq_limit.1 (hD t)
+  refine aemeasurable_of_tendsto_metrizable_ae atTop
+    (fun n ↦ (hasLaw_gaussianReal_of_hasLaw_brownianRealProjectiveFamily
+      hX ⟨u n, huD n⟩).aemeasurable.congr (hB_ae ⟨u n, huD n⟩).symm) ?_
+  filter_upwards [hB_cont] with ω hω using (hω.tendsto t).comp hu
+
+private lemma hasLaw_sum_of_dense_brownianRealProjectiveFamily {Ω : Type*} {mΩ : MeasurableSpace Ω}
+    {P : Measure Ω} {D : Set ℝ≥0} (hD : Dense D) {X : D → Ω → ℝ}
+    (hX : ∀ (I : Finset ℝ≥0) (hI : (I : Set ℝ≥0) ⊆ D),
+      HasLaw (fun ω (i : I) ↦ X ⟨i.1, hI i.2⟩ ω) (BrownianReal.projectiveFamily I) P)
+    {B : ℝ≥0 → Ω → ℝ} (hB_cont : ∀ᵐ ω ∂P, Continuous (B · ω)) (hB_ae : ∀ d : D, B d.1 =ᵐ[P] X d)
     {ι : Type*} [Fintype ι] (τ : ι → ℝ≥0) (c : ι → ℝ) :
     HasLaw (fun ω ↦ ∑ i : ι, c i * B (τ i) ω)
       (gaussianReal 0 (∑ i : ι, ∑ j : ι, c i * c j * min (τ i : ℝ) (τ j : ℝ)).toNNReal) P := by
   have : IsProbabilityMeasure P :=
     (isGaussianProcess_of_hasLaw_brownianRealProjectiveFamily hX).isProbabilityMeasure
+  have hB_meas := aemeasurable_of_dense_brownianRealProjectiveFamily hD hX hB_cont hB_ae
   choose u huD hu_tend using fun i : ι ↦ mem_closure_iff_seq_limit.1 (hD (τ i))
   let d : ι → ℕ → D := fun i m ↦ ⟨u i m, huD i m⟩
   let Z : ℕ → Ω → ℝ := fun m ω ↦ ∑ i : ι, c i * B (d i m).1 ω
@@ -163,26 +182,22 @@ private lemma hasLaw_sum_of_dense_brownianRealProjectiveFamily
         ProbabilityMeasure ℝ)) =
       fun m ↦ (gaussianReal 0 (vSeq m)).toProbabilityMeasure := by
     funext m; ext1; exact hZ_map m
-  refine ⟨hZ_lim_meas, ?_⟩
   have hlim_eq := congrArg ProbabilityMeasure.toMeasure
     (tendsto_nhds_unique (hseq_eq ▸ hdist.tendsto) hgauss_tend)
-  exact (ProbabilityMeasure.coe_mk _ _).symm.trans (hlim_eq.trans (by simp [vLim]))
+  exact ⟨hZ_lim_meas, (ProbabilityMeasure.coe_mk _ _).symm.trans (hlim_eq.trans (by simp [vLim]))⟩
 
-/-- An almost-surely continuous, coordinatewise a.e.-measurable process on `ℝ≥0` that agrees
-almost everywhere on a dense time set `D` with a process having `BrownianReal.projectiveFamily`
-finite-dimensional laws is a real Brownian motion (`IsBrownianReal`). -/
-theorem isBrownianReal_of_dense_brownianRealProjectiveFamily
-    {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω}
-    {D : Set ℝ≥0} (hD : Dense D) {X : D → Ω → ℝ}
+/-- An almost-surely continuous process on `ℝ≥0` that agrees almost everywhere on a dense time set
+`D` with a process having `BrownianReal.projectiveFamily` finite-dimensional laws is a real Brownian
+motion (`IsBrownianReal`). -/
+theorem isBrownianReal_of_dense_brownianRealProjectiveFamily {Ω : Type*} {mΩ : MeasurableSpace Ω}
+    {P : Measure Ω} {D : Set ℝ≥0} (hD : Dense D) {X : D → Ω → ℝ}
     (hX : ∀ (I : Finset ℝ≥0) (hI : (I : Set ℝ≥0) ⊆ D),
       HasLaw (fun ω (i : I) ↦ X ⟨i.1, hI i.2⟩ ω) (BrownianReal.projectiveFamily I) P)
-    {B : ℝ≥0 → Ω → ℝ}
-    (hB_meas : ∀ t, AEMeasurable (B t) P)
-    (hB_cont : ∀ᵐ ω ∂P, Continuous (B · ω))
-    (hB_ae : ∀ d : D, B d.1 =ᵐ[P] X d) :
-    IsBrownianReal B P := by
+    {B : ℝ≥0 → Ω → ℝ} (hB_cont : ∀ᵐ ω ∂P, Continuous (B · ω))
+    (hB_ae : ∀ d : D, B d.1 =ᵐ[P] X d) : IsBrownianReal B P := by
   have : IsProbabilityMeasure P :=
     (isGaussianProcess_of_hasLaw_brownianRealProjectiveFamily hX).isProbabilityMeasure
+  have hB_meas := aemeasurable_of_dense_brownianRealProjectiveFamily hD hX hB_cont hB_ae
   have hB_gauss : IsGaussianProcess B P := ⟨fun I ↦ by
     have hI_meas : AEMeasurable (fun ω ↦ I.restrict (B · ω)) P :=
       AEMeasurable.of_eval fun i ↦ hB_meas i.1
@@ -197,19 +212,18 @@ theorem isBrownianReal_of_dense_brownianRealProjectiveFamily
       exact Finset.sum_congr rfl fun i _ ↦ by rw [L.map_smul, smul_eq_mul, mul_comm]
     refine ⟨0, (∑ i : I, ∑ j : I, c i * c j * min (i.1 : ℝ) (j.1 : ℝ)).toNNReal, ?_⟩
     rw [AEMeasurable.map_map_of_aemeasurable L.continuous.aemeasurable hI_meas, hL_eq]
-    exact (hasLaw_sum_of_dense_brownianRealProjectiveFamily hD hX hB_meas hB_cont hB_ae
+    exact (hasLaw_sum_of_dense_brownianRealProjectiveFamily hD hX hB_cont hB_ae
       Subtype.val c).map_eq⟩
   have hB_eval : ∀ t : ℝ≥0, HasLaw (B t) (gaussianReal 0 t) P := fun t ↦ by
     simpa [Real.toNNReal_coe] using hasLaw_sum_of_dense_brownianRealProjectiveFamily hD hX
-      hB_meas hB_cont hB_ae (fun _ : Fin 1 ↦ t) (fun _ ↦ 1)
+      hB_cont hB_ae (fun _ : Fin 1 ↦ t) (fun _ ↦ 1)
   have hB_mean : ∀ t : ℝ≥0, P[B t] = 0 := fun t ↦ by
     rw [(hB_eval t).integral_eq, integral_id_gaussianReal]
   have hB_var : ∀ t : ℝ≥0, Var[B t; P] = t := fun t ↦ by
     rw [(hB_eval t).variance_eq, variance_id_gaussianReal]
   have hB_cov : ∀ s t : ℝ≥0, s ≤ t → cov[B s, B t; P] = s := fun s t hst ↦ by
     have hst' : (s : ℝ) ≤ t := by exact_mod_cast hst
-    have h := hasLaw_sum_of_dense_brownianRealProjectiveFamily hD hX hB_meas hB_cont hB_ae
-      ![t, s] ![1, -1]
+    have h := hasLaw_sum_of_dense_brownianRealProjectiveFamily hD hX hB_cont hB_ae ![t, s] ![1, -1]
     have hfun : (fun ω ↦ ∑ i : Fin 2, (![1, -1] : Fin 2 → ℝ) i * B (![t, s] i) ω) = B t - B s := by
       funext ω; simp [Fin.sum_univ_two, sub_eq_add_neg]
     have hv : (∑ i : Fin 2, ∑ j : Fin 2, (![1, -1] : Fin 2 → ℝ) i * (![1, -1] : Fin 2 → ℝ) j *
@@ -236,21 +250,10 @@ namespace ProbabilityTheory
 
 section Modification
 
-private lemma edist_le_of_mem_Icc_zero {T : ℝ≥0} {x y : ℝ≥0}
-    (hx : x ∈ Icc 0 T) (hy : y ∈ Icc 0 T) : edist x y ≤ T := by
-  rw [edist_nndist, ENNReal.coe_le_coe, ← NNReal.coe_le_coe, coe_nndist, NNReal.dist_eq]
-  have hxT : (x : ℝ) ≤ T := by exact_mod_cast hx.2
-  have hyT : (y : ℝ) ≤ T := by exact_mod_cast hy.2
-  exact abs_le.2 ⟨by linarith [x.coe_nonneg], by linarith [y.coe_nonneg]⟩
-
-private lemma exists_holderOnWith_modification_fixed
-    {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} {X : ℝ≥0 → Ω → ℝ}
-    (hX : IsPreBrownianReal X P) {γ : ℝ≥0} (hγ : γ < 1 / 2) :
-    ∃ Y : ℝ≥0 → Ω → ℝ,
-      (∀ t, Measurable (Y t)) ∧
-      (∀ ω, Continuous (Y · ω)) ∧
-      (∀ (T : ℝ≥0) ω, ∃ L : ℝ≥0, HolderOnWith L γ (Y · ω) (Icc 0 T)) ∧
-      ∀ t, Y t =ᵐ[P] X t := by
+private lemma exists_holderOnWith_modification_fixed {Ω : Type*} {mΩ : MeasurableSpace Ω}
+    {P : Measure Ω} {X : ℝ≥0 → Ω → ℝ} (hX : IsPreBrownianReal X P) {γ : ℝ≥0} (hγ : γ < 1 / 2) :
+    ∃ Y : ℝ≥0 → Ω → ℝ, (∀ t, Measurable (Y t)) ∧ (∀ ω, Continuous (Y · ω)) ∧
+      (∀ (T : ℝ≥0) ω, ∃ L : ℝ≥0, HolderOnWith L γ (Y · ω) (Icc 0 T)) ∧ ∀ t, Y t =ᵐ[P] X t := by
   let γ' : ℝ≥0 := max γ (1 / 4)
   have hγ'0 : 0 < γ' := lt_of_lt_of_le (by norm_num : (0 : ℝ≥0) < 1 / 4) (le_max_right _ _)
   have hγ'_lt : (γ' : ℝ) < 1 / 2 := by
@@ -271,14 +274,12 @@ private lemma exists_holderOnWith_modification_fixed
     hX_aekol.exists_continuous_modification_nnreal hγ'0 hkol_exp
   refine ⟨Y, hY_kol.measurable, hY_cont, fun T ω ↦ ?_, hY_ae⟩
   obtain ⟨L, hL⟩ := hY_holder T ω
-  exact ⟨L * T ^ ((γ' : ℝ) - γ),
-    hL.of_le (fun _ hx _ hy ↦ edist_le_of_mem_Icc_zero hx hy) (le_max_left γ (1 / 4))⟩
+  exact ⟨_, hL.of_le_of_ediam_le (D := T) (by simp) (le_max_left γ (1 / 4))⟩
 
 /-- Almost every sample path of a real Brownian motion is locally `γ`-Hölder on `[0, T]`
 simultaneously for all compact horizons `T : ℝ≥0` and all Hölder exponents `γ < 1 / 2`. -/
-theorem IsBrownianReal.ae_holderOnWith_Icc
-    {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} {B : ℝ≥0 → Ω → ℝ}
-    (hB : IsBrownianReal B P) :
+theorem IsBrownianReal.ae_holderOnWith_Icc {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω}
+    {B : ℝ≥0 → Ω → ℝ} (hB : IsBrownianReal B P) :
     ∀ᵐ ω ∂P, ∀ (T : ℝ≥0) ⦃γ : ℝ≥0⦄, γ < 1 / 2 →
       ∃ L : ℝ≥0, HolderOnWith L γ (B · ω) (Icc 0 T) := by
   let γSeq : ℕ → ℝ≥0 := fun m ↦ (1 / 2 : ℝ≥0) - ((m + 3 : ℕ) : ℝ≥0)⁻¹
@@ -293,9 +294,7 @@ theorem IsBrownianReal.ae_holderOnWith_Icc
     obtain ⟨L, hL⟩ := hY_holder T ω
     exact ⟨L, fun x hx y hy ↦ by simpa only [← hω x, ← hω y] using hL x hx y hy⟩
   filter_upwards [ae_all_iff.2 hae_m] with ω hω T γ hγ
-  have hgap : 0 < 1 / 2 - (γ : ℝ) := by
-    have hγ' : (γ : ℝ) < 1 / 2 := by exact_mod_cast hγ
-    linarith
+  have hgap : 0 < 1 / 2 - (γ : ℝ) := by linarith [show (γ : ℝ) < 1 / 2 by exact_mod_cast hγ]
   obtain ⟨m, hm⟩ := exists_nat_gt (1 / (1 / 2 - (γ : ℝ)))
   have hle : γ ≤ γSeq m := by
     have hinv_le : ((m + 3 : ℕ) : ℝ≥0)⁻¹ ≤ 1 / 2 := by
@@ -307,23 +306,17 @@ theorem IsBrownianReal.ae_holderOnWith_Icc
         (one_div_lt (by positivity) hgap).2 (hm.trans (by push_cast; linarith))
     push_cast at hinv ⊢; linarith
   obtain ⟨L, hL⟩ := hω m T
-  exact ⟨L * T ^ ((γSeq m : ℝ) - γ),
-    hL.of_le (fun _ hx _ hy ↦ edist_le_of_mem_Icc_zero hx hy) hle⟩
+  exact ⟨_, hL.of_le_of_ediam_le (D := T) (by simp) hle⟩
 
 /-- **Continuous modification of a pre-Brownian motion.** Every real pre-Brownian motion admits an
 all-paths continuous, coordinatewise Borel-measurable Brownian modification `Y` that vanishes
 identically at `0` and whose every sample path is `γ`-Hölder on `[0, T]` for all `T : ℝ≥0` and all
 `γ < 1 / 2`. -/
-theorem IsPreBrownianReal.exists_continuous_modification
-    {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} {X : ℝ≥0 → Ω → ℝ}
-    (hX : IsPreBrownianReal X P) :
-    ∃ Y : ℝ≥0 → Ω → ℝ,
-      IsBrownianReal Y P ∧
-      (∀ t, Measurable (Y t)) ∧
-      (∀ ω, Continuous (Y · ω)) ∧
-      (∀ ω, Y 0 ω = 0) ∧
-      (∀ (T : ℝ≥0) ⦃γ : ℝ≥0⦄, γ < 1 / 2 → ∀ ω,
-        ∃ L : ℝ≥0, HolderOnWith L γ (Y · ω) (Icc 0 T)) ∧
+theorem IsPreBrownianReal.exists_continuous_modification {Ω : Type*} {mΩ : MeasurableSpace Ω}
+    {P : Measure Ω} {X : ℝ≥0 → Ω → ℝ} (hX : IsPreBrownianReal X P) :
+    ∃ Y : ℝ≥0 → Ω → ℝ, IsBrownianReal Y P ∧ (∀ t, Measurable (Y t)) ∧
+      (∀ ω, Continuous (Y · ω)) ∧ (∀ ω, Y 0 ω = 0) ∧
+      (∀ (T : ℝ≥0) ⦃γ : ℝ≥0⦄, γ < 1 / 2 → ∀ ω, ∃ L : ℝ≥0, HolderOnWith L γ (Y · ω) (Icc 0 T)) ∧
       ∀ t, Y t =ᵐ[P] X t := by
   classical
   obtain ⟨Y₀, hY₀_meas, hY₀_cont, -, hY₀_ae⟩ :=
@@ -352,16 +345,11 @@ theorem IsPreBrownianReal.exists_continuous_modification
 /-- Every real Brownian motion is indistinguishable from an all-paths continuous, coordinatewise
 Borel-measurable Brownian motion vanishing everywhere at `0` whose sample paths are locally
 `γ`-Hölder for every `γ < 1 / 2`. -/
-theorem IsBrownianReal.exists_continuous_indist
-    {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} {B : ℝ≥0 → Ω → ℝ}
-    (hB : IsBrownianReal B P) :
-    ∃ Y : ℝ≥0 → Ω → ℝ,
-      IsBrownianReal Y P ∧
-      (∀ t, Measurable (Y t)) ∧
-      (∀ ω, Continuous (Y · ω)) ∧
-      (∀ ω, Y 0 ω = 0) ∧
-      (∀ (T : ℝ≥0) ⦃γ : ℝ≥0⦄, γ < 1 / 2 → ∀ ω,
-        ∃ L : ℝ≥0, HolderOnWith L γ (Y · ω) (Icc 0 T)) ∧
+theorem IsBrownianReal.exists_continuous_indist {Ω : Type*} {mΩ : MeasurableSpace Ω}
+    {P : Measure Ω} {B : ℝ≥0 → Ω → ℝ} (hB : IsBrownianReal B P) :
+    ∃ Y : ℝ≥0 → Ω → ℝ, IsBrownianReal Y P ∧ (∀ t, Measurable (Y t)) ∧
+      (∀ ω, Continuous (Y · ω)) ∧ (∀ ω, Y 0 ω = 0) ∧
+      (∀ (T : ℝ≥0) ⦃γ : ℝ≥0⦄, γ < 1 / 2 → ∀ ω, ∃ L : ℝ≥0, HolderOnWith L γ (Y · ω) (Icc 0 T)) ∧
       Y ≡ᵐ[P] B := by
   obtain ⟨Y, hY_B, hY_meas, hY_cont, hY_zero, hY_holder, hY_ae⟩ :=
     hB.toIsPreBrownianReal.exists_continuous_modification
@@ -375,9 +363,9 @@ section WienerSpace
 /-- Pushing the ambient measure forward along the continuous-path map of an everywhere-continuous
 real pre-Brownian motion yields a probability measure on `C(ℝ≥0, ℝ)` under which coordinate
 evaluation is a Brownian motion (`IsBrownianReal`). -/
-theorem IsPreBrownianReal.isBrownianReal_map_continuousMap
-    {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} {B : ℝ≥0 → Ω → ℝ}
-    (hB : IsPreBrownianReal B P) (hcont : ∀ ω, Continuous (B · ω)) :
+theorem IsPreBrownianReal.isBrownianReal_map_continuousMap {Ω : Type*} {mΩ : MeasurableSpace Ω}
+    {P : Measure Ω} {B : ℝ≥0 → Ω → ℝ} (hB : IsPreBrownianReal B P)
+    (hcont : ∀ ω, Continuous (B · ω)) :
     IsProbabilityMeasure (P.map fun ω ↦ (⟨fun t ↦ B t ω, hcont ω⟩ : C(ℝ≥0, ℝ))) ∧
       IsBrownianReal (fun t (ω : C(ℝ≥0, ℝ)) ↦ ω t)
         (P.map fun ω ↦ (⟨fun t ↦ B t ω, hcont ω⟩ : C(ℝ≥0, ℝ))) := by
@@ -401,8 +389,7 @@ namespace TauCeti
 which the coordinate evaluation process is pre-Brownian are equal. -/
 theorem eq_of_isPreBrownianReal_continuousMap {W₁ W₂ : Measure C(ℝ≥0, ℝ)}
     (hW₁ : IsPreBrownianReal (fun t (ω : C(ℝ≥0, ℝ)) ↦ ω t) W₁)
-    (hW₂ : IsPreBrownianReal (fun t (ω : C(ℝ≥0, ℝ)) ↦ ω t) W₂) :
-    W₁ = W₂ := by
+    (hW₂ : IsPreBrownianReal (fun t (ω : C(ℝ≥0, ℝ)) ↦ ω t) W₂) : W₁ = W₂ := by
   have : IsProbabilityMeasure W₂ := hW₂.isGaussianProcess.isProbabilityMeasure
   exact continuousMap_measure_ext_of_forall_finset_map_restrict_eq fun I ↦
     (hW₁.hasLaw I).map_eq.trans (hW₂.hasLaw I).map_eq.symm
@@ -416,15 +403,13 @@ theorem exists_wienerMeasure :
   have : Countable D := hD_count.to_subtype
   obtain ⟨P, -, hP_proj, hP_kol⟩ :=
     exists_measurePreserving_brownianRealProjectiveFamily_isKolmogorovProcess_of_countable D
-  have hkol4 := hP_kol (by decide : (2 : ℕ) ≠ 0)
-  obtain ⟨B, hB_kol, hB_cont, -, hB_ae⟩ :=
-    hkol4.IsAEKolmogorovProcess.exists_continuous_extension_of_dense_nnreal hD_dense
-      (γ := 1 / 8) (by norm_num) (by norm_num)
+  have hkol4 := (hP_kol (by decide : (2 : ℕ) ≠ 0)).IsAEKolmogorovProcess
+  obtain ⟨B, -, hB_cont, -, hB_ae⟩ :=
+    hkol4.exists_continuous_extension_of_dense_nnreal hD_dense (γ := 1 / 8)
+      (by norm_num) (by norm_num)
   have hB_brownian : IsBrownianReal B P :=
     isBrownianReal_of_dense_brownianRealProjectiveFamily hD_dense
-      (fun I hI ↦ (hP_proj I hI).hasLaw)
-      (fun t ↦ (hB_kol.measurable t).aemeasurable)
-      (Eventually.of_forall hB_cont) hB_ae
+      (fun I hI ↦ (hP_proj I hI).hasLaw) (Eventually.of_forall hB_cont) hB_ae
   exact ⟨P.map fun ω ↦ ⟨fun t ↦ B t ω, hB_cont ω⟩,
     hB_brownian.toIsPreBrownianReal.isBrownianReal_map_continuousMap hB_cont⟩
 

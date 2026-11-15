@@ -11,6 +11,7 @@ public import Mathlib.Topology.MetricSpace.Thickening
 import Mathlib.Analysis.MeanInequalitiesPow
 import Mathlib.Topology.Instances.ENNReal.Lemmas
 import Mathlib.Topology.UniformSpace.UniformEmbedding
+import TauCeti.Analysis.SpecialFunctions.Pow.NNReal
 import TauCeti.Analysis.SpecificLimits.DyadicSum
 
 /-!
@@ -55,6 +56,8 @@ By subadditivity of `t ↦ t ^ α`, the cusp `x ↦ ‖x‖ ^ α` is `α`-Hölde
   is Mathlib's `HolderOnWith.dist_le`.
 * `HolderOnWith.sub`: differences preserve the exponent and add the Hölder constants.
 * `holderOnWith_iff_dist_le`: `HolderOnWith` is equivalent to the Hölder bound stated with `dist`.
+* `HolderOnWith.of_le_of_ediam_le`: lowering the Hölder exponent on a set of extended diameter at
+  most `D`.
 * `HolderOnWith.of_le_of_dist_le`: a function satisfying a `β`-Hölder bound between points at
   distance less than `δ > 0`, with values within distance `D` of each other, is `γ`-Hölder for
   `γ ≤ β`, with constant `K δ^(β - γ) + D δ^(-γ)`.
@@ -63,6 +66,8 @@ By subadditivity of `t ↦ t ^ α`, the cusp `x ↦ ‖x‖ ^ α` is `α`-Hölde
 * `HolderOnWith.of_dist_lt_of_dist_le`: a function satisfying a Hölder bound with constant `K`
   between points at distance less than `δ`, with values within distance `D` of each other, is
   Hölder with constant `K + D δ^(-r)`.
+* `TauCeti.holderOnWith_of_forall_pow_le`: geometric-scale `r ^ m` oscillation bounds together with
+  a global diameter bound imply `HolderOnWith`.
 * `HolderOnWith.comp_const_smul`: precomposing with a rescaling `z ↦ a • z` multiplies the Hölder
   constant by `‖a‖ ^ r`.
 * `HolderOnWith.dist_le_mul_rpow_of_mem_ball`: on a ball of radius `ρ`, a Hölder function with
@@ -476,7 +481,68 @@ theorem HolderOnWith.of_edist_sq_le {u : ℝ → X} {S : Set ℝ} {c : ℝ} (hc0
       Real.dist_eq, hhalf, ENNReal.ofReal_mul hc0,
       ENNReal.mul_rpow_of_nonneg _ _ (by norm_num)]
 
+/-- On a set `s` of extended diameter at most `D : ℝ≥0`, a `(C, r)`-Hölder map is
+`(C * D ^ (r - r'), r')`-Hölder for every `r' ≤ r`. -/
+theorem HolderOnWith.of_le_of_ediam_le {X Y : Type*} [PseudoEMetricSpace X] [PseudoEMetricSpace Y]
+    {C D r r' : ℝ≥0} {f : X → Y} {s : Set X}
+    (hf : HolderOnWith C r f s) (hd : Metric.ediam s ≤ D) (hr' : r' ≤ r) :
+    HolderOnWith (C * D ^ ((r : ℝ) - r')) r' f s :=
+  hf.of_le (fun _ hx _ hy ↦ (Metric.edist_le_ediam_of_mem hx hy).trans hd) hr'
+
 namespace TauCeti
+
+/-- A map `f : T → E` between pseudo-emetric spaces whose oscillations on `U` at geometric scales
+`edist x y ≤ r ^ m` (`0 < r < 1`) are bounded by `B * (r ^ m) ^ γ` (`0 < γ`), and whose values on
+`U` lie within extended distance `B` of each other, is `(B * r⁻¹ ^ γ, γ)`-Hölder on `U`. -/
+theorem holderOnWith_of_forall_pow_le {T E : Type*} [PseudoEMetricSpace T]
+    [PseudoEMetricSpace E] {U : Set T} {f : T → E} {r B γ : ℝ≥0}
+    (hr0 : 0 < r) (hr1 : r < 1) (hγ : 0 < γ)
+    (hscale : ∀ {x y : T}, x ∈ U → y ∈ U → ∀ m : ℕ, edist x y ≤ (r : ℝ≥0∞) ^ m →
+      edist (f x) (f y) ≤ (B : ℝ≥0∞) * ((r : ℝ≥0∞) ^ m) ^ (γ : ℝ))
+    (hlarge : ∀ {x y : T}, x ∈ U → y ∈ U → edist (f x) (f y) ≤ B) :
+    HolderOnWith (B * r⁻¹ ^ (γ : ℝ)) γ f U := by
+  classical
+  intro x hx y hy
+  have hrγ_lt : r ^ (γ : ℝ) < 1 := NNReal.rpow_lt_one hr1 (by exact_mod_cast hγ)
+  rcases eq_zero_or_pos (edist x y) with hxy0 | hxy_pos
+  · have htend : Tendsto
+        (fun m : ℕ ↦ (B : ℝ≥0∞) * ((r ^ (γ : ℝ) : ℝ≥0) : ℝ≥0∞) ^ m) atTop (𝓝 0) := by
+      simpa only [mul_zero] using ENNReal.Tendsto.const_mul
+        (ENNReal.tendsto_pow_atTop_nhds_zero_of_lt_one (ENNReal.coe_lt_one_iff.2 hrγ_lt))
+        (Or.inr ENNReal.coe_ne_top)
+    have h0 : edist (f x) (f y) ≤ 0 := ge_of_tendsto' htend fun m ↦ by
+      simpa [ENNReal.coe_rpow_of_ne_zero hr0.ne', ENNReal.pow_rpow_comm] using
+        hscale hx hy m (by simp [hxy0])
+    simp [nonpos_iff_eq_zero.1 h0]
+  · rcases le_or_gt (edist x y) 1 with hxy_le1 | hxy_gt1
+    · have hex : ∃ k : ℕ, (r : ℝ≥0∞) ^ k < edist x y :=
+        ((tendsto_order.1 (ENNReal.tendsto_pow_atTop_nhds_zero_of_lt_one
+          (ENNReal.coe_lt_one_iff.2 hr1))).2 _ hxy_pos).exists
+      let k₀ := Nat.find hex
+      have hk₀_spec : (r : ℝ≥0∞) ^ k₀ < edist x y := Nat.find_spec hex
+      have hk₀_pos : 0 < k₀ := Nat.pos_of_ne_zero fun hk0 ↦
+        (hxy_le1.trans_lt (by simpa [hk0] using hk₀_spec)).false
+      let m := k₀ - 1
+      have hm_le : edist x y ≤ (r : ℝ≥0∞) ^ m := le_of_not_gt (Nat.find_min hex (by omega))
+      have hm_gt : (r : ℝ≥0∞) ^ m ≤ (r⁻¹ : ℝ≥0) * edist x y := by
+        have hrm : (r : ℝ≥0∞) ^ m = (r⁻¹ : ℝ≥0) * (r : ℝ≥0∞) ^ k₀ := by
+          rw [← Nat.sub_add_cancel hk₀_pos, pow_succ', ← mul_assoc, ← ENNReal.coe_mul,
+            inv_mul_cancel₀ hr0.ne', ENNReal.coe_one, one_mul]
+        exact hrm ▸ mul_le_mul_right hk₀_spec.le _
+      calc
+        edist (f x) (f y) ≤ (B : ℝ≥0∞) * ((r : ℝ≥0∞) ^ m) ^ (γ : ℝ) := hscale hx hy m hm_le
+        _ ≤ (B : ℝ≥0∞) * ((r⁻¹ : ℝ≥0) * edist x y) ^ (γ : ℝ) := by gcongr
+        _ = ((B * r⁻¹ ^ (γ : ℝ) : ℝ≥0) : ℝ≥0∞) * edist x y ^ (γ : ℝ) := by
+          rw [ENNReal.mul_rpow_of_nonneg _ _ γ.coe_nonneg,
+            ← ENNReal.coe_rpow_of_nonneg _ γ.coe_nonneg, ENNReal.coe_mul, mul_assoc]
+    · have h1_le : (1 : ℝ≥0) ≤ r⁻¹ ^ (γ : ℝ) :=
+        NNReal.one_le_rpow ((one_le_inv₀ hr0).2 hr1.le) γ.coe_nonneg
+      calc
+        edist (f x) (f y) ≤ (B : ℝ≥0∞) * 1 := by simpa using hlarge hx hy
+        _ ≤ ((B * r⁻¹ ^ (γ : ℝ) : ℝ≥0) : ℝ≥0∞) * edist x y ^ (γ : ℝ) := by
+          gcongr
+          · exact_mod_cast le_mul_of_one_le_right' h1_le
+          · simpa using ENNReal.rpow_le_rpow hxy_gt1.le γ.coe_nonneg
 
 /-- For `α ≤ 1`, the cusp `x ↦ ‖x‖ ^ α` is `α`-Hölder with constant `1`. -/
 theorem holderWith_norm_rpow {E : Type*} [SeminormedAddCommGroup E] {α : ℝ≥0} (hα : α ≤ 1) :
