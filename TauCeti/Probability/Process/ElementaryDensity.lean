@@ -207,4 +207,48 @@ theorem ext_indicatorConstLp_Ioc_prod_predictableMeasure
   filter_upwards [hb] with p hp
   exact fun hmem ↦ (not_lt_of_ge hp.1.2) hmem.1
 
+/-- Comparing continuous linear maps on finite-horizon predictable `L²` reduces to nonempty
+rectangle indicators lying entirely on or before a deterministic cut time `r` and those starting
+at or after `r`. -/
+theorem ext_indicatorConstLp_Ioc_prod_predictableMeasure_of_cut
+    {ℱ : Filtration ℝ≥0 m} {P : Measure Ω} [IsFiniteMeasure P] (T r : ℝ≥0)
+    {J K : Lp ℝ 2 (ℱ.predictableMeasure P T) →L[ℝ] E}
+    (hle : ∀ ⦃a b : ℝ≥0⦄, a < b → b ≤ min r T → ∀ ⦃A : Set Ω⦄ (hA : MeasurableSet[ℱ a] A),
+      J (indicatorConstLp 2 (measurableSet_predictable_Ioc_prod a b hA) (measure_ne_top _ _) 1) =
+      K (indicatorConstLp 2 (measurableSet_predictable_Ioc_prod a b hA) (measure_ne_top _ _) 1))
+    (hge : ∀ ⦃a b : ℝ≥0⦄, r ≤ a → a < b → b ≤ T → ∀ ⦃A : Set Ω⦄ (hA : MeasurableSet[ℱ a] A),
+      J (indicatorConstLp 2 (measurableSet_predictable_Ioc_prod a b hA) (measure_ne_top _ _) 1) =
+      K (indicatorConstLp 2 (measurableSet_predictable_Ioc_prod a b hA) (measure_ne_top _ _) 1)) :
+    J = K := by
+  let : MeasurableSpace (ℝ≥0 × Ω) := ℱ.predictable
+  apply ext_indicatorConstLp_Ioc_prod_predictableMeasure T
+  intro a b hab hb A hA
+  rcases le_or_gt b r with hbr | hrb
+  · exact hle hab (le_min hbr hb) hA
+  rcases le_or_gt r a with hra | har
+  · exact hge hra hab hb hA
+  have hA' : MeasurableSet[ℱ r] A := ℱ.mono har.le A hA
+  have hsplit : indicatorConstLp (μ := ℱ.predictableMeasure P T) 2
+      (measurableSet_predictable_Ioc_prod a b hA) (measure_ne_top _ _) (1 : ℝ) =
+      indicatorConstLp 2 (measurableSet_predictable_Ioc_prod a r hA) (measure_ne_top _ _) 1 +
+        indicatorConstLp 2 (measurableSet_predictable_Ioc_prod r b hA')
+          (measure_ne_top _ _) 1 := by
+    have hdisj : Disjoint (Ioc a r ×ˢ A) (Ioc r b ×ˢ A) :=
+      (Ioc_disjoint_Ioc_of_le le_rfl).set_prod_left _ _
+    have hunion : Ioc a b ×ˢ A = (Ioc a r ×ˢ A) ∪ (Ioc r b ×ˢ A) := by
+      rw [← union_prod, Ioc_union_Ioc_eq_Ioc har.le hrb.le]
+    refine (Lp.ext ?_).trans (indicatorConstLp_disjoint_union
+      (measurableSet_predictable_Ioc_prod a r hA)
+      (measurableSet_predictable_Ioc_prod r b hA')
+      (measure_ne_top _ _) (measure_ne_top _ _) hdisj (1 : ℝ))
+    filter_upwards [indicatorConstLp_coeFn (μ := ℱ.predictableMeasure P T) (p := 2)
+      (hs := measurableSet_predictable_Ioc_prod a b hA) (hμs := measure_ne_top _ _) (c := (1 : ℝ)),
+      indicatorConstLp_coeFn (μ := ℱ.predictableMeasure P T) (p := 2)
+        (hs := (measurableSet_predictable_Ioc_prod a r hA).union
+          (measurableSet_predictable_Ioc_prod r b hA'))
+        (hμs := measure_ne_top _ _) (c := (1 : ℝ))] with p hp1 hp2
+    rw [hp1, hp2, hunion]
+  rw [hsplit, map_add, map_add, hle har (le_min le_rfl (hrb.le.trans hb)) hA,
+    hge le_rfl hrb hb hA']
+
 end ContinuousLinearMap

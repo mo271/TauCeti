@@ -32,7 +32,10 @@ version.
 
 The time projection is measurable for the predictable sigma-algebra, so deterministic Borel
 time dependence can be combined with predictable processes. A predictably measurable function
-remains strongly predictable when extended by zero outside a measurable set of times.
+remains strongly predictable when extended by zero outside a measurable set of times. Holding a
+left-endpoint strongly measurable variable on `(s, ∞)` or `(s, t]`, or sampling any strongly
+adapted process along lagged regular grids, yields a strongly predictable process without
+metrizability or Borel assumptions on the codomain.
 
 ## References
 
@@ -381,3 +384,169 @@ theorem Measurable.isStronglyPredictable_ite_zero {ι Ω E : Type*}
     {P : ι → Prop} [DecidablePred P] (hP : MeasurableSet {t | P t}) :
     IsStronglyPredictable ℱ (fun t ω => if P t then f (t, ω) else 0) :=
   (hf.ite (hP.preimage ℱ.measurable_fst_predictable) measurable_const).stronglyMeasurable
+
+/-- A random variable strongly measurable at time `s`, held strictly after `s` and zero up to `s`,
+defines a strongly predictable process without any metrizability or Borel assumptions on the
+codomain. -/
+theorem MeasureTheory.StronglyMeasurable.isStronglyPredictable_indicator_Ioi {ι Ω E : Type*}
+    {m : MeasurableSpace Ω} [LinearOrder ι] [OrderBot ι] [TopologicalSpace E] [Zero E]
+    {ℱ : Filtration ι m} {s : ι} {ξ : Ω → E} (hξ : StronglyMeasurable[ℱ s] ξ) :
+    IsStronglyPredictable ℱ (fun t ω => (Ioi s).indicator (fun _ => ξ ω) t) := by
+  let S : Set (ι × Ω) := Ioi s ×ˢ univ
+  have hS : MeasurableSet[ℱ.predictable] S := measurableSet_predictable_Ioi_prod MeasurableSet.univ
+  refine stronglyMeasurable_of_restrict_of_restrict_compl hS ?_ ?_
+  · have hm : @Measurable S Ω (Subtype.instMeasurableSpace (m := ℱ.predictable)) (ℱ s)
+        (fun p => p.1.2) := by
+      intro A hA
+      refine ⟨Ioi s ×ˢ A, measurableSet_predictable_Ioi_prod hA, ?_⟩
+      ext ⟨⟨t, ω⟩, ht⟩
+      simp [S] at ht
+      simp [ht]
+    convert hξ.comp_measurable hm using 1
+    ext ⟨⟨t, ω⟩, ht⟩
+    simp [S, Function.uncurry, ht.1]
+  · exact stronglyMeasurable_const' fun p q => by
+      have hp : p.1.1 ∉ Ioi s := fun h => p.2 ⟨h, trivial⟩
+      have hq : q.1.1 ∉ Ioi s := fun h => q.2 ⟨h, trivial⟩
+      simp [Function.uncurry, hp, hq]
+
+/-- A random variable strongly measurable at the left endpoint `s`, held on `(s, t]` and zero
+elsewhere, defines a strongly predictable process. If `t ≤ s`, the process is identically zero. -/
+theorem MeasureTheory.StronglyMeasurable.isStronglyPredictable_indicator_Ioc {ι Ω E : Type*}
+    {m : MeasurableSpace Ω} [LinearOrder ι] [OrderBot ι] [TopologicalSpace E] [Zero E]
+    {ℱ : Filtration ι m} {s : ι} (t : ι) {ξ : Ω → E} (hξ : StronglyMeasurable[ℱ s] ξ) :
+    IsStronglyPredictable ℱ (fun u ω => (Ioc s t).indicator (fun _ => ξ ω) u) := by
+  let S : Set (ι × Ω) := Ioc s t ×ˢ univ
+  have hS : MeasurableSet[ℱ.predictable] S :=
+    measurableSet_predictable_Ioc_prod s t MeasurableSet.univ
+  refine stronglyMeasurable_of_restrict_of_restrict_compl hS ?_ ?_
+  · have hm : @Measurable S Ω (Subtype.instMeasurableSpace (m := ℱ.predictable)) (ℱ s)
+        (fun p => p.1.2) := by
+      intro A hA
+      refine ⟨Ioc s t ×ˢ A, measurableSet_predictable_Ioc_prod s t hA, ?_⟩
+      ext ⟨⟨u, ω⟩, hu⟩
+      simp [S] at hu
+      simp [hu]
+    convert hξ.comp_measurable hm using 1
+    ext ⟨⟨u, ω⟩, hu⟩
+    simp [S, Function.uncurry, hu.1.1, hu.1.2]
+  · exact stronglyMeasurable_const' fun p q => by
+      have hp : p.1.1 ∉ Ioc s t := fun h => p.2 ⟨h, trivial⟩
+      have hq : q.1.1 ∉ Ioc s t := fun h => q.2 ⟨h, trivial⟩
+      simp [Function.uncurry, hp, hq]
+
+private theorem isStronglyPredictable_indicator_singleton_bot {ι Ω E : Type*}
+    {m : MeasurableSpace Ω} [LinearOrder ι] [OrderBot ι] [TopologicalSpace E] [Zero E]
+    {ℱ : Filtration ι m} {ξ : Ω → E} (hξ : StronglyMeasurable[ℱ ⊥] ξ) :
+    IsStronglyPredictable ℱ (fun u ω => ({⊥} : Set ι).indicator (fun _ => ξ ω) u) := by
+  let S : Set (ι × Ω) := {⊥} ×ˢ univ
+  have hS : MeasurableSet[ℱ.predictable] S :=
+    measurableSet_predictable_singleton_bot_prod MeasurableSet.univ
+  refine stronglyMeasurable_of_restrict_of_restrict_compl hS ?_ ?_
+  · have hm : @Measurable S Ω (Subtype.instMeasurableSpace (m := ℱ.predictable)) (ℱ ⊥)
+        (fun p => p.1.2) := by
+      intro A hA
+      refine ⟨{⊥} ×ˢ A, measurableSet_predictable_singleton_bot_prod hA, ?_⟩
+      ext ⟨⟨u, ω⟩, hu⟩
+      simp [S] at hu
+      simp [hu]
+    convert hξ.comp_measurable hm using 1
+    ext ⟨⟨u, ω⟩, hu⟩
+    simp [S] at hu
+    simp [Function.uncurry, hu]
+  · exact stronglyMeasurable_const' fun p q => by
+      have hp : p.1.1 ≠ ⊥ := fun h => p.2 ⟨h, trivial⟩
+      have hq : q.1.1 ≠ ⊥ := fun h => q.2 ⟨h, trivial⟩
+      simp [Function.uncurry, hp, hq]
+
+private theorem tendsto_leftSample_approx_of_ne_zero {Ω E : Type*}
+    [MeasurableSpace (ℝ≥0 × Ω)] [TopologicalSpace E]
+    (n : ℕ) (g0 : ℝ≥0 × Ω → E) (hg0 : StronglyMeasurable g0)
+    (gk : ℕ → ℝ≥0 × Ω → E) (hgk : ∀ k, StronglyMeasurable (gk k))
+    (hS : ∀ k : ℕ, MeasurableSet (Ioc ((k : ℝ≥0) / (n + 1)) ((k + 1 : ℕ) / (n + 1)) ×ˢ
+      (univ : Set Ω)))
+    {p : ℝ≥0 × Ω} (hp0 : p.1 ≠ 0) {y : E}
+    (hy : gk (⌈p.1 * (n + 1)⌉₊ - 1) p = y) :
+    Tendsto (fun m => (Nat.rec (hg0.approx m) (fun K acc =>
+      SimpleFunc.piecewise (Ioc ((K : ℝ≥0) / (n + 1)) ((K + 1 : ℕ) / (n + 1)) ×ˢ univ) (hS K)
+        ((hgk K).approx m) acc) m : SimpleFunc (ℝ≥0 × Ω) E) p) atTop (𝓝 y) := by
+  let I (k : ℕ) : Set ℝ≥0 := Ioc ((k : ℝ≥0) / (n + 1)) ((k + 1 : ℕ) / (n + 1))
+  let fsAux (M m : ℕ) : SimpleFunc (ℝ≥0 × Ω) E :=
+    Nat.rec (hg0.approx m)
+      (fun K acc => SimpleFunc.piecewise (I K ×ˢ univ) (hS K) ((hgk K).approx m) acc) M
+  let k : ℕ := ⌈p.1 * (n + 1)⌉₊ - 1
+  have hmem : p.1 ∈ I k := by
+    convert leftSample_mem n (pos_iff_ne_zero.mpr hp0) using 1
+    simp only [I, leftSample_eq_natCast_div, k, Nat.cast_add, Nat.cast_one, add_div, one_div]
+  have hk (M m : ℕ) (hlt : k < M) : fsAux M m p = (hgk k).approx m p := by
+    induction M with
+    | zero => omega
+    | succ M ih =>
+      rw [show fsAux (M + 1) m = SimpleFunc.piecewise (I M ×ˢ univ) (hS M)
+        ((hgk M).approx m) (fsAux M m) from rfl, SimpleFunc.coe_piecewise]
+      rcases Nat.lt_succ_iff_lt_or_eq.mp hlt with hlt' | rfl
+      · have hle : ((k + 1 : ℕ) : ℝ≥0) / (n + 1) ≤ (M : ℝ≥0) / (n + 1) :=
+          div_le_div_of_nonneg_right (by exact_mod_cast hlt') (by positivity)
+        have hnot : p ∉ I M ×ˢ (univ : Set Ω) := fun h => not_lt_of_ge (hmem.2.trans hle) h.1.1
+        rw [@Set.piecewise_eq_of_notMem _ _ _ _ _ (fun _ => Classical.propDecidable _) _ hnot,
+          ih hlt']
+      · exact @Set.piecewise_eq_of_mem _ _ _ _ _ (fun _ => Classical.propDecidable _) _
+          ⟨hmem, trivial⟩
+  exact (hy ▸ (hgk k).tendsto_approx p).congr'
+    (by filter_upwards [eventually_gt_atTop k] with m hm using (hk m m hm).symm)
+
+private theorem stronglyMeasurable_leftSample_of_stronglyAdapted {Ω E : Type*}
+    {m : MeasurableSpace Ω} [TopologicalSpace E] {ℱ : Filtration ℝ≥0 m}
+    {u : ℝ≥0 → Ω → E} (hu : StronglyAdapted ℱ u) (n : ℕ) :
+    StronglyMeasurable[ℱ.predictable] (fun p : ℝ≥0 × Ω => u (leftSample n p.1) p.2) := by
+  classical
+  rcases isEmpty_or_nonempty E with _ | ⟨⟨c₀⟩⟩
+  · exact .of_subsingleton_cod
+  let : Zero E := ⟨c₀⟩
+  let : MeasurableSpace (ℝ≥0 × Ω) := ℱ.predictable
+  have hg0 : StronglyMeasurable
+      (fun p : ℝ≥0 × Ω => ({0} : Set ℝ≥0).indicator (fun _ => u 0 p.2) p.1) :=
+    isStronglyPredictable_indicator_singleton_bot (ℱ := ℱ) (hu 0)
+  let I (k : ℕ) : Set ℝ≥0 := Ioc ((k : ℝ≥0) / (n + 1)) ((k + 1 : ℕ) / (n + 1))
+  have hgk (k : ℕ) : StronglyMeasurable
+      (fun p : ℝ≥0 × Ω => (I k).indicator (fun _ => u ((k : ℝ≥0) / (n + 1)) p.2) p.1) :=
+    (hu _).isStronglyPredictable_indicator_Ioc _
+  have hS (k : ℕ) : MeasurableSet (I k ×ˢ (univ : Set Ω)) :=
+    measurableSet_predictable_Ioc_prod _ _ MeasurableSet.univ
+  let fsAux (M m : ℕ) : SimpleFunc (ℝ≥0 × Ω) E :=
+    Nat.rec (hg0.approx m)
+      (fun K acc => SimpleFunc.piecewise (I K ×ˢ univ) (hS K) ((hgk K).approx m) acc) M
+  refine ⟨fun m => fsAux m m, fun p => ?_⟩
+  by_cases hp0 : p.1 = 0
+  · have h0 (M m : ℕ) : fsAux M m p = hg0.approx m p := by
+      induction M with
+      | zero => rfl
+      | succ M ih =>
+        have hnot : p ∉ I M ×ˢ (univ : Set Ω) := fun h => not_lt_of_ge (by simp [hp0]) h.1.1
+        rw [show fsAux (M + 1) m = SimpleFunc.piecewise (I M ×ˢ univ) (hS M)
+          ((hgk M).approx m) (fsAux M m) from rfl, SimpleFunc.coe_piecewise,
+          @Set.piecewise_eq_of_notMem _ _ _ _ _ (fun _ => Classical.propDecidable _) _ hnot, ih]
+    simpa [h0, hp0, leftSample_zero] using hg0.tendsto_approx p
+  · have hmem : p.1 ∈ I (⌈p.1 * (n + 1)⌉₊ - 1) := by
+      convert leftSample_mem n (pos_iff_ne_zero.mpr hp0) using 1
+      simp only [I, leftSample_eq_natCast_div, Nat.cast_add, Nat.cast_one, add_div, one_div]
+    exact tendsto_leftSample_approx_of_ne_zero n _ hg0 _ hgk hS hp0
+      (by dsimp only; rw [indicator_of_mem hmem, leftSample_eq n _ hmem])
+
+/-- Every strongly adapted process admits predictable step approximations along lagged
+deterministic grids `τ n t ≤ t` of mesh `(t : ℝ) - τ n t ≤ 1 / (n + 1)`, with no metrizability,
+Borel, or path-regularity assumptions on the codomain or process. -/
+theorem MeasureTheory.StronglyAdapted.exists_predictable_seq_le {Ω E : Type*}
+    {m : MeasurableSpace Ω} [TopologicalSpace E] {ℱ : Filtration ℝ≥0 m}
+    {u : ℝ≥0 → Ω → E} (hu : StronglyAdapted ℱ u) :
+    ∃ τ : ℕ → ℝ≥0 → ℝ≥0, (∀ n t, τ n t ≤ t) ∧
+      (∀ (n : ℕ) (t : ℝ≥0), (t : ℝ) - (τ n t : ℝ) ≤ 1 / (n + 1 : ℝ)) ∧
+      ∀ n, StronglyMeasurable[ℱ.predictable] (fun p : ℝ≥0 × Ω => u (τ n p.1) p.2) := by
+  refine ⟨leftSample, leftSample_le, fun n t => ?_,
+    stronglyMeasurable_leftSample_of_stronglyAdapted hu⟩
+  by_cases ht : t = 0
+  · simp only [ht, leftSample_zero, NNReal.coe_zero, sub_zero]
+    positivity
+  · have h : (t : ℝ) ≤ leftSample n t + 1 / (n + 1 : ℝ) := by
+      exact_mod_cast (leftSample_mem n (pos_iff_ne_zero.mpr ht)).2
+    linarith
