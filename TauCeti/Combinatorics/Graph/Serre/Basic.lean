@@ -747,6 +747,16 @@ theorem segment_src_surjective : Function.Surjective segment.src := fun b => ⟨
 /-- The vertices of the segment are the Booleans. -/
 def segmentVEquiv : segment.V ≃ Bool := Equiv.refl Bool
 
+/-- A Boolean `b` as a vertex of `segment`. Keeping the syntactic type `segment.V` lets typeclass
+search find instances indexed by `segment.V` while remaining definitionally `b`. -/
+@[expose] def segment.vertex (b : Bool) : segment.V := b
+
+/-- The forward arrow of `segment` from `segment.vertex false` to `segment.vertex true`. -/
+@[expose] def segment.edge : segment.vertex false ⟶ segment.vertex true := ⟨false, rfl, rfl⟩
+
+/-- The reverse arrow of `segment` from `segment.vertex true` to `segment.vertex false`. -/
+@[expose] def segment.revEdge : segment.vertex true ⟶ segment.vertex false := ⟨true, rfl, rfl⟩
+
 /-- The darts of the segment, being Booleans, have decidable equality. -/
 instance : DecidableEq segment.E := inferInstanceAs (DecidableEq Bool)
 

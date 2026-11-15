@@ -294,12 +294,34 @@ theorem reverse {p q : 𝔸.Path x y} (h : Homotopic p q) : Homotopic p.reverse 
   rw [Quiver.Path.nil_comp] at h₂
   exact h₁.trans h₂
 
+/-- Left concatenation cancels in `𝔸`-path homotopy because every path is homotopy-invertible. -/
+@[simp] theorem comp_left_iff {p : 𝔸.Path x y} {q r : 𝔸.Path y z} :
+    Homotopic (p.comp q) (p.comp r) ↔ Homotopic q r := by
+  refine ⟨fun h => ?_, fun h => h.comp_left p⟩
+  have h₁ := h.comp_left p.reverse
+  rw [← Quiver.Path.comp_assoc, ← Quiver.Path.comp_assoc] at h₁
+  simpa only [Quiver.Path.nil_comp] using
+    (((reverse_comp p).comp_right q).symm.trans h₁).trans ((reverse_comp p).comp_right r)
+
+/-- Right concatenation cancels in `𝔸`-path homotopy. -/
+@[simp] theorem comp_right_iff {p q : 𝔸.Path x y} {r : 𝔸.Path y z} :
+    Homotopic (p.comp r) (q.comp r) ↔ Homotopic p q := by
+  refine ⟨fun h => ?_, fun h => h.comp_right r⟩
+  have h₁ := h.comp_right r.reverse
+  rw [Quiver.Path.comp_assoc, Quiver.Path.comp_assoc] at h₁
+  simpa only [Quiver.Path.comp_nil] using
+    (((comp_reverse r).comp_left p).symm.trans h₁).trans ((comp_reverse r).comp_left q)
+
 end Homotopic
 
 variable (𝔸) in
 /-- Homotopy of `𝔸`-paths as a setoid. -/
 instance setoid (x y : 𝔸.LetterVertex) : Setoid (𝔸.Path x y) :=
   ⟨Homotopic, Homotopic.equivalence⟩
+
+@[simp] theorem setoid_r {x y : 𝔸.LetterVertex} (p q : 𝔸.Path x y) :
+    (setoid 𝔸 x y) p q ↔ p.Homotopic q :=
+  Iff.rfl
 
 end Path
 
@@ -438,6 +460,15 @@ theorem map_vertexHom_eq_map_conj (q r : 𝔸.Path ⟨a⟩ ⟨b⟩) (H : Subgrou
     H.map (vertexHom r) =
       (H.map (vertexHom q)).map (MulAut.conj (mk (r.comp q.reverse)) : π₁ 𝔸 a →* π₁ 𝔸 a) := by
   rw [vertexHom_eq_conj_comp q r, Subgroup.map_map]
+
+/-- Appending a vertex group element `g ∈ A_b` to `p` composes `vertexHom p` with conjugation by
+`g`. -/
+theorem vertexHom_cons_vertex (p : 𝔸.Path ⟨a⟩ ⟨b⟩) (g : 𝔸.vertexGroup b) :
+    vertexHom (p.cons (.vertex g)) =
+      (vertexHom p).comp (MulAut.conj g : 𝔸.vertexGroup b →* 𝔸.vertexGroup b) := by
+  ext h
+  rw [vertexHom_eq_conj_comp_apply p (p.cons (.vertex g)), ← Path.comp_ofVertex, ← vertexHom_apply]
+  simp only [MonoidHom.comp_apply, MonoidHom.coe_ofClass, MulAut.conj_apply, map_mul, map_inv]
 
 end π₁
 

@@ -991,6 +991,13 @@ letter, is not homotopic to the empty path. -/
   rw [← ofVertex_homotopic_nil_iff]
   exact ⟨.symm, .symm⟩
 
+/-- Two vertex-group extensions of the same `𝔸`-path are homotopic only when the group elements are
+equal. -/
+@[simp] theorem cons_vertex_homotopic_cons_vertex_iff {x : 𝔸.LetterVertex} {p : 𝔸.Path x ⟨a⟩}
+    {g h : 𝔸.vertexGroup a} :
+    Homotopic (p.cons (Letter.vertex g)) (p.cons (Letter.vertex h)) ↔ g = h := by
+  rw [← comp_ofVertex, ← comp_ofVertex, Homotopic.comp_left_iff, ofVertex_homotopic_ofVertex_iff]
+
 end Path
 
 namespace π₁
