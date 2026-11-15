@@ -45,7 +45,10 @@ presentations of `B^I` as strict quotients of `A^r{Y}` (Kedlaya, Lemma 4.9).
 * `TauCeti.MvPowerSeries.norm_restrictedMap_le`: `restrictedMap` is bounded by the same constant.
 * `TauCeti.MvPowerSeries.norm_restrictedMap` and `TauCeti.MvPowerSeries.isometry_restrictedMap`:
   a norm-preserving `φ` induces an isometry for the Gauss norms.
-* `TauCeti.MvPowerSeries.restrictedMap_eq_zero_iff`: the coefficientwise kernel formula.
+* `TauCeti.MvPowerSeries.restrictedMap_eq_zero_iff` and
+  `TauCeti.MvPowerSeries.mem_ker_restrictedMap`: the coefficientwise kernel formula.
+* `TauCeti.MvPowerSeries.restrictedMap_injective`: an injective `φ` induces an injection
+  `R{X/c} → S{X/c}`.
 * `TauCeti.MvPowerSeries.continuous_restrictedMap`: continuity for the Gauss norm topologies.
 * `TauCeti.MvPowerSeries.exists_restrictedMap_eq_and_norm_coeff_le`: coefficientwise bounded
   lifts.
@@ -109,6 +112,19 @@ theorem restrictedMap_eq_zero_iff (f : IsRestricted.subring (R := R) c) :
     apply Subtype.ext
     ext t
     simpa only [coeff_restrictedMap, ZeroMemClass.coe_zero, map_zero] using h t
+
+/-- Membership in the kernel of `restrictedMap` is coefficientwise membership in the kernel of
+`φ`. -/
+theorem mem_ker_restrictedMap (f : IsRestricted.subring (R := R) c) :
+    f ∈ RingHom.ker (restrictedMap φ hφ) ↔
+      ∀ t, coeff t (f : MvPowerSeries σ R) ∈ RingHom.ker φ := by
+  simp only [RingHom.mem_ker, restrictedMap_eq_zero_iff]
+
+/-- An injective bounded coefficient homomorphism induces an injective map on restricted series.
+This is `MvPowerSeries.Restricted.map_injective` stated on `IsRestricted.subring`. -/
+theorem restrictedMap_injective (hφinj : Function.Injective φ) :
+    Function.Injective (restrictedMap (c := c) φ hφ) :=
+  fun _ _ h ↦ Restricted.map_injective c hφ hφinj h
 
 /-- The identity induces the identity on restricted series. -/
 @[simp]
