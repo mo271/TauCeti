@@ -41,6 +41,13 @@ theorem mem_traceRadical_iff_apply_star_mul_self_eq_zero (a : A) :
     φ.apply_star_mul_self_eq_zero_iff]
   exact ⟨fun h b ↦ h (star b), fun h b ↦ by simpa using h (star b)⟩
 
+/-- For a positive trace, a square has strictly positive value precisely when its argument lies
+outside the trace radical. -/
+theorem apply_star_mul_self_pos_iff_notMem_traceRadical {a : A} :
+    0 < φ (star a * a) ↔ a ∉ φ.toLinearMap.traceRadical hφ := by
+  rw [φ.mem_traceRadical_iff_apply_star_mul_self_eq_zero hφ]
+  exact ⟨fun h hz ↦ h.ne' hz, (φ.square_nonneg a).lt_of_ne'⟩
+
 /-- The GNS null space of a positive trace is the coefficient submodule of its trace radical. -/
 theorem nullSubmodule_eq_traceRadical :
     φ.nullSubmodule = (φ.toLinearMap.traceRadical hφ).restrictScalars ℂ := by

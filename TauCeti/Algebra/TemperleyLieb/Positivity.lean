@@ -13,6 +13,7 @@ public import Mathlib.Combinatorics.SimpleGraph.Hasse
 
 import TauCeti.Algebra.TemperleyLieb.SpinPositivity
 import TauCeti.Algebra.TemperleyLieb.Trace.Positive
+import TauCeti.Analysis.StarAlgebra.CauchySchwarz
 
 /-!
 # Jones's positivity theorem and the first bad level
@@ -44,7 +45,7 @@ Sufficiency and bounded-horizon positivity:
 * Whenever `[1], …, [n + 1]` are positive (in particular for `n < ⌊π / θ⌋₊` at an inadmissible
   `δ > 0`, or at any `n` for `δ ≥ 2`), walks of fewer than `n` steps from `0` in
   `pathGraph (n + 1)` never reach the boundary vertex `n`, so `√[t + 1]` satisfies
-  `IsAdjEigenvectorUpTo` up to horizon `n`. Bounded-level Markov trace uniqueness then identifies
+  `IsSqAdjEigenvectorUpTo` up to horizon `n`. Bounded-level Markov trace uniqueness then identifies
   `tr n` with `pathTrace`, proving positivity below level `k` and identifying `(tr n).traceRadical`
   with `RingHom.ker walkRep`.
 
@@ -68,8 +69,10 @@ hypothesis `Fact (IsSelfAdjoint (δ : ℂ))` holds for every real `δ` by `Compl
 * `TauCeti.TemperleyLieb.qInt_pos_of_notMem_jonesLoopParameters`,
   `TauCeti.TemperleyLieb.qInt_floor_add_one_neg_of_notMem_jonesLoopParameters`: the signs of the
   quantum integers at an inadmissible positive loop parameter.
-* `TauCeti.TemperleyLieb.isAdjEigenvectorUpTo_pathGraph_sqrt_qInt`: bounded-horizon adjacency
-  eigenvector property of `√[t + 1]` on `SimpleGraph.pathGraph (n + 1)`.
+* `TauCeti.TemperleyLieb.isSqAdjEigenvectorUpTo_pathGraph_sqrt_qInt`,
+  `TauCeti.TemperleyLieb.isSqAdjEigenvectorUpTo_pathGraph_sqrt_qInt_of_eq_two_mul_cos`:
+  bounded-horizon and Dynkin squared-weight adjacency eigenvector properties of `√[t + 1]` on path
+  graphs.
 * `TauCeti.TemperleyLieb.IsMarkovTrace.exists_map_star_mul_self_eq`,
   `TauCeti.TemperleyLieb.IsMarkovTrace.exists_map_star_mul_self_neg`: negative-norm witnesses from
   level `⌊π / θ⌋₊` onward.
@@ -154,53 +157,68 @@ theorem qInt_floor_add_one_neg_of_notMem_jonesLoopParameters (hδ : 0 < δ)
   have h := qInt_two_mul_cos_floor_add_one_neg hθ₀ (by linarith [pi_pos])
   rwa [hcos] at h
 
+end QuantumInteger
+
+section PathGraphQInt
+
+variable {R : Type*} [CommRing R]
+
 open SimpleGraph in
-/-- On `pathGraph (k + 1)`, the sum of `qInt ℝ δ (u + 1)` over the neighbours `u` of `v` is
+/-- On `pathGraph (k + 1)`, the sum of `qInt R δ (u + 1)` over the neighbours `u` of `v` is
 `(if v.val < k then [v + 2] else 0) + [v]`. -/
-private theorem sum_neighborFinset_pathGraph_qInt_eq (δ : ℝ) {k : ℕ} (v : Fin (k + 1)) :
-    ∑ u ∈ (pathGraph (k + 1)).neighborFinset v, qInt ℝ δ (u + 1) =
-      (if v.val < k then qInt ℝ δ (v + 2) else 0) + qInt ℝ δ v := by
+private theorem sum_neighborFinset_pathGraph_qInt_eq (δ : R) {k : ℕ} (v : Fin (k + 1)) :
+    ∑ u ∈ (pathGraph (k + 1)).neighborFinset v, qInt R δ (u + 1) =
+      (if v.val < k then qInt R δ (v + 2) else 0) + qInt R δ v := by
   rw [neighborFinset_eq_filter, Finset.sum_filter]
   simp only [pathGraph_adj]
   rw [Fin.sum_univ_eq_sum_range
-    (fun j ↦ if v.val + 1 = j ∨ j + 1 = v.val then qInt ℝ δ (j + 1) else 0)]
-  have h (j : ℕ) : (if v.val + 1 = j ∨ j + 1 = v.val then qInt ℝ δ (j + 1) else 0) =
-      (if v.val + 1 = j then qInt ℝ δ (j + 1) else 0) +
-        (if j + 1 = v.val then qInt ℝ δ (j + 1) else 0) := by
+    (fun j ↦ if v.val + 1 = j ∨ j + 1 = v.val then qInt R δ (j + 1) else 0)]
+  have h (j : ℕ) : (if v.val + 1 = j ∨ j + 1 = v.val then qInt R δ (j + 1) else 0) =
+      (if v.val + 1 = j then qInt R δ (j + 1) else 0) +
+        (if j + 1 = v.val then qInt R δ (j + 1) else 0) := by
     split_ifs <;> first | ring1 | (exfalso; omega)
   simp_rw [h]
   rw [Finset.sum_add_distrib, Finset.sum_ite_eq]
-  have h1 : (if v.val + 1 ∈ Finset.range (k + 1) then qInt ℝ δ (v + 1 + 1) else 0) =
-      if v.val < k then qInt ℝ δ (v + 2) else 0 := by
+  have h1 : (if v.val + 1 ∈ Finset.range (k + 1) then qInt R δ (v + 1 + 1) else 0) =
+      if v.val < k then qInt R δ (v + 2) else 0 := by
     split_ifs <;> first | rfl | simp_all
-  have h2 : ∑ j ∈ Finset.range (k + 1), (if j + 1 = v.val then qInt ℝ δ (j + 1) else 0) =
-      qInt ℝ δ v := by
+  have h2 : ∑ j ∈ Finset.range (k + 1), (if j + 1 = v.val then qInt R δ (j + 1) else 0) =
+      qInt R δ v := by
     obtain ⟨_ | w, hw⟩ := v
     · simp
     · simp only [Nat.add_right_cancel_iff]
       rw [Finset.sum_ite_eq', ite_eq_left (Finset.mem_range.2 (by omega))]
   rw [h1, h2]
 
+variable {δ : R}
+
 open SimpleGraph in
 /-- At every non-top vertex `v` (`v.val < k`) of `pathGraph (k + 1)`, the quantum integers
-`[t + 1]` satisfy the adjacency recurrence `∑_{u ~ v} [u + 1] = δ [v + 1]` for any `δ : ℝ`. -/
+`[t + 1]` satisfy the adjacency recurrence `∑_{u ~ v} [u + 1] = δ [v + 1]` over any commutative
+ring. -/
 theorem sum_neighborFinset_pathGraph_qInt_of_lt {k : ℕ} {v : Fin (k + 1)} (hv : v.val < k) :
-    ∑ u ∈ (pathGraph (k + 1)).neighborFinset v, qInt ℝ δ (u + 1) = δ * qInt ℝ δ (v + 1) := by
+    ∑ u ∈ (pathGraph (k + 1)).neighborFinset v, qInt R δ (u + 1) = δ * qInt R δ (v + 1) := by
   rw [sum_neighborFinset_pathGraph_qInt_eq, ite_eq_left hv, qInt_add_two]
   ring
 
 open SimpleGraph in
 /-- When `[k + 2] = 0`, the quantum integers `[t + 1]` on all vertices of `pathGraph (k + 1)`
 form an eigenvector of its adjacency matrix with eigenvalue `δ`. -/
-theorem sum_neighborFinset_pathGraph_qInt_of_eq_zero {k : ℕ} (hz : qInt ℝ δ (k + 2) = 0)
+theorem sum_neighborFinset_pathGraph_qInt_of_eq_zero {k : ℕ} (hz : qInt R δ (k + 2) = 0)
     (v : Fin (k + 1)) :
-    ∑ u ∈ (pathGraph (k + 1)).neighborFinset v, qInt ℝ δ (u + 1) = δ * qInt ℝ δ (v + 1) := by
+    ∑ u ∈ (pathGraph (k + 1)).neighborFinset v, qInt R δ (u + 1) = δ * qInt R δ (v + 1) := by
   by_cases hv : v.val < k
   · exact sum_neighborFinset_pathGraph_qInt_of_lt hv
   · have hvk : v.val + 2 = k + 2 := by omega
     rw [sum_neighborFinset_pathGraph_qInt_eq, ite_eq_right hv, zero_add,
-      ← add_zero (qInt ℝ δ v), ← hz, ← hvk, qInt_add_two]
+      ← add_zero (qInt R δ v), ← hz, ← hvk, qInt_add_two]
     ring
+
+end PathGraphQInt
+
+section PathGraphSqrtQInt
+
+variable {δ : ℝ}
 
 open SimpleGraph in
 /-- At `δ = 2 cos (π / (k + 2))`, the quantum integers `[t + 1]` on the vertices `t` of the path
@@ -219,14 +237,40 @@ theorem ofReal_sqrt_qInt_ne_zero {k : ℕ} (hq : ∀ j ∈ Finset.Icc 1 (k + 1),
   Complex.ofReal_ne_zero.2
     (Real.sqrt_pos.2 (hq (t + 1) (Finset.mem_Icc.2 ⟨by omega, by omega⟩))).ne'
 
+/-- At `δ = 2 cos (π / (k + 2))`, the complex square-root weights `√[t + 1]` on `Fin (k + 1)` are
+nonzero. -/
+theorem ofReal_sqrt_qInt_ne_zero_of_eq_two_mul_cos {k : ℕ}
+    (hδ : δ = 2 * cos (π / (k + 2 : ℕ))) (t : Fin (k + 1)) :
+    (((√(qInt ℝ δ (t + 1)) : ℝ) : ℂ)) ≠ 0 :=
+  ofReal_sqrt_qInt_ne_zero (fun _ hj ↦ by
+    obtain ⟨hj₁, hj₂⟩ := Finset.mem_Icc.1 hj
+    exact hδ ▸ qInt_two_mul_cos_pi_div_pos hj₁ (by omega)) t
+
+open SimpleGraph in
+/-- At `δ = 2 cos (π / (k + 2))`, the squared complex square-root weights `(√[t + 1]) ^ 2` on the
+vertices `t` of `pathGraph (k + 1)` form an eigenvector of its adjacency matrix with eigenvalue
+`δ`. -/
+theorem sum_neighborFinset_pathGraph_ofReal_sqrt_qInt_sq_of_eq_two_mul_cos {k : ℕ}
+    (hδ : δ = 2 * cos (π / (k + 2 : ℕ))) (v : Fin (k + 1)) :
+    ∑ u ∈ (pathGraph (k + 1)).neighborFinset v, (((√(qInt ℝ δ (u + 1)) : ℝ) : ℂ)) ^ 2 =
+      (δ : ℂ) * (((√(qInt ℝ δ (v + 1)) : ℝ) : ℂ)) ^ 2 := by
+  subst hδ
+  have hsq (t : Fin (k + 1)) :
+      (((√(qInt ℝ (2 * cos (π / (k + 2 : ℕ))) (t + 1)) : ℝ) : ℂ)) ^ 2 =
+        (qInt ℝ (2 * cos (π / (k + 2 : ℕ))) (t + 1) : ℂ) := by
+    rw [← Complex.ofReal_pow,
+      Real.sq_sqrt (qInt_two_mul_cos_pi_div_pos (by omega) (by omega)).le]
+  simp only [hsq]
+  exact_mod_cast sum_neighborFinset_pathGraph_qInt v
+
 /-- When `[1], …, [n + 1]` are nonnegative, the weights `t ↦ √[t + 1]` on
-`SimpleGraph.pathGraph (n + 1)` satisfy `IsAdjEigenvectorUpTo` from base vertex `0` up to horizon
+`SimpleGraph.pathGraph (n + 1)` satisfy `IsSqAdjEigenvectorUpTo` from base vertex `0` up to horizon
 `n`: a walk of fewer than `n` steps from `0` never reaches the top vertex `n`. -/
-theorem isAdjEigenvectorUpTo_pathGraph_sqrt_qInt {n : ℕ}
+theorem isSqAdjEigenvectorUpTo_pathGraph_sqrt_qInt {n : ℕ}
     (hq : ∀ j ∈ Finset.Icc 1 (n + 1), 0 ≤ qInt ℝ δ j) :
-    IsAdjEigenvectorUpTo (SimpleGraph.pathGraph (n + 1)) 0
+    IsSqAdjEigenvectorUpTo (SimpleGraph.pathGraph (n + 1)) 0
       (fun t : Fin (n + 1) ↦ ((√(qInt ℝ δ (t + 1)) : ℝ) : ℂ)) (δ : ℂ) n := by
-  rw [isAdjEigenvectorUpTo_iff]
+  rw [isSqAdjEigenvectorUpTo_iff]
   intro k hk s hs
   have hle : (s (Fin.last k)).val ≤ (0 : Fin (n + 1)).val + (Fin.last k).val :=
     hs.apply_le_add Fin.val (fun _ _ h ↦ by rw [SimpleGraph.pathGraph_adj] at h; omega)
@@ -238,25 +282,18 @@ theorem isAdjEigenvectorUpTo_pathGraph_sqrt_qInt {n : ℕ}
       (((√(qInt ℝ δ (t + 1)) : ℝ) : ℂ)) ^ 2 = (qInt ℝ δ (t + 1) : ℂ) := by
     rw [← Complex.ofReal_pow, Real.sq_sqrt (hq (t + 1) (Finset.mem_Icc.2 ⟨by omega, by omega⟩))]
   simp only [hsq]
-  exact_mod_cast sum_neighborFinset_pathGraph_qInt_of_lt hlt
+  exact_mod_cast sum_neighborFinset_pathGraph_qInt_of_lt (R := ℝ) (δ := δ) hlt
 
 /-- At `δ = 2 cos (π / (k + 2))`, the weights `t ↦ √[t + 1]` on `SimpleGraph.pathGraph (k + 1)`
-satisfy `IsAdjEigenvectorUpTo` at every horizon `n`. -/
-theorem isAdjEigenvectorUpTo_pathGraph_of_eq_two_mul_cos {k : ℕ}
-    (hδ : δ = 2 * cos (π / (k + 2 : ℕ))) (n : ℕ) :
-    IsAdjEigenvectorUpTo (SimpleGraph.pathGraph (k + 1)) 0
-      (fun t : Fin (k + 1) ↦ ((√(qInt ℝ δ (t + 1)) : ℝ) : ℂ)) (δ : ℂ) n := by
-  refine IsAdjEigenvectorUpTo.of_forall (fun v ↦ ?_) n
-  subst hδ
-  have hsq (t : Fin (k + 1)) :
-      (((√(qInt ℝ (2 * cos (π / (k + 2 : ℕ))) (t + 1)) : ℝ) : ℂ)) ^ 2 =
-        (qInt ℝ (2 * cos (π / (k + 2 : ℕ))) (t + 1) : ℂ) := by
-    rw [← Complex.ofReal_pow,
-      Real.sq_sqrt (qInt_two_mul_cos_pi_div_pos (by omega) (by omega)).le]
-  simp only [hsq]
-  exact_mod_cast sum_neighborFinset_pathGraph_qInt v
+satisfy `IsSqAdjEigenvectorUpTo` from any base vertex `v₀` at every horizon `n`. -/
+theorem isSqAdjEigenvectorUpTo_pathGraph_sqrt_qInt_of_eq_two_mul_cos {k : ℕ}
+    (hδ : δ = 2 * cos (π / (k + 2 : ℕ))) (v₀ : Fin (k + 1)) (n : ℕ) :
+    IsSqAdjEigenvectorUpTo (SimpleGraph.pathGraph (k + 1)) v₀
+      (fun t : Fin (k + 1) ↦ ((√(qInt ℝ δ (t + 1)) : ℝ) : ℂ)) (δ : ℂ) n :=
+  IsSqAdjEigenvectorUpTo.of_forall
+    (sum_neighborFinset_pathGraph_ofReal_sqrt_qInt_sq_of_eq_two_mul_cos hδ) n
 
-end QuantumInteger
+end PathGraphSqrtQInt
 
 namespace IsMarkovTrace
 
@@ -346,9 +383,9 @@ with vertex weights `√[t + 1]`. -/
 theorem map_star_mul_self_nonneg_of_qInt_pos (htr : IsMarkovTrace ℂ (δ : ℂ) tr) {n : ℕ}
     (hq : ∀ j ∈ Finset.Icc 1 (n + 1), 0 < qInt ℝ δ j) (x : TemperleyLieb ℂ (δ : ℂ) n) :
     0 ≤ tr n (star x * x) :=
-  htr.map_star_mul_self_nonneg_of_isAdjEigenvectorUpTo
+  htr.map_star_mul_self_nonneg_of_isSqAdjEigenvectorUpTo
     (ofReal_sqrt_qInt_ne_zero hq) (fun _ ↦ Complex.conj_ofReal _)
-    (isAdjEigenvectorUpTo_pathGraph_sqrt_qInt fun j hj ↦ (hq j hj).le) x
+    (isSqAdjEigenvectorUpTo_pathGraph_sqrt_qInt fun j hj ↦ (hq j hj).le) x
 
 /-- Whenever `[1], …, [n + 1]` are strictly positive at `δ`, the trace radical `(tr n).traceRadical`
 equals the kernel of `walkRep` on `SimpleGraph.pathGraph (n + 1)` with weights `√[t + 1]`. -/
@@ -356,10 +393,10 @@ theorem traceRadical_eq_ker_walkRep_pathGraph_of_qInt_pos (htr : IsMarkovTrace �
     {n : ℕ} (hq : ∀ j ∈ Finset.Icc 1 (n + 1), 0 < qInt ℝ δ j) :
     (tr n).traceRadical (htr.map_mul_comm n) =
       RingHom.ker (walkRep (SimpleGraph.pathGraph (n + 1)) 0 (ofReal_sqrt_qInt_ne_zero hq)
-        (isAdjEigenvectorUpTo_pathGraph_sqrt_qInt fun j hj ↦ (hq j hj).le)) :=
+        (isSqAdjEigenvectorUpTo_pathGraph_sqrt_qInt fun j hj ↦ (hq j hj).le)) :=
   htr.traceRadical_eq_ker_walkRep (ofReal_sqrt_qInt_ne_zero hq)
     (fun _ ↦ Complex.conj_ofReal _)
-    (isAdjEigenvectorUpTo_pathGraph_sqrt_qInt fun j hj ↦ (hq j hj).le)
+    (isSqAdjEigenvectorUpTo_pathGraph_sqrt_qInt fun j hj ↦ (hq j hj).le)
 
 /-- For `δ ≥ 2`, the trace radical `(tr n).traceRadical` equals the kernel of `walkRep` on the
 truncated half-line `SimpleGraph.pathGraph (n + 1)` with weights `√[t + 1]`. -/
@@ -368,24 +405,24 @@ theorem traceRadical_eq_ker_walkRep_pathGraph_of_two_le (htr : IsMarkovTrace ℂ
     (tr n).traceRadical (htr.map_mul_comm n) =
       RingHom.ker (walkRep (SimpleGraph.pathGraph (n + 1)) 0
         (ofReal_sqrt_qInt_ne_zero fun _ hj ↦ qInt_pos_of_two_le hδ (Finset.mem_Icc.1 hj).1)
-        (isAdjEigenvectorUpTo_pathGraph_sqrt_qInt fun _ hj ↦
+        (isSqAdjEigenvectorUpTo_pathGraph_sqrt_qInt fun _ hj ↦
           (qInt_pos_of_two_le hδ (Finset.mem_Icc.1 hj).1).le)) :=
   htr.traceRadical_eq_ker_walkRep_pathGraph_of_qInt_pos
     fun _ hj ↦ qInt_pos_of_two_le hδ (Finset.mem_Icc.1 hj).1
 
 /-- At the discrete loop parameter `δ = 2 cos (π / (k + 2))`, the trace radical
 `(tr n).traceRadical` on any number `n` of strands equals the kernel of `walkRep` on the Dynkin
-graph `A_(k+1)` (`SimpleGraph.pathGraph (k + 1)`) with weights `√[t + 1]`. -/
+graph `A_(k+1)` (`SimpleGraph.pathGraph (k + 1)`) from any base vertex `v₀` with weights
+`√[t + 1]`. -/
 theorem traceRadical_eq_ker_walkRep_pathGraph_of_eq_two_mul_cos (htr : IsMarkovTrace ℂ (δ : ℂ) tr)
-    {k : ℕ} (hδ : δ = 2 * cos (π / (k + 2 : ℕ))) (n : ℕ) :
+    {k : ℕ} (hδ : δ = 2 * cos (π / (k + 2 : ℕ))) (v₀ : Fin (k + 1)) (n : ℕ) :
     (tr n).traceRadical (htr.map_mul_comm n) =
-      RingHom.ker (walkRep (SimpleGraph.pathGraph (k + 1)) 0
-        (ofReal_sqrt_qInt_ne_zero fun j hj ↦ by
-          obtain ⟨hj₁, hj₂⟩ := Finset.mem_Icc.1 hj
-          exact hδ ▸ qInt_two_mul_cos_pi_div_pos hj₁ (by omega))
-        (isAdjEigenvectorUpTo_pathGraph_of_eq_two_mul_cos hδ n)) :=
-  htr.traceRadical_eq_ker_walkRep _ (fun _ ↦ Complex.conj_ofReal _)
-    (isAdjEigenvectorUpTo_pathGraph_of_eq_two_mul_cos hδ n)
+      RingHom.ker (walkRep (SimpleGraph.pathGraph (k + 1)) v₀
+        (ofReal_sqrt_qInt_ne_zero_of_eq_two_mul_cos hδ)
+        (isSqAdjEigenvectorUpTo_pathGraph_sqrt_qInt_of_eq_two_mul_cos hδ v₀ n)) :=
+  htr.traceRadical_eq_ker_walkRep (ofReal_sqrt_qInt_ne_zero_of_eq_two_mul_cos hδ)
+    (fun _ ↦ Complex.conj_ofReal _)
+    (isSqAdjEigenvectorUpTo_pathGraph_sqrt_qInt_of_eq_two_mul_cos hδ v₀ n)
 
 /-- **Positivity below the first bad level.** At an inadmissible loop parameter `δ > 0`, the
 Hermitian form of a Markov trace on `n` strands is positive semidefinite for every
@@ -407,15 +444,10 @@ theorem map_star_mul_self_nonneg_of_eq_two_mul_cos (htr : IsMarkovTrace ℂ (δ 
     (hm : 2 ≤ m) (hδ : δ = 2 * cos (π / m)) {n : ℕ} (x : TemperleyLieb ℂ (δ : ℂ) n) :
     0 ≤ tr n (star x * x) := by
   obtain ⟨k, rfl⟩ : ∃ k, m = k + 2 := ⟨m - 2, by omega⟩
-  subst hδ
-  have hpos (t : Fin (k + 1)) : 0 < qInt ℝ (2 * cos (π / (k + 2 : ℕ))) (t + 1) :=
-    qInt_two_mul_cos_pi_div_pos (by omega) (by omega)
-  refine htr.map_star_mul_self_nonneg_of_graph (G := SimpleGraph.pathGraph (k + 1))
-    (r := fun t ↦ ((√(qInt ℝ (2 * cos (π / (k + 2 : ℕ))) (t + 1)) : ℝ) : ℂ))
-    (fun t ↦ Complex.ofReal_ne_zero.2 (Real.sqrt_pos.2 (hpos t)).ne')
-    (fun t ↦ Complex.conj_ofReal _) (fun v ↦ ?_) x
-  simp only [← Complex.ofReal_pow, Real.sq_sqrt (hpos _).le]
-  exact_mod_cast sum_neighborFinset_pathGraph_qInt v
+  exact htr.map_star_mul_self_nonneg_of_graph
+    (ofReal_sqrt_qInt_ne_zero_of_eq_two_mul_cos hδ)
+    (fun _ ↦ Complex.conj_ofReal _)
+    (sum_neighborFinset_pathGraph_ofReal_sqrt_qInt_sq_of_eq_two_mul_cos hδ) x
 
 /-- **Jones's positivity theorem.** For `δ > 0`, the Hermitian forms `(x, y) ↦ tr n (x⋆ * y)` of a
 Markov trace are positive semidefinite on every number of strands exactly when `δ` is an admissible
@@ -457,6 +489,17 @@ theorem map_star_mul_self_eq_zero_iff_mem_traceRadical_of_mem_or_lt_floor
     tr n (star x * x) = 0 ↔ x ∈ (tr n).traceRadical (htr.map_mul_comm n) :=
   htr.map_star_mul_self_eq_zero_iff_mem_traceRadical
     ((htr.forall_map_star_mul_self_nonneg_iff_mem_or_lt_floor hδ).2 h)
+
+/-- **Cauchy–Schwarz inequality** for a Markov trace: for `δ > 0`, whenever `δ` is admissible or
+`n < ⌊π / arccos (δ / 2)⌋₊`, we have
+`‖tr n (star x * y)‖ ^ 2 ≤ ‖tr n (star x * x)‖ * ‖tr n (star y * y)‖`. -/
+theorem norm_map_star_mul_sq_le_of_mem_or_lt_floor
+    (htr : IsMarkovTrace ℂ (δ : ℂ) tr) (hδ : 0 < δ) {n : ℕ}
+    (h : δ ∈ jonesLoopParameters ∨ n < ⌊π / arccos (δ / 2)⌋₊)
+    (x y : TemperleyLieb ℂ (δ : ℂ) n) :
+    ‖tr n (star x * y)‖ ^ 2 ≤ ‖tr n (star x * x)‖ * ‖tr n (star y * y)‖ :=
+  (tr n).norm_map_star_mul_sq_le
+    ((htr.forall_map_star_mul_self_nonneg_iff_mem_or_lt_floor hδ).2 h) x y
 
 /-- **Pullback criterion for admissibility.** Let `δ > 0` and suppose that at each strand count `n`
 there is a star-preserving algebra homomorphism `ρ n : TemperleyLieb ℂ (δ : ℂ) n →ₐ[ℂ] B n` into a
