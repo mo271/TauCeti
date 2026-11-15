@@ -6,6 +6,7 @@ Authors: The Tau Ceti contributors
 module
 
 public import Mathlib.Data.Finset.Finsupp
+public import Mathlib.LinearAlgebra.LinearIndependent.Defs
 public import Mathlib.RingTheory.MvPowerSeries.Equiv
 public import Mathlib.RingTheory.PowerSeries.Expand
 public import TauCeti.RingTheory.PowerSeries.PiTopology
@@ -26,6 +27,10 @@ field with `q` elements, the iterates of `expand q` are the `q ^ j`-th power map
 ## Main declarations
 
 * `PowerSeries.expand_injective`: expansion `f ↦ f (X ^ p)` is injective.
+* `PowerSeries.linearIndependent_expand_of_isRightRegular`,
+  `PowerSeries.linearIndependent_expand`,
+  `PowerSeries.linearIndependent_expand_of_coeff_ne_zero`: the expansions `f (X ^ d i)` of a
+  non-constant series along pairwise distinct positive exponents `d i` are linearly independent.
 * `PowerSeries.rescale_expand`: rescaling `f (X ^ p)` by `a` rescales `f` by `a ^ p`.
 * `PowerSeries.subst_expand`: substituting into `f(X ^ p)` substitutes the `p`-th power.
 * `PowerSeries.toMvPowerSeries_expand`: embedding in one coordinate commutes with expansion.
@@ -104,6 +109,72 @@ theorem expand_injective (p : ℕ) (hp : p ≠ 0) :
     Function.Injective (expand p hp : R⟦X⟧ → R⟦X⟧) := fun f g h ↦ by
   ext m
   rw [← coeff_expand_mul p hp f, h, coeff_expand_mul]
+
+/-- **Linear independence of expanded power series, from a regular leading non-constant
+coefficient.** If `m ≠ 0` is the least positive index at which `f` can have a nonzero coefficient,
+and `coeff m f` is right-regular in `R`, then the expanded series `f (X ^ d i)` at pairwise
+distinct positive exponents `d i` are `R`-linearly independent: in any nontrivial relation, the
+minimum exponent `d j` among the active terms isolates `c j * coeff m f = 0` at degree
+`d j * m`. -/
+theorem linearIndependent_expand_of_isRightRegular {d : ι → ℕ} (hd : ∀ i, d i ≠ 0)
+    (hinj : Function.Injective d) {f : R⟦X⟧} {m : ℕ} (hm : m ≠ 0)
+    (hmin : ∀ k, k ≠ 0 → k < m → coeff k f = 0) (hreg : IsRightRegular (coeff m f)) :
+    LinearIndependent R fun i ↦ expand (d i) (hd i) f := by
+  classical
+  rw [linearIndependent_iff']
+  intro s c hc i₀ hi₀
+  by_contra hc₀
+  -- Among the active indices `i ∈ s` with `c i ≠ 0`, pick `j` minimising the exponent `d j`.
+  obtain ⟨j, hj, hjmin⟩ := (s.filter fun i ↦ c i ≠ 0).exists_min_image d
+    ⟨i₀, Finset.mem_filter.mpr ⟨hi₀, hc₀⟩⟩
+  obtain ⟨hjs, hcj⟩ := Finset.mem_filter.mp hj
+  -- Evaluate the relation at degree `d j * m`: every other active summand vanishes there.
+  have hcoeff := congrArg (coeff (d j * m)) hc
+  rw [map_sum, map_zero, Finset.sum_eq_single j] at hcoeff
+  · rw [smul_eq_C_mul, coeff_C_mul, coeff_expand_mul (d j) (hd j) f] at hcoeff
+    exact hcj (hreg (hcoeff.trans (zero_mul _).symm))
+  · intro i his hij
+    rw [smul_eq_C_mul, coeff_C_mul]
+    by_cases hci : c i = 0
+    · simp [hci]
+    · have hlt : d j < d i := lt_of_le_of_ne (hjmin i (Finset.mem_filter.mpr ⟨his, hci⟩))
+        fun h ↦ hij (hinj h.symm)
+      rw [coeff_expand]
+      split_ifs with hdvd
+      · obtain ⟨k, hk⟩ := hdvd
+        have hk0 : k ≠ 0 := right_ne_zero_of_mul (hk ▸ mul_ne_zero (hd j) hm)
+        have hkm : k < m := lt_of_mul_lt_mul_left'
+          (hk ▸ Nat.mul_lt_mul_of_pos_right hlt (Nat.pos_of_ne_zero hm))
+        rw [hk, Nat.mul_div_cancel_left k (Nat.pos_of_ne_zero (hd i)), hmin k hk0 hkm, mul_zero]
+      · simp
+  · exact fun h ↦ absurd hjs h
+
+/-- **Linear independence of expanded power series** over a domain: for a non-constant series
+`f : R⟦X⟧` and pairwise distinct positive exponents `d i`, the series `f (X ^ d i)` are
+`R`-linearly independent. -/
+theorem linearIndependent_expand [NoZeroDivisors R] {d : ι → ℕ} (hd : ∀ i, d i ≠ 0)
+    (hinj : Function.Injective d) {f : R⟦X⟧} (hf : f ≠ C (constantCoeff f)) :
+    LinearIndependent R fun i ↦ expand (d i) (hd i) f := by
+  classical
+  have hex : ∃ m, m ≠ 0 ∧ coeff m f ≠ 0 := by
+    by_contra! h
+    refine hf (ext fun n ↦ ?_)
+    rcases eq_or_ne n 0 with rfl | hn
+    · simp
+    · simp [h n hn, coeff_C, hn]
+  set m₀ := Nat.find hex
+  obtain ⟨hm₀, hcoeff₀⟩ := Nat.find_spec hex
+  exact linearIndependent_expand_of_isRightRegular hd hinj hm₀
+    (fun k hk0 hkm ↦ not_not.mp fun hkf ↦ Nat.find_min hex hkm ⟨hk0, hkf⟩)
+    (mul_left_injective₀ hcoeff₀)
+
+/-- Convenience form of `PowerSeries.linearIndependent_expand` from a single nonzero positive-degree
+coefficient. -/
+theorem linearIndependent_expand_of_coeff_ne_zero [NoZeroDivisors R] {d : ι → ℕ}
+    (hd : ∀ i, d i ≠ 0) (hinj : Function.Injective d) {f : R⟦X⟧} {m : ℕ} (hm : m ≠ 0)
+    (hfm : coeff m f ≠ 0) :
+    LinearIndependent R fun i ↦ expand (d i) (hd i) f :=
+  linearIndependent_expand hd hinj fun h ↦ hfm (by rw [h, coeff_C, ite_eq_right hm])
 
 /-- Rescaling an expanded series by `a` is expanding the series rescaled by `a ^ p`:
 `f ((a X) ^ p) = (f (a ^ p X)) (X ^ p)`. -/

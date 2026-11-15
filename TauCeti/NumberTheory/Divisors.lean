@@ -40,6 +40,9 @@ divisors of `d ^ M` divisible by `d` are pairwise disjoint as `d` ranges over th
 
 `TauCeti.nontrivialDivisorEquiv` identifies divisors greater than one with the subtype of
 `N.divisors` omitting the unit divisor.
+
+`Nat.mul_dvd_of_mem_divisors` combines `M ∈ N.divisors` and `d ∈ (N / M).divisors` into
+`d * M ∣ N`, and `Nat.instNeZeroCoeDivisors` records `NeZero` on elements of `n.divisors`.
 -/
 
 public section
@@ -275,5 +278,18 @@ theorem pairwiseDisjoint_divisors_pow_filter_dvd {P : ℕ} (hP : IsRadical P) (M
   have hji' : j ∣ i := (hPsq.squarefree_of_dvd (Nat.dvd_of_mem_divisors hj)).isRadical
     M i (hjm.trans (Nat.dvd_of_mem_divisors hmi))
   exact hij (Nat.dvd_antisymm hij' hji')
+
+/-- For `M ∈ n.divisors` and `d ∈ (n / M).divisors`, the product `d * M` divides `n`. -/
+theorem mul_dvd_of_mem_divisors {n M d : ℕ} (hM : M ∈ n.divisors) (hd : d ∈ (n / M).divisors) :
+    d * M ∣ n := by
+  obtain ⟨k, hk⟩ := Nat.dvd_of_mem_divisors hd
+  refine ⟨k, ?_⟩
+  calc n = M * (n / M) := (Nat.mul_div_cancel' (Nat.dvd_of_mem_divisors hM)).symm
+    _ = M * (d * k) := by rw [hk]
+    _ = d * M * k := by ring
+
+/-- Every element of `n.divisors` is nonzero as a natural number. -/
+instance instNeZeroCoeDivisors {n : ℕ} (d : n.divisors) : NeZero (d : ℕ) :=
+  ⟨(Nat.pos_of_mem_divisors d.2).ne'⟩
 
 end Nat
