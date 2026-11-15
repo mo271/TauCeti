@@ -10,7 +10,7 @@ public import Mathlib.Combinatorics.SimpleGraph.Sum
 /-!
 # Disjoint sums of graphs
 
-Four gaps in Mathlib's `SimpleGraph.sum` API.
+Five gaps in Mathlib's `SimpleGraph.sum` API.
 
 `SimpleGraph.sum` has no `DecidableRel` instance in Mathlib. Consequently, even when adjacency in
 both summands is decidable, `(G ⊕g H).edgeFinset` is not expressible without supplying an
@@ -25,11 +25,15 @@ disjoint union of patterns splits into two independent containment events.
 disjoint sum of edgeless graphs is edgeless, the form in which a graph parameter that is
 multiplicative over disjoint sums is evaluated on an edgeless graph.
 
-Finally, Mathlib's `SimpleGraph.edgeSetSumEquiv`, implemented by `Sym2.fromRelNdrec`, comes with
-no evaluation lemmas. `SimpleGraph.coe_edgeSetSumEquiv_symm_inl` and
+Mathlib's `SimpleGraph.edgeSetSumEquiv`, implemented by `Sym2.fromRelNdrec`, comes with no
+evaluation lemmas. `SimpleGraph.coe_edgeSetSumEquiv_symm_inl` and
 `SimpleGraph.coe_edgeSetSumEquiv_symm_inr` say that its inverse sends an edge of either summand to
 its image under the corresponding inclusion, which is how a product over the edges of `G ⊕g H`
 splits into products over the edges of `G` and of `H`.
+
+Finally, `SimpleGraph.reachable_sum_inl_iff`, `SimpleGraph.reachable_sum_inr_iff`, and
+`SimpleGraph.connectedComponentSumEquiv` identify reachability within each summand and split the
+connected components of `G ⊕g H` as `G.ConnectedComponent ⊕ H.ConnectedComponent`.
 
 ## Main results
 
@@ -38,7 +42,10 @@ splits into products over the edges of `G` and of `H`.
   summands;
 * `TauCeti.SimpleGraph.sum_bot_bot` — a disjoint sum of edgeless graphs is edgeless;
 * `SimpleGraph.coe_edgeSetSumEquiv_symm_inl`, `SimpleGraph.coe_edgeSetSumEquiv_symm_inr` — the
-  edges of the two summands sit in the disjoint sum through the two inclusions.
+  edges of the two summands sit in the disjoint sum through the two inclusions;
+* `SimpleGraph.reachable_sum_inl_iff`, `SimpleGraph.reachable_sum_inr_iff`,
+  `SimpleGraph.connectedComponentSumEquiv` — reachability and connected components of `G ⊕g H`
+  split across the two summands.
 -/
 
 public section
@@ -101,5 +108,71 @@ theorem sum_bot_bot : ((⊥ : SimpleGraph V) ⊕g (⊥ : SimpleGraph W)) = ⊥ :
   cases u <;> cases v <;> simp
 
 end SimpleGraph
+
+private theorem reachable_of_walk_sum_inl {x y : V ⊕ W} {v : V}
+    (p : (G ⊕g H).Walk x y) (hy : y = .inl v) : ∃ u : V, x = .inl u ∧ G.Reachable u v := by
+  induction p with
+  | nil => exact ⟨v, hy, .rfl⟩
+  | @cons x _ _ hadj _ ih =>
+    obtain ⟨u', rfl, hreach⟩ := ih hy
+    rcases x with u | w
+    · exact ⟨u, rfl, (Adj.reachable (sum_adj_inl.mp hadj)).trans hreach⟩
+    · simp at hadj
+
+/-- Two left-summand vertices are reachable in `G ⊕g H` iff they are reachable in `G`. -/
+@[simp]
+theorem _root_.SimpleGraph.reachable_sum_inl_iff {u v : V} :
+    (G ⊕g H).Reachable (.inl u) (.inl v) ↔ G.Reachable u v := by
+  refine ⟨fun ⟨p⟩ => ?_, fun h => h.map Embedding.sumInl.toHom⟩
+  obtain ⟨u', hu', hreach⟩ := reachable_of_walk_sum_inl p rfl
+  exact Sum.inl.inj hu' ▸ hreach
+
+/-- Two right-summand vertices are reachable in `G ⊕g H` iff they are reachable in `H`. -/
+@[simp]
+theorem _root_.SimpleGraph.reachable_sum_inr_iff {u v : W} :
+    (G ⊕g H).Reachable (.inr u) (.inr v) ↔ H.Reachable u v :=
+  ⟨fun h => reachable_sum_inl_iff.mp (h.map Iso.sumComm.toHom),
+    fun h => h.map Embedding.sumInr.toHom⟩
+
+/-- Connected components of a disjoint sum `G ⊕g H` decompose as the sum of the connected
+components of `G` and of `H`. -/
+def _root_.SimpleGraph.connectedComponentSumEquiv (G : SimpleGraph V) (H : SimpleGraph W) :
+    (G ⊕g H).ConnectedComponent ≃ G.ConnectedComponent ⊕ H.ConnectedComponent where
+  toFun := ConnectedComponent.lift
+    (Sum.elim (Sum.inl ∘ G.connectedComponentMk) (Sum.inr ∘ H.connectedComponentMk))
+    fun x y p _ => by
+      rcases x with u₁ | w₁ <;> rcases y with u₂ | w₂
+      · simp [ConnectedComponent.eq, reachable_sum_inl_iff.mp p.reachable]
+      · exact (not_reachable_sum_inl_inr u₁ w₂ p.reachable).elim
+      · exact (not_reachable_sum_inl_inr u₂ w₁ p.reachable.symm).elim
+      · simp [ConnectedComponent.eq, reachable_sum_inr_iff.mp p.reachable]
+  invFun := Sum.elim (ConnectedComponent.map Embedding.sumInl.toHom)
+    (ConnectedComponent.map Embedding.sumInr.toHom)
+  left_inv c := c.ind fun x => by cases x <;> rfl
+  right_inv x := by rcases x with c | c <;> exact c.ind fun _ => rfl
+
+/-- `SimpleGraph.connectedComponentSumEquiv` sends a left-summand component to `Sum.inl`. -/
+@[simp]
+theorem _root_.SimpleGraph.connectedComponentSumEquiv_mk_inl (v : V) :
+    G.connectedComponentSumEquiv H ((G ⊕g H).connectedComponentMk (.inl v)) =
+      .inl (G.connectedComponentMk v) := (rfl)
+
+/-- `SimpleGraph.connectedComponentSumEquiv` sends a right-summand component to `Sum.inr`. -/
+@[simp]
+theorem _root_.SimpleGraph.connectedComponentSumEquiv_mk_inr (w : W) :
+    G.connectedComponentSumEquiv H ((G ⊕g H).connectedComponentMk (.inr w)) =
+      .inr (H.connectedComponentMk w) := (rfl)
+
+/-- The inverse of `SimpleGraph.connectedComponentSumEquiv` maps `Sum.inl` along `sumInl`. -/
+@[simp]
+theorem _root_.SimpleGraph.connectedComponentSumEquiv_symm_inl (c : G.ConnectedComponent) :
+    (G.connectedComponentSumEquiv H).symm (.inl c) =
+      ConnectedComponent.map Embedding.sumInl.toHom c := (rfl)
+
+/-- The inverse of `SimpleGraph.connectedComponentSumEquiv` maps `Sum.inr` along `sumInr`. -/
+@[simp]
+theorem _root_.SimpleGraph.connectedComponentSumEquiv_symm_inr (c : H.ConnectedComponent) :
+    (G.connectedComponentSumEquiv H).symm (.inr c) =
+      ConnectedComponent.map Embedding.sumInr.toHom c := (rfl)
 
 end TauCeti
