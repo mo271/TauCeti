@@ -10,6 +10,8 @@ public import TauCeti.Geometry.Manifold.Algebra.SMul
 public import TauCeti.Geometry.Manifold.Instances.AddCircle
 public import TauCeti.Geometry.Manifold.MFDeriv.Pi
 
+import TauCeti.Geometry.Manifold.LocalDiffeomorph.Basic
+
 /-!
 # Integral linear automorphisms of a torus
 
@@ -26,23 +28,30 @@ circle. This is an action of the group `GL(ι, ℤ)` by additive maps
 torus, with inverse `x ↦ A⁻¹ • x` (`Diffeomorph.constSmul`), and the cotangent bundle `T*Tⁿ`
 inherits the cotangent-lifted action (`TauCeti.CotangentBundle.instMulAction`).
 
-The covering map `(ι → ℝ) → Tⁿ`, `t ↦ ([t i])ᵢ`, has derivative the identity of `ι → ℝ` at every
-point (`AddCircle.hasMFDerivAt_coe_pi`), and it intertwines the action of `A` on the torus with
-multiplication of real vectors by the matrix `A` (`AddCircle.generalLinearGroup_smul_coe_pi`).
-Hence the derivative of `x ↦ A • x` at every point is the matrix `A`, acting on `ι → ℝ`
-(`AddCircle.mfderiv_generalLinearGroup_smul_apply`). Choosing a basis of the period lattice of a
-torus is choosing such an `A`: these maps are the changes of angle coordinates of action–angle
-charts.
+The covering map `(ι → ℝ) → ∀ i, AddCircle (p i)`, `t ↦ ([t i])ᵢ`, is surjective with fibres the
+cosets of the period lattice `∏ᵢ pᵢ ℤ` (`AddCircle.pi_coe_surjective`, `AddCircle.pi_coe_eq_iff`),
+is an analytic local diffeomorphism (`AddCircle.isLocalDiffeomorph_pi_coe`), and has derivative the
+identity of `ι → ℝ` at every point (`AddCircle.hasMFDerivAt_pi_coe`). On `Tⁿ`, it intertwines the
+action of `A` on the torus with multiplication of real vectors by the matrix `A`
+(`AddCircle.generalLinearGroup_smul_coe_pi`). Hence the derivative of `x ↦ A • x` at every point is
+the matrix `A`, acting on `ι → ℝ` (`AddCircle.mfderiv_generalLinearGroup_smul_apply`). Choosing a
+basis of the period lattice of a torus is choosing such an `A`: these maps are the changes of angle
+coordinates of action–angle charts.
 
 For a torus `∀ i, AddCircle (p i)` with arbitrary positive periods, every translation
 `x ↦ x + a` likewise has derivative the identity of `ι → ℝ` (`AddCircle.mfderiv_pi_add_right`).
 
 ## Main results
 
+* `AddCircle.pi_coe_surjective`, `AddCircle.pi_coe_eq_iff`: the covering map
+  `(ι → ℝ) → ∀ i, AddCircle (p i)` is surjective, and two vectors have the same image exactly when
+  they differ by an integer multiple of the periods in each coordinate.
+* `AddCircle.isLocalDiffeomorph_pi_coe`, `AddCircle.hasMFDerivAt_pi_coe`,
+  `AddCircle.mfderiv_pi_coe`: for positive periods, the covering map is an analytic local
+  diffeomorphism with derivative the identity of `ι → ℝ`.
 * `AddCircle.instDistribMulActionGeneralLinearGroup`: the action of `GL(ι, ℤ)` on
   `ι → AddCircle p` by additive maps.
 * `AddCircle.instContMDiffConstSMulGeneralLinearGroup`: it acts by smooth maps.
-* `AddCircle.hasMFDerivAt_coe_pi`: the covering map `(ι → ℝ) → Tⁿ` has derivative the identity.
 * `AddCircle.hasMFDerivAt_pi_add_right`, `AddCircle.mfderiv_pi_add_right`: translations of a torus
   `∀ i, AddCircle (p i)` have derivative the identity.
 * `AddCircle.hasMFDerivAt_generalLinearGroup_smul`,
@@ -59,14 +68,110 @@ public section
 
 noncomputable section
 
-open Function Matrix
+open Function Matrix Set
 open scoped Manifold ContDiff
 
 namespace AddCircle
 
-variable (p : ℝ) {ι : Type*} [Fintype ι]
-
 /-! ### The covering map -/
+
+section CoverPi
+
+variable {ι : Type*}
+
+/-- Every point of the torus `∀ i, AddCircle (p i)` is the image of a real vector under the
+coordinatewise quotient map. -/
+theorem pi_coe_surjective (p : ι → ℝ) :
+    Surjective fun t : ι → ℝ ↦ fun i ↦ (t i : AddCircle (p i)) := fun x ↦
+  ⟨fun i ↦ Quotient.out (x i), funext fun i ↦ Quotient.out_eq (x i)⟩
+
+/-- Two vectors in `ι → ℝ` have the same image in `∀ i, AddCircle (p i)` if and only if each
+coordinate differs by an integer multiple of its period. -/
+theorem pi_coe_eq_iff {p : ι → ℝ} {t t' : ι → ℝ} :
+    (fun i ↦ (t i : AddCircle (p i))) = (fun i ↦ (t' i : AddCircle (p i))) ↔
+      ∃ m : ι → ℤ, t' = t + fun i ↦ p i * m i := by
+  refine ⟨fun h ↦ ?_, ?_⟩
+  · choose m hm using fun i ↦ AddSubgroup.mem_zmultiples_iff.1
+      (QuotientAddGroup.eq_iff_sub_mem.1 (congrFun h i).symm)
+    refine ⟨m, funext fun i ↦ ?_⟩
+    have hi := hm i
+    rw [zsmul_eq_mul, mul_comm, eq_sub_iff_add_eq] at hi
+    simpa [add_comm] using hi.symm
+  · rintro ⟨m, rfl⟩
+    ext i
+    simp [Pi.add_apply, mul_comm (p i), ← zsmul_eq_mul]
+
+variable [Fintype ι]
+
+section ArbitraryPeriods
+
+variable {p : ι → ℝ} [∀ i, Fact (0 < p i)]
+
+/-- The covering map `(ι → ℝ) → ∀ i, AddCircle (p i)`, `t ↦ ([t i])ᵢ`, has derivative the identity
+of `ι → ℝ`, the tangent spaces of the torus being read in its product charts. -/
+theorem hasMFDerivAt_pi_coe (t : ι → ℝ) :
+    HasMFDerivAt 𝓘(ℝ, ι → ℝ) (ModelWithCorners.pi fun _ : ι ↦ 𝓘(ℝ))
+      (fun t : ι → ℝ ↦ fun i ↦ (t i : AddCircle (p i))) t (ContinuousLinearMap.id ℝ (ι → ℝ)) :=
+  (TauCeti.hasMFDerivAt_pi (M := fun i : ι ↦ AddCircle (p i)) (I := fun _ ↦ 𝓘(ℝ))
+    (f := fun t : ι → ℝ ↦ fun i ↦ (t i : AddCircle (p i))) fun i ↦
+    (hasMFDerivAt_coe (p i) (t i)).comp t
+      (ContinuousLinearMap.proj (R := ℝ) (φ := fun _ : ι ↦ ℝ) i).hasMFDerivAt).congr_mfderiv <| by
+    -- The product of the coordinate projections is the identity of `ι → ℝ`.
+    ext v i
+    rfl
+
+/-- The derivative of the covering map `(ι → ℝ) → ∀ i, AddCircle (p i)` is the identity of
+`ι → ℝ`. -/
+@[simp]
+theorem mfderiv_pi_coe (t : ι → ℝ) :
+    mfderiv 𝓘(ℝ, ι → ℝ) (ModelWithCorners.pi fun _ : ι ↦ 𝓘(ℝ))
+      (fun t : ι → ℝ ↦ fun i ↦ (t i : AddCircle (p i))) t =
+      ContinuousLinearMap.id ℝ (ι → ℝ) :=
+  (hasMFDerivAt_pi_coe t).mfderiv
+
+variable (p) in
+/-- For positive periods `p i`, the covering map `(ι → ℝ) → ∀ i, AddCircle (p i)` is a `C^n`
+local diffeomorphism for every `n : ℕ∞ω` (in particular analytic). -/
+theorem isLocalDiffeomorph_pi_coe (n : ℕ∞ω) :
+    IsLocalDiffeomorph 𝓘(ℝ, ι → ℝ) (ModelWithCorners.pi fun _ : ι ↦ 𝓘(ℝ)) n
+      (fun t : ι → ℝ ↦ fun i ↦ (t i : AddCircle (p i))) := fun t ↦ by
+  -- Assemble a product partial diffeomorphism around `t` from the inverses of local inverses on
+  -- each circle factor.
+  let h := fun i ↦ isLocalDiffeomorph_coe (p i) n (t i)
+  let Φ := fun i ↦ (h i).localInverse.symm
+  let e : OpenPartialHomeomorph (ι → ℝ) (∀ i, AddCircle (p i)) :=
+    OpenPartialHomeomorph.pi fun i ↦ (Φ i).toOpenPartialHomeomorph
+  let Ψ : PartialDiffeomorph 𝓘(ℝ, ι → ℝ) (ModelWithCorners.pi fun _ : ι ↦ 𝓘(ℝ))
+      (ι → ℝ) (∀ i, AddCircle (p i)) n :=
+    { toPartialEquiv := e.toPartialEquiv
+      open_source := e.open_source
+      open_target := e.open_target
+      contMDiffOn_toFun := contMDiffOn_pi_iff.2 fun i ↦
+        (Φ i).contMDiffOn.comp
+          (ContinuousLinearMap.proj (R := ℝ) (φ := fun _ : ι ↦ ℝ) i).contMDiff.contMDiffOn
+          fun y hy ↦ hy i trivial
+      contMDiffOn_invFun := contMDiffOn_pi_module_iff.2 fun i ↦
+        (Φ i).symm.contMDiffOn.comp contMDiff_apply.contMDiffOn fun z hz ↦ hz i trivial }
+  refine TauCeti.isLocalDiffeomorphAt_of_eqOn (Φ := Ψ) (fun i _ ↦ (h i).localInverse_mem_target)
+    fun y hy ↦ funext fun i ↦ ?_
+  have hyi : y i ∈ (h i).localInverse.target := hy i trivial
+  have h1 := (h i).localInverse_right_inv ((h i).localInverse.map_target hyi)
+  rw [(h i).localInverse.right_inv hyi] at h1
+  exact h1
+
+variable (p) in
+/-- For positive periods `p i`, the covering map `(ι → ℝ) → ∀ i, AddCircle (p i)` is `C^n` for
+every `n : ℕ∞ω` (in particular smooth and analytic). -/
+theorem contMDiff_pi_coe (n : ℕ∞ω) :
+    ContMDiff 𝓘(ℝ, ι → ℝ) (ModelWithCorners.pi fun _ : ι ↦ 𝓘(ℝ)) n
+      (fun t : ι → ℝ ↦ fun i ↦ (t i : AddCircle (p i))) :=
+  (isLocalDiffeomorph_pi_coe p n).contMDiff
+
+end ArbitraryPeriods
+
+end CoverPi
+
+variable (p : ℝ) {ι : Type*} [Fintype ι]
 
 section Cover
 
@@ -77,12 +182,7 @@ variable [Fact (0 < p)]
 theorem hasMFDerivAt_coe_pi (t : ι → ℝ) :
     HasMFDerivAt 𝓘(ℝ, ι → ℝ) (ModelWithCorners.pi fun _ : ι ↦ 𝓘(ℝ))
       (fun t : ι → ℝ ↦ fun i ↦ (t i : AddCircle p)) t (ContinuousLinearMap.id ℝ (ι → ℝ)) :=
-  (TauCeti.hasMFDerivAt_pi (M := fun _ : ι ↦ AddCircle p) (I := fun _ ↦ 𝓘(ℝ))
-    (f := fun t : ι → ℝ ↦ fun i ↦ (t i : AddCircle p)) fun i ↦ (hasMFDerivAt_coe p (t i)).comp t
-    (ContinuousLinearMap.proj (R := ℝ) (φ := fun _ : ι ↦ ℝ) i).hasMFDerivAt).congr_mfderiv <| by
-    -- The product of the coordinate projections is the identity of `ι → ℝ`.
-    ext v i
-    rfl
+  hasMFDerivAt_pi_coe t
 
 end Cover
 
