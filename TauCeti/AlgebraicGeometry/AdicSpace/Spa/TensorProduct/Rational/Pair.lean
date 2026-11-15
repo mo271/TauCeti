@@ -14,36 +14,14 @@ import TauCeti.AlgebraicGeometry.AdicSpace.Spa.TensorProduct.Plus
 /-!
 # Plus-ring comparison and Huber-pair morphisms for completed tensor rational localisations
 
-Continuing `TauCeti.AlgebraicGeometry.AdicSpace.Spa.TensorProduct.Rational.Equiv`, this file shows
-that `Pair.completedTensorRationalEquiv` maps the completed tensor plus ring of `O_B(U)` and
-`O_C(V)` over `O_A(W)` onto `completedPlusSubring PD (B ⊗̂_A C)⁺ T_D s_D`, packages both directions
-as mutually inverse morphisms of Huber pairs (`Pair.completedTensor.toRationalLoc` and
-`Pair.completedTensor.ofRationalLoc`), and proves the analogous plus-ring identification for
-`CompletedTensor.completionLocEquiv` over an unlocalised base `A`.
-
-## Main definitions
-
-* `TauCeti.Huber.Pair.completedTensor.toRationalLoc`,
-  `TauCeti.Huber.Pair.completedTensor.ofRationalLoc`: mutually inverse morphisms of Huber pairs
-  between `(O_B(U), O_B(U)⁺) ⊗̂_{O_A(W)} (O_C(V), O_C(V)⁺)` and `(O_D(d), O_D(d)⁺)`.
-
-## Main results
-
-* `TauCeti.Huber.Pair.map_plus_completedTensorRationalEquiv`,
-  `TauCeti.Huber.Pair.mem_completedTensor_plus_iff_completedTensorRationalEquiv`:
-  `completedTensorRationalEquiv` maps the completed tensor plus ring onto `completedPlusSubring`.
-* `TauCeti.Huber.Pair.completedTensor.toRationalLoc_comp_ofRationalLoc`,
-  `TauCeti.Huber.Pair.completedTensor.ofRationalLoc_comp_toRationalLoc`:
-  `toRationalLoc` and `ofRationalLoc` are mutually inverse morphisms of Huber pairs.
-* `TauCeti.Huber.Pair.map_plus_completionLocEquiv`,
-  `TauCeti.Huber.Pair.mem_completedTensor_plus_iff_completionLocEquiv`:
-  `CompletedTensor.completionLocEquiv` (over unlocalised `A`) maps the completed tensor plus ring
-  onto `completedPlusSubring`.
+Continuing `TauCeti.AlgebraicGeometry.AdicSpace.Spa.TensorProduct.Rational.Equiv`, we prove that
+`Pair.completedTensorRationalEquiv` and `CompletedTensor.completionLocEquiv` carry the completed
+tensor plus ring onto `completedPlusSubring`, giving mutually inverse Huber-pair morphisms
+`Pair.completedTensor.toRationalLoc` and `Pair.completedTensor.ofRationalLoc`.
 
 ## References
 
-* R. Huber, *A generalization of formal schemes and rigid analytic varieties*, Math. Z. 217 (1994),
-  §3, proof of Proposition 3.7.
+* R. Huber, *A generalization of formal schemes and rigid analytic varieties*, Math. Z. 217 (1994).
 * [T. Wedhorn, *Adic Spaces*][wedhorn_adic] (arXiv:1910.05934v1), Lemma 8.1 and Proposition 8.2(2).
 -/
 
@@ -56,6 +34,138 @@ namespace TauCeti.Huber
 
 open PairOfDefinition TauCeti.ValuationSpectrum
 
+/-- Install localization topological-ring instances in a term. -/
+local macro "withPairLocRing " P:term:arg T:term:arg s:term:arg L:term:arg h:term:arg
+    " => " body:term : term =>
+  `(letI := locUniformSpace $P $T $s $L $h; letI := isUniformAddGroup_locUniformSpace $P $T $s $L $h
+    letI := isTopologicalRing_locUniformSpace $P $T $s $L $h; $body)
+
+/-- Install localization Huber-ring instances in a term. -/
+local macro "withPairLocHuber " P:term:arg T:term:arg s:term:arg L:term:arg h:term:arg
+    " => " body:term : term =>
+  `(withPairLocRing $P $T $s $L $h => letI := isHuberRing_completion_locTopology $P $T $s $L $h
+    $body)
+
+/-- Register localization Huber-ring instances in tactic mode. -/
+local macro "pair_loc_huber " P:term:arg T:term:arg s:term:arg L:term:arg h:term:arg : tactic =>
+  `(tactic| (
+    let _ := locUniformSpace $P $T $s $L $h
+    have _ := isUniformAddGroup_locUniformSpace $P $T $s $L $h
+    have _ := isTopologicalRing_locUniformSpace $P $T $s $L $h
+    have _ := isHuberRing_completion_locTopology $P $T $s $L $h))
+
+private theorem map_plus_of_ringEquiv {A B C R : Type*} [CommRing A] [CommRing B] [CommRing C]
+    [CommRing R] [Algebra A B] [Algebra A C] [TopologicalSpace A] [TopologicalSpace B]
+    [TopologicalSpace C] [TopologicalSpace R] [IsTopologicalRing A] [IsTopologicalRing B]
+    [IsTopologicalRing C] [IsTopologicalRing R] [IsHuberRing B] [IsHuberRing C]
+    [IsAdicHom (algebraMap A B)] [IsAdicHom (algebraMap A C)]
+    (PB : PairOfDefinition B) (SB : Pair B) (hPB : PB.ringOfDefinition ≤ SB.plus) (TB : Finset B)
+    (sB : B) (LB : Type*) [CommRing LB] [Algebra B LB] [IsLocalization.Away sB LB]
+    (hdenB : HasDenominatorPower PB TB sB LB)
+    (PC : PairOfDefinition C) (SC : Pair C) (hPC : PC.ringOfDefinition ≤ SC.plus) (TC : Finset C)
+    (sC : C) (LC : Type*) [CommRing LC] [Algebra C LC] [IsLocalization.Away sC LC]
+    (hdenC : HasDenominatorPower PC TC sC LC)
+    (PD : PairOfDefinition (CompletedTensor A B C)) (TD : Finset (CompletedTensor A B C))
+    (sD : CompletedTensor A B C) (LD : Type*) [CommRing LD] [Algebra (CompletedTensor A B C) LD]
+    [IsLocalization.Away sD LD] (hdenD : HasDenominatorPower PD TD sD LD) :
+    withPairLocHuber PB TB sB LB hdenB => withPairLocHuber PC TC sC LC hdenC =>
+    withPairLocRing PD TD sD LD hdenD =>
+      ∀ [Algebra R (Completion LB)] [Algebra R (Completion LC)]
+        [IsAdicHom (algebraMap R (Completion LB))] [IsAdicHom (algebraMap R (Completion LC))]
+        (e : CompletedTensor R (Completion LB) (Completion LC) ≃+* Completion LD),
+        Continuous e → Continuous e.symm →
+        (∀ b, e (CompletedTensor.inl R _ _ (toCompletionLoc PB TB sB LB hdenB b)) =
+          toCompletionLoc PD TD sD LD hdenD (CompletedTensor.inl A B C b)) →
+        (∀ c, e (CompletedTensor.inr R _ _ (toCompletionLoc PC TC sC LC hdenC c)) =
+          toCompletionLoc PD TD sD LD hdenD (CompletedTensor.inr A B C c)) →
+        (Subtype.val ⁻¹' rationalSubset (SB.completedTensor A SC).plus TD sD =
+          ((Pair.completedTensor.inl A SB SC).spaComap ⁻¹'
+            (Subtype.val ⁻¹' rationalSubset SB.plus TB sB)) ∩
+          ((Pair.completedTensor.inr A SB SC).spaComap ⁻¹'
+            (Subtype.val ⁻¹' rationalSubset SC.plus TC sC))) →
+        ((PB.rationalLocalizationPair SB hPB TB sB LB hdenB).completedTensor R
+          (PC.rationalLocalizationPair SC hPC TC sC LC hdenC)).plus.map e.toRingHom =
+          completedPlusSubring PD (SB.completedTensor A SC).plus TD sD LD hdenD := by
+  pair_loc_huber PB TB sB LB hdenB; pair_loc_huber PC TC sC LC hdenC
+  pair_loc_huber PD TD sD LD hdenD; intro _ _ _ _ e he he' heL heR hd
+  let OU := PB.rationalLocalizationPair SB hPB TB sB LB hdenB
+  let OV := PC.rationalLocalizationPair SC hPC TC sC LC hdenC
+  let SD := SB.completedTensor A SC; let ODplus := completedPlusSubring PD SD.plus TD sD LD hdenD
+  have hSD_nil (j) (hj : j ∈ PD.idealOfDefinition) : (j : CompletedTensor A B C) ∈ SD.plus :=
+    SD.isRingOfIntegralElements.mem_of_isTopologicallyNilpotent
+      (PD.isTopologicallyNilpotent_of_mem_idealOfDefinition hj)
+  have hSD_pb := SD.isRingOfIntegralElements.isPowerBounded_of_mem
+  have hOD_ring :=
+    isRingOfIntegralElements_completedPlusSubring PD SD.plus hSD_nil hSD_pb TD sD LD hdenD
+  have _ := hOD_ring.isIntegrallyClosedIn
+  have hOD_closed := ODplus.toAddSubgroup.isClosed_of_isOpen hOD_ring.isOpen
+  have hfwd : (OU.completedTensor R OV).plus ≤ ODplus.comap e.toRingHom := by
+    refine OU.completedTensor_plus_le_comap OV hOD_closed he (fun u hu ↦ ?_) (fun v hv ↦ ?_)
+    · rw [← RingHom.comp_apply e.toRingHom (CompletedTensor.inl R _ _),
+        eq_ringHomOfMapsToRationalSubset PB SB.plus TB sB LB hdenB PD SD.plus hSD_pb TD sD LD hdenD
+          (CompletedTensor.continuous_inl A B C).continuousAt
+          (Pair.completedTensor.mapsTo_inl_of_inter_eq hd) (e.toRingHom.comp (CompletedTensor.inl R
+            _ _)) (he.comp (CompletedTensor.continuous_inl _ _ _)) (RingHom.ext heL)]
+      exact ringHomOfMapsToRationalSubset_mem_completedPlusSubring PB SB.plus TB sB LB hdenB
+        PD SD.plus hSD_nil hSD_pb TD sD LD hdenD (CompletedTensor.continuous_inl A B C).continuousAt
+        (Pair.completedTensor.mapsTo_inl_of_inter_eq hd) u
+        (by simpa only [OU, rationalLocalizationPair_plus] using hu)
+    · rw [← RingHom.comp_apply e.toRingHom (CompletedTensor.inr R _ _),
+        eq_ringHomOfMapsToRationalSubset PC SC.plus TC sC LC hdenC PD SD.plus hSD_pb TD sD LD hdenD
+          (CompletedTensor.continuous_inr A B C).continuousAt
+          (Pair.completedTensor.mapsTo_inr_of_inter_eq hd) (e.toRingHom.comp (CompletedTensor.inr R
+            _ _)) (he.comp (CompletedTensor.continuous_inr _ _ _)) (RingHom.ext heR)]
+      exact ringHomOfMapsToRationalSubset_mem_completedPlusSubring PC SC.plus TC sC LC hdenC
+        PD SD.plus hSD_nil hSD_pb TD sD LD hdenD (CompletedTensor.continuous_inr A B C).continuousAt
+        (Pair.completedTensor.mapsTo_inr_of_inter_eq hd) v
+        (by simpa only [OV, rationalLocalizationPair_plus] using hv)
+  let g := e.symm.toRingHom.comp (toCompletionLoc PD TD sD LD hdenD)
+  have hg_cont : Continuous g := he'.comp (continuous_toCompletionLoc PD TD sD LD hdenD)
+  have hgB : g.comp (CompletedTensor.inl A B C) =
+      (CompletedTensor.inl R _ _).comp (toCompletionLoc PB TB sB LB hdenB) :=
+    RingHom.ext fun b ↦ e.symm_apply_eq.mpr (heL b).symm
+  have hgC : g.comp (CompletedTensor.inr A B C) =
+      (CompletedTensor.inr R _ _).comp (toCompletionLoc PC TC sC LC hdenC) :=
+    RingHom.ext fun c ↦ e.symm_apply_eq.mpr (heR c).symm
+  have _ := (OU.completedTensor R OV).isRingOfIntegralElements.isIntegrallyClosedIn
+  have hE_closed := (OU.completedTensor R OV).plus.toAddSubgroup.isClosed_of_isOpen
+    (OU.completedTensor R OV).isRingOfIntegralElements.isOpen
+  have hg_plus : SD.plus ≤ (OU.completedTensor R OV).plus.comap g := by
+    refine SB.completedTensor_plus_le_comap SC hE_closed hg_cont (fun b hb ↦ ?_) (fun c hc ↦ ?_)
+    · have hinl := OU.inl_mem_completedTensor_plus (A := R) OV (by
+        rw [rationalLocalizationPair_plus]
+        exact toCompletionLoc_mem_completedPlusSubring PB SB.plus TB sB LB hdenB hb)
+      rwa [← RingHom.comp_apply, ← hgB, RingHom.comp_apply] at hinl
+    · have hinr := OU.inr_mem_completedTensor_plus (A := R) OV (by
+        rw [rationalLocalizationPair_plus]
+        exact toCompletionLoc_mem_completedPlusSubring PC SC.plus TC sC LC hdenC hc)
+      rwa [← RingHom.comp_apply, ← hgC, RingHom.comp_apply] at hinr
+  ext z; rw [Subring.mem_map]
+  refine ⟨fun ⟨x, hx, hxz⟩ ↦ hxz ▸ hfwd hx, fun hz ↦ ⟨e.symm z, ?_, e.apply_symm_apply z⟩⟩
+  refine (OU.completedTensor R OV).isRingOfIntegralElements.mem_of_forall_vle_one fun w hw ↦ ?_
+  let gHom : Pair.Hom SD (OU.completedTensor R OV) := ⟨g, hg_cont, fun _ hd' ↦ hg_plus hd'⟩
+  have hmemD : gHom.spaComap ⟨w, hw⟩ ∈ Subtype.val ⁻¹' rationalSubset SD.plus TD sD := by
+    rw [hd]; refine ⟨?_, ?_⟩
+    · simp only [Set.mem_preimage, Pair.Hom.spaComap_val, Pair.completedTensor.toRingHom_inl]
+      rw [← Function.comp_apply (f := comap (CompletedTensor.inl A B C)), ← comap_comp,
+        hgB, comap_comp, Function.comp_apply]
+      simpa only [spaComapLoc_val] using spaComapLoc_mem_rationalSubset PB SB.plus TB sB LB hdenB
+        ⟨_, by rw [← rationalLocalizationPair_plus PB SB hPB TB sB LB hdenB]; simpa only
+          [Pair.Hom.spaComap_val, Pair.completedTensor.toRingHom_inl] using
+          ((Pair.completedTensor.inl R OU OV).spaComap ⟨w, hw⟩).2⟩
+    · simp only [Set.mem_preimage, Pair.Hom.spaComap_val, Pair.completedTensor.toRingHom_inr]
+      rw [← Function.comp_apply (f := comap (CompletedTensor.inr A B C)), ← comap_comp,
+        hgC, comap_comp, Function.comp_apply]
+      simpa only [spaComapLoc_val] using spaComapLoc_mem_rationalSubset PC SC.plus TC sC LC hdenC
+        ⟨_, by rw [← rationalLocalizationPair_plus PC SC hPC TC sC LC hdenC]; simpa only
+          [Pair.Hom.spaComap_val, Pair.completedTensor.toRingHom_inr] using
+          ((Pair.completedTensor.inr R OU OV).spaComap ⟨w, hw⟩).2⟩
+  have hcomap := comap_mem_spa_completedPlusSubring PD SD.plus TD sD LD hdenD e.symm.toRingHom he'
+    ((mem_spa_iff _ _).mp hw).1
+    (by simpa only [Set.mem_preimage, Pair.Hom.spaComap_val] using hmemD)
+  simpa only [comap_vle, map_one, RingEquiv.toRingHom_eq_coe, RingEquiv.coe_toRingHom] using
+    ((mem_spa_iff _ _).mp hcomap).2 z hz
+
 section RationalPair
 
 variable {A B C : Type*} [CommRing A] [CommRing B] [CommRing C] [Algebra A B] [Algebra A C]
@@ -63,791 +173,217 @@ variable {A B C : Type*} [CommRing A] [CommRing B] [CommRing C] [Algebra A B] [A
   [IsTopologicalRing A] [IsTopologicalRing B] [IsTopologicalRing C]
   [IsHuberRing A] [IsHuberRing B] [IsHuberRing C]
   [IsAdicHom (algebraMap A B)] [IsAdicHom (algebraMap A C)]
-  (PA : PairOfDefinition A) (SA : Pair A)
-  (TA : Finset A) (sA : A) (LA : Type*) [CommRing LA] [Algebra A LA]
-  [IsLocalization.Away sA LA] (hdenA : HasDenominatorPower PA TA sA LA)
-  (PB : PairOfDefinition B) (SB : Pair B)
-  (TB : Finset B) (sB : B) (LB : Type*) [CommRing LB] [Algebra B LB]
-  [IsLocalization.Away sB LB] (hdenB : HasDenominatorPower PB TB sB LB)
-  (PC : PairOfDefinition C) (SC : Pair C)
-  (TC : Finset C) (sC : C) (LC : Type*) [CommRing LC] [Algebra C LC]
-  [IsLocalization.Away sC LC] (hdenC : HasDenominatorPower PC TC sC LC)
+  (PA : PairOfDefinition A) (SA : Pair A) (TA : Finset A) (sA : A) (LA : Type*) [CommRing LA]
+  [Algebra A LA] [IsLocalization.Away sA LA] (hdenA : HasDenominatorPower PA TA sA LA)
+  (PB : PairOfDefinition B) (SB : Pair B) (TB : Finset B) (sB : B) (LB : Type*) [CommRing LB]
+  [Algebra B LB] [IsLocalization.Away sB LB] (hdenB : HasDenominatorPower PB TB sB LB)
+  (PC : PairOfDefinition C) (SC : Pair C) (TC : Finset C) (sC : C) (LC : Type*) [CommRing LC]
+  [Algebra C LC] [IsLocalization.Away sC LC] (hdenC : HasDenominatorPower PC TC sC LC)
   (PD : PairOfDefinition (CompletedTensor A B C))
   (TD : Finset (CompletedTensor A B C)) (sD : CompletedTensor A B C)
   (LD : Type*) [CommRing LD] [Algebra (CompletedTensor A B C) LD]
   [IsLocalization.Away sD LD] (hdenD : HasDenominatorPower PD TD sD LD)
 
+/-- Induced `Algebra (Completion LA) (Completion L)` structure from `h`. -/
+local macro "pairAlg " R:term:arg P:term:arg S:term:arg T:term:arg s:term:arg L:term:arg
+    hd:term:arg h:term:arg : term =>
+  let i := Lean.mkIdent
+  `((ringHomOfMapsToRationalSubset $(i `PA) ($(i `SA)).plus $(i `TA) $(i `sA) $(i `LA) $(i `hdenA)
+      $P ($S).plus ($S).isRingOfIntegralElements.isPowerBounded_of_mem $T $s $L $hd
+      (inferInstance : IsAdicHom (algebraMap $(i `A) $R)).continuous.continuousAt $h).toAlgebra)
+
+/-- Adicness of `algebraMap (Completion LA) (Completion L)` from `h`. -/
+local macro "pairAdic " R:term:arg P:term:arg S:term:arg T:term:arg s:term:arg L:term:arg
+    hd:term:arg h:term:arg : term =>
+  let i := Lean.mkIdent
+  `((isAdicHom_ringHomOfMapsToRationalSubset $(i `PA) ($(i `SA)).plus $(i `TA) $(i `sA) $(i `LA)
+      $(i `hdenA) $P ($S).plus ($S).isRingOfIntegralElements.isPowerBounded_of_mem $T $s $L $hd
+      (inferInstance : IsAdicHom (algebraMap $(i `A) $R)) $h :
+      IsAdicHom (algebraMap (Completion $(i `LA)) (Completion $L))))
+
+/-- Install the three-factor completed-tensor localization instances in a term. -/
+local macro "withPairHuber3 " hf:term:arg hg:term:arg " => " body:term : term =>
+  let i := Lean.mkIdent
+  `(withPairLocRing $(i `PA) $(i `TA) $(i `sA) $(i `LA) $(i `hdenA) =>
+    withPairLocHuber $(i `PB) $(i `TB) $(i `sB) $(i `LB) $(i `hdenB) =>
+    withPairLocHuber $(i `PC) $(i `TC) $(i `sC) $(i `LC) $(i `hdenC) =>
+    letI := pairAlg $(i `B) $(i `PB) $(i `SB) $(i `TB) $(i `sB) $(i `LB) $(i `hdenB) $hf
+    letI := pairAlg $(i `C) $(i `PC) $(i `SC) $(i `TC) $(i `sC) $(i `LC) $(i `hdenC) $hg
+    haveI := pairAdic $(i `B) $(i `PB) $(i `SB) $(i `TB) $(i `sB) $(i `LB) $(i `hdenB) $hf
+    haveI := pairAdic $(i `C) $(i `PC) $(i `SC) $(i `TC) $(i `sC) $(i `LC) $(i `hdenC) $hg
+    $body)
+
+/-- Register completed-tensor localization instances in tactic mode. -/
+local macro "pair_tensor_inst " hf:term:arg hg:term:arg : tactic =>
+  let i := Lean.mkIdent
+  `(tactic| (
+    pair_loc_huber $(i `PA) $(i `TA) $(i `sA) $(i `LA) $(i `hdenA)
+    pair_loc_huber $(i `PB) $(i `TB) $(i `sB) $(i `LB) $(i `hdenB)
+    pair_loc_huber $(i `PC) $(i `TC) $(i `sC) $(i `LC) $(i `hdenC)
+    let _ := pairAlg $(i `B) $(i `PB) $(i `SB) $(i `TB) $(i `sB) $(i `LB) $(i `hdenB) $hf
+    let _ := pairAlg $(i `C) $(i `PC) $(i `SC) $(i `TC) $(i `sC) $(i `LC) $(i `hdenC) $hg
+    have _ := pairAdic $(i `B) $(i `PB) $(i `SB) $(i `TB) $(i `sB) $(i `LB) $(i `hdenB) $hf
+    have _ := pairAdic $(i `C) $(i `PC) $(i `SC) $(i `TC) $(i `sC) $(i `LC) $(i `hdenC) $hg
+    pair_loc_huber $(i `PD) $(i `TD) $(i `sD) $(i `LD) $(i `hdenD)))
+
+/-- Apply `f` to the 23 four-factor section variables `PA .. hdenD`. -/
+local macro:max "pairApp23 " f:term:max : term =>
+  let i := Lean.mkIdent
+  `($f $(i `PA) $(i `SA) $(i `TA) $(i `sA) $(i `LA) $(i `hdenA)
+      $(i `PB) $(i `SB) $(i `TB) $(i `sB) $(i `LB) $(i `hdenB)
+      $(i `PC) $(i `SC) $(i `TC) $(i `sC) $(i `LC) $(i `hdenC)
+      $(i `PD) $(i `TD) $(i `sD) $(i `LD) $(i `hdenD))
+
+/-- Abbreviate `Set.MapsTo (comap (algebraMap A B)) R(TB/sB) R(TA/sA)`. -/
+local macro "pairMapsAB" : term =>
+  let i := Lean.mkIdent
+  `(Set.MapsTo (comap (algebraMap $(i `A) $(i `B)))
+      (rationalSubset ($(i `SB)).plus $(i `TB) $(i `sB))
+      (rationalSubset ($(i `SA)).plus $(i `TA) $(i `sA)))
+
+/-- Abbreviate `Set.MapsTo (comap (algebraMap A C)) R(TC/sC) R(TA/sA)`. -/
+local macro "pairMapsAC" : term =>
+  let i := Lean.mkIdent
+  `(Set.MapsTo (comap (algebraMap $(i `A) $(i `C)))
+      (rationalSubset ($(i `SC)).plus $(i `TC) $(i `sC))
+      (rationalSubset ($(i `SA)).plus $(i `TA) $(i `sA)))
+
+/-- Abbreviate the intersection presentation hypothesis on `(TD, sD)`. -/
+local macro "pairInterEq" : term =>
+  let i := Lean.mkIdent
+  `(Subtype.val ⁻¹' rationalSubset (($(i `SB)).completedTensor $(i `A) $(i `SC)).plus
+        $(i `TD) $(i `sD) =
+      ((Pair.completedTensor.inl $(i `A) $(i `SB) $(i `SC)).spaComap ⁻¹'
+        (Subtype.val ⁻¹' rationalSubset ($(i `SB)).plus $(i `TB) $(i `sB))) ∩
+      ((Pair.completedTensor.inr $(i `A) $(i `SB) $(i `SC)).spaComap ⁻¹'
+        (Subtype.val ⁻¹' rationalSubset ($(i `SC)).plus $(i `TC) $(i `sC))))
+
+/-- Abbreviate the completed tensor Huber pair of `O_B(U)` and `O_C(V)` over `O_A(W)`. -/
+local macro "pairCtPair " hPB:term:arg hPC:term:arg : term =>
+  let i := Lean.mkIdent
+  `(((($(i `PB)).rationalLocalizationPair $(i `SB) $hPB $(i `TB) $(i `sB) $(i `LB)
+      $(i `hdenB)).completedTensor (Completion $(i `LA))
+      (($(i `PC)).rationalLocalizationPair $(i `SC) $hPC $(i `TC) $(i `sC) $(i `LC) $(i `hdenC))))
+
 /-- `Pair.completedTensorRationalEquiv` maps the completed tensor plus ring onto
 `completedPlusSubring`. -/
-theorem Pair.map_plus_completedTensorRationalEquiv
-    (hPB : PB.ringOfDefinition ≤ SB.plus)
-    (hPC : PC.ringOfDefinition ≤ SC.plus)
-    (hf : Set.MapsTo (comap (algebraMap A B))
-      (rationalSubset SB.plus TB sB) (rationalSubset SA.plus TA sA))
-    (hg : Set.MapsTo (comap (algebraMap A C))
-      (rationalSubset SC.plus TC sC) (rationalSubset SA.plus TA sA))
-    (hd : Subtype.val ⁻¹' rationalSubset (SB.completedTensor A SC).plus TD sD =
-      ((Pair.completedTensor.inl A SB SC).spaComap ⁻¹'
-        (Subtype.val ⁻¹' rationalSubset SB.plus TB sB)) ∩
-      ((Pair.completedTensor.inr A SB SC).spaComap ⁻¹'
-        (Subtype.val ⁻¹' rationalSubset SC.plus TC sC))) :
-    letI := locUniformSpace PA TA sA LA hdenA
-    letI := isUniformAddGroup_locUniformSpace PA TA sA LA hdenA
-    letI := isTopologicalRing_locUniformSpace PA TA sA LA hdenA
-    letI := locUniformSpace PB TB sB LB hdenB
-    letI := isUniformAddGroup_locUniformSpace PB TB sB LB hdenB
-    letI := isTopologicalRing_locUniformSpace PB TB sB LB hdenB
-    letI := isHuberRing_completion_locTopology PB TB sB LB hdenB
-    letI := locUniformSpace PC TC sC LC hdenC
-    letI := isUniformAddGroup_locUniformSpace PC TC sC LC hdenC
-    letI := isTopologicalRing_locUniformSpace PC TC sC LC hdenC
-    letI := isHuberRing_completion_locTopology PC TC sC LC hdenC
-    letI : Algebra (Completion LA) (Completion LB) :=
-      (ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PB SB.plus
-        SB.isRingOfIntegralElements.isPowerBounded_of_mem TB sB LB hdenB
-        (inferInstance : IsAdicHom (algebraMap A B)).continuous.continuousAt hf).toAlgebra
-    letI : Algebra (Completion LA) (Completion LC) :=
-      (ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PC SC.plus
-        SC.isRingOfIntegralElements.isPowerBounded_of_mem TC sC LC hdenC
-        (inferInstance : IsAdicHom (algebraMap A C)).continuous.continuousAt hg).toAlgebra
-    haveI : IsAdicHom (algebraMap (Completion LA) (Completion LB)) :=
-      isAdicHom_ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PB SB.plus
-        SB.isRingOfIntegralElements.isPowerBounded_of_mem TB sB LB hdenB
-        (inferInstance : IsAdicHom (algebraMap A B)) hf
-    haveI : IsAdicHom (algebraMap (Completion LA) (Completion LC)) :=
-      isAdicHom_ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PC SC.plus
-        SC.isRingOfIntegralElements.isPowerBounded_of_mem TC sC LC hdenC
-        (inferInstance : IsAdicHom (algebraMap A C)) hg
-    letI := locUniformSpace PD TD sD LD hdenD
-    letI := isUniformAddGroup_locUniformSpace PD TD sD LD hdenD
-    letI := isTopologicalRing_locUniformSpace PD TD sD LD hdenD
-    ((PB.rationalLocalizationPair SB hPB TB sB LB hdenB).completedTensor (Completion LA)
-      (PC.rationalLocalizationPair SC hPC TC sC LC hdenC)).plus.map
-      (Pair.completedTensorRationalEquiv PA SA TA sA LA hdenA PB SB TB sB LB hdenB
-        PC SC TC sC LC hdenC PD TD sD LD hdenD hf hg hd :
+theorem Pair.map_plus_completedTensorRationalEquiv (hPB : PB.ringOfDefinition ≤ SB.plus)
+    (hPC : PC.ringOfDefinition ≤ SC.plus) (hf : pairMapsAB) (hg : pairMapsAC) (hd : pairInterEq) :
+    withPairHuber3 hf hg => withPairLocRing PD TD sD LD hdenD =>
+      (pairCtPair hPB hPC).plus.map (pairApp23 Pair.completedTensorRationalEquiv hf hg hd :
         CompletedTensor (Completion LA) (Completion LB) (Completion LC) →+* Completion LD) =
-      completedPlusSubring PD (SB.completedTensor A SC).plus TD sD LD hdenD := by
-  let _ := locUniformSpace PA TA sA LA hdenA
-  have _ := isUniformAddGroup_locUniformSpace PA TA sA LA hdenA
-  have _ := isTopologicalRing_locUniformSpace PA TA sA LA hdenA
-  let _ := locUniformSpace PB TB sB LB hdenB
-  have _ := isUniformAddGroup_locUniformSpace PB TB sB LB hdenB
-  have _ := isTopologicalRing_locUniformSpace PB TB sB LB hdenB
-  have _ := isHuberRing_completion_locTopology PB TB sB LB hdenB
-  let _ := locUniformSpace PC TC sC LC hdenC
-  have _ := isUniformAddGroup_locUniformSpace PC TC sC LC hdenC
-  have _ := isTopologicalRing_locUniformSpace PC TC sC LC hdenC
-  have _ := isHuberRing_completion_locTopology PC TC sC LC hdenC
-  let _ : Algebra (Completion LA) (Completion LB) :=
-    (ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PB SB.plus
-      SB.isRingOfIntegralElements.isPowerBounded_of_mem TB sB LB hdenB
-      (inferInstance : IsAdicHom (algebraMap A B)).continuous.continuousAt hf).toAlgebra
-  let _ : Algebra (Completion LA) (Completion LC) :=
-    (ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PC SC.plus
-      SC.isRingOfIntegralElements.isPowerBounded_of_mem TC sC LC hdenC
-      (inferInstance : IsAdicHom (algebraMap A C)).continuous.continuousAt hg).toAlgebra
-  have _ : IsAdicHom (algebraMap (Completion LA) (Completion LB)) :=
-    isAdicHom_ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PB SB.plus
-      SB.isRingOfIntegralElements.isPowerBounded_of_mem TB sB LB hdenB
-      (inferInstance : IsAdicHom (algebraMap A B)) hf
-  have _ : IsAdicHom (algebraMap (Completion LA) (Completion LC)) :=
-    isAdicHom_ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PC SC.plus
-      SC.isRingOfIntegralElements.isPowerBounded_of_mem TC sC LC hdenC
-      (inferInstance : IsAdicHom (algebraMap A C)) hg
-  let _ := locUniformSpace PD TD sD LD hdenD
-  have _ := isUniformAddGroup_locUniformSpace PD TD sD LD hdenD
-  have _ := isTopologicalRing_locUniformSpace PD TD sD LD hdenD
-  have _ := isHuberRing_completion_locTopology PD TD sD LD hdenD
-  let OU := PB.rationalLocalizationPair SB hPB TB sB LB hdenB
-  let OV := PC.rationalLocalizationPair SC hPC TC sC LC hdenC
-  let SD := SB.completedTensor A SC
-  let ODplus := completedPlusSubring PD SD.plus TD sD LD hdenD
-  let e := Pair.completedTensorRationalEquiv PA SA TA sA LA hdenA PB SB TB sB LB hdenB
-    PC SC TC sC LC hdenC PD TD sD LD hdenD hf hg hd
-  have he : Continuous e := Pair.continuous_completedTensorRationalEquiv
-    PA SA TA sA LA hdenA PB SB TB sB LB hdenB PC SC TC sC LC hdenC PD TD sD LD hdenD hf hg hd
-  have he' : Continuous e.symm := Pair.continuous_completedTensorRationalEquiv_symm
-    PA SA TA sA LA hdenA PB SB TB sB LB hdenB PC SC TC sC LC hdenC PD TD sD LD hdenD hf hg hd
-  have hOD_ring : IsRingOfIntegralElements ODplus :=
-    isRingOfIntegralElements_completedPlusSubring PD SD.plus
-      (fun _ hj ↦ SD.isRingOfIntegralElements.mem_of_isTopologicallyNilpotent
-        (PD.isTopologicallyNilpotent_of_mem_idealOfDefinition hj))
-      SD.isRingOfIntegralElements.isPowerBounded_of_mem TD sD LD hdenD
-  have _ := hOD_ring.isIntegrallyClosedIn
-  have hOD_closed : IsClosed (ODplus : Set (Completion LD)) :=
-    ODplus.toAddSubgroup.isClosed_of_isOpen hOD_ring.isOpen
-  have hfwd : (OU.completedTensor (Completion LA) OV).plus ≤ ODplus.comap (e : _ →+* _) := by
-    refine OU.completedTensor_plus_le_comap OV hOD_closed he (fun u hu ↦ ?_) (fun v hv ↦ ?_)
-    · have hL := eq_ringHomOfMapsToRationalSubset PB SB.plus TB sB LB hdenB PD SD.plus
-        SD.isRingOfIntegralElements.isPowerBounded_of_mem TD sD LD hdenD
-        (CompletedTensor.continuous_inl A B C).continuousAt
-        (Pair.completedTensor.mapsTo_inl_of_inter_eq hd)
-        ((e : _ →+* _).comp
-          (CompletedTensor.inl (Completion LA) (Completion LB) (Completion LC)))
-        (he.comp (CompletedTensor.continuous_inl _ _ _))
-        (RingHom.ext fun b ↦ by simp [e, toCompletionLoc_apply])
-      have hu' : u ∈ completedPlusSubring PB SB.plus TB sB LB hdenB := by
-        simpa only [OU, rationalLocalizationPair_plus] using hu
-      rw [← RingHom.comp_apply, hL]
-      exact ringHomOfMapsToRationalSubset_mem_completedPlusSubring PB SB.plus TB sB LB hdenB
-        PD SD.plus
-        (fun _ hj ↦ SD.isRingOfIntegralElements.mem_of_isTopologicallyNilpotent
-          (PD.isTopologicallyNilpotent_of_mem_idealOfDefinition hj))
-        SD.isRingOfIntegralElements.isPowerBounded_of_mem TD sD LD hdenD
-        (CompletedTensor.continuous_inl A B C).continuousAt
-        (Pair.completedTensor.mapsTo_inl_of_inter_eq hd) u hu'
-    · have hR := eq_ringHomOfMapsToRationalSubset PC SC.plus TC sC LC hdenC PD SD.plus
-        SD.isRingOfIntegralElements.isPowerBounded_of_mem TD sD LD hdenD
-        (CompletedTensor.continuous_inr A B C).continuousAt
-        (Pair.completedTensor.mapsTo_inr_of_inter_eq hd)
-        ((e : _ →+* _).comp
-          (CompletedTensor.inr (Completion LA) (Completion LB) (Completion LC)))
-        (he.comp (CompletedTensor.continuous_inr _ _ _))
-        (RingHom.ext fun c ↦ by simp [e, toCompletionLoc_apply])
-      have hv' : v ∈ completedPlusSubring PC SC.plus TC sC LC hdenC := by
-        simpa only [OV, rationalLocalizationPair_plus] using hv
-      rw [← RingHom.comp_apply, hR]
-      exact ringHomOfMapsToRationalSubset_mem_completedPlusSubring PC SC.plus TC sC LC hdenC
-        PD SD.plus
-        (fun _ hj ↦ SD.isRingOfIntegralElements.mem_of_isTopologicallyNilpotent
-          (PD.isTopologicallyNilpotent_of_mem_idealOfDefinition hj))
-        SD.isRingOfIntegralElements.isPowerBounded_of_mem TD sD LD hdenD
-        (CompletedTensor.continuous_inr A B C).continuousAt
-        (Pair.completedTensor.mapsTo_inr_of_inter_eq hd) v hv'
-  let g : CompletedTensor A B C →+*
-      CompletedTensor (Completion LA) (Completion LB) (Completion LC) :=
-    (e.symm : _ →+* _).comp (toCompletionLoc PD TD sD LD hdenD)
-  have hg_cont : Continuous g := he'.comp (continuous_toCompletionLoc PD TD sD LD hdenD)
-  have hgB : g.comp (CompletedTensor.inl A B C) =
-      (CompletedTensor.inl (Completion LA) (Completion LB) (Completion LC)).comp
-        (toCompletionLoc PB TB sB LB hdenB) :=
-    RingHom.ext fun b ↦ by simp [g, e, toCompletionLoc_apply]
-  have hgC : g.comp (CompletedTensor.inr A B C) =
-      (CompletedTensor.inr (Completion LA) (Completion LB) (Completion LC)).comp
-        (toCompletionLoc PC TC sC LC hdenC) :=
-    RingHom.ext fun c ↦ by simp [g, e, toCompletionLoc_apply]
-  have _ := (OU.completedTensor (Completion LA) OV).isRingOfIntegralElements.isIntegrallyClosedIn
-  have hE_closed : IsClosed ((OU.completedTensor (Completion LA) OV).plus :
-      Set (CompletedTensor (Completion LA) (Completion LB) (Completion LC))) :=
-    (OU.completedTensor (Completion LA) OV).plus.toAddSubgroup.isClosed_of_isOpen
-      (OU.completedTensor (Completion LA) OV).isRingOfIntegralElements.isOpen
-  have hg_plus : SD.plus ≤ (OU.completedTensor (Completion LA) OV).plus.comap g := by
-    refine SB.completedTensor_plus_le_comap SC hE_closed hg_cont
-      (fun b hb ↦ ?_) (fun c hc ↦ ?_)
-    · have hb' : toCompletionLoc PB TB sB LB hdenB b ∈ OU.plus := by
-        rw [rationalLocalizationPair_plus]
-        exact toCompletionLoc_mem_completedPlusSubring PB SB.plus TB sB LB hdenB hb
-      have hinl := OU.inl_mem_completedTensor_plus (A := Completion LA) OV hb'
-      rwa [← RingHom.comp_apply, ← hgB, RingHom.comp_apply] at hinl
-    · have hc' : toCompletionLoc PC TC sC LC hdenC c ∈ OV.plus := by
-        rw [rationalLocalizationPair_plus]
-        exact toCompletionLoc_mem_completedPlusSubring PC SC.plus TC sC LC hdenC hc
-      have hinr := OU.inr_mem_completedTensor_plus (A := Completion LA) OV hc'
-      rwa [← RingHom.comp_apply, ← hgC, RingHom.comp_apply] at hinr
-  ext z
-  rw [Subring.mem_map]
-  refine ⟨fun ⟨x, hx, hxz⟩ ↦ hxz ▸ hfwd hx, fun hz ↦ ⟨e.symm z, ?_, e.apply_symm_apply z⟩⟩
-  refine (OU.completedTensor (Completion LA) OV).isRingOfIntegralElements
-    |>.mem_of_forall_vle_one fun w hw ↦ ?_
-  let gHom : Pair.Hom SD (OU.completedTensor (Completion LA) OV) :=
-    ⟨g, hg_cont, fun d hd' ↦ hg_plus hd'⟩
-  have hmemD : gHom.spaComap ⟨w, hw⟩ ∈ Subtype.val ⁻¹' rationalSubset SD.plus TD sD := by
-    rw [hd]
-    refine ⟨?_, ?_⟩
-    · simp only [Set.mem_preimage, Pair.Hom.spaComap_val, Pair.completedTensor.toRingHom_inl]
-      rw [← Function.comp_apply (f := comap (CompletedTensor.inl A B C)), ← comap_comp,
-        hgB, comap_comp, Function.comp_apply]
-      have hwB : comap (CompletedTensor.inl (Completion LA) (Completion LB) (Completion LC)) w ∈
-          spa (completedPlusSubring PB SB.plus TB sB LB hdenB) := by
-        rw [← rationalLocalizationPair_plus PB SB hPB TB sB LB hdenB]
-        simpa only [Pair.Hom.spaComap_val, Pair.completedTensor.toRingHom_inl] using
-          ((Pair.completedTensor.inl (Completion LA) OU OV).spaComap ⟨w, hw⟩).2
-      simpa only [spaComapLoc_val] using
-        spaComapLoc_mem_rationalSubset PB SB.plus TB sB LB hdenB ⟨_, hwB⟩
-    · simp only [Set.mem_preimage, Pair.Hom.spaComap_val, Pair.completedTensor.toRingHom_inr]
-      rw [← Function.comp_apply (f := comap (CompletedTensor.inr A B C)), ← comap_comp,
-        hgC, comap_comp, Function.comp_apply]
-      have hwC : comap (CompletedTensor.inr (Completion LA) (Completion LB) (Completion LC)) w ∈
-          spa (completedPlusSubring PC SC.plus TC sC LC hdenC) := by
-        rw [← rationalLocalizationPair_plus PC SC hPC TC sC LC hdenC]
-        simpa only [Pair.Hom.spaComap_val, Pair.completedTensor.toRingHom_inr] using
-          ((Pair.completedTensor.inr (Completion LA) OU OV).spaComap ⟨w, hw⟩).2
-      simpa only [spaComapLoc_val] using
-        spaComapLoc_mem_rationalSubset PC SC.plus TC sC LC hdenC ⟨_, hwC⟩
-  have hcomap := comap_mem_spa_completedPlusSubring PD SD.plus TD sD LD hdenD
-    (e.symm : _ →+* _) he' ((mem_spa_iff _ _).mp hw).1
-    (by simpa only [Set.mem_preimage, Pair.Hom.spaComap_val] using hmemD)
-  simpa only [comap_vle, map_one, RingEquiv.coe_toRingHom] using
-    ((mem_spa_iff _ _).mp hcomap).2 z hz
+        completedPlusSubring PD (SB.completedTensor A SC).plus TD sD LD hdenD := by
+  pair_tensor_inst hf hg
+  exact map_plus_of_ringEquiv PB SB hPB TB sB LB hdenB PC SC hPC TC sC LC hdenC PD TD sD LD hdenD
+    (pairApp23 Pair.completedTensorRationalEquiv hf hg hd)
+    (pairApp23 Pair.continuous_completedTensorRationalEquiv hf hg hd)
+    (pairApp23 Pair.continuous_completedTensorRationalEquiv_symm hf hg hd)
+    (fun b ↦ by simp [toCompletionLoc_apply]) (fun c ↦ by simp [toCompletionLoc_apply]) hd
 
 /-- Membership in the completed tensor plus ring is equivalent to membership of the image under
-`Pair.completedTensorRationalEquiv` in `completedPlusSubring` (not `@[simp]` because
-`mem_completedPlusSubring_iff` already rewrites the right-hand side). -/
+`Pair.completedTensorRationalEquiv` in `completedPlusSubring`. -/
 theorem Pair.mem_completedTensor_plus_iff_completedTensorRationalEquiv
-    (hPB : PB.ringOfDefinition ≤ SB.plus)
-    (hPC : PC.ringOfDefinition ≤ SC.plus)
-    (hf : Set.MapsTo (comap (algebraMap A B))
-      (rationalSubset SB.plus TB sB) (rationalSubset SA.plus TA sA))
-    (hg : Set.MapsTo (comap (algebraMap A C))
-      (rationalSubset SC.plus TC sC) (rationalSubset SA.plus TA sA))
-    (hd : Subtype.val ⁻¹' rationalSubset (SB.completedTensor A SC).plus TD sD =
-      ((Pair.completedTensor.inl A SB SC).spaComap ⁻¹'
-        (Subtype.val ⁻¹' rationalSubset SB.plus TB sB)) ∩
-      ((Pair.completedTensor.inr A SB SC).spaComap ⁻¹'
-        (Subtype.val ⁻¹' rationalSubset SC.plus TC sC))) :
-    letI := locUniformSpace PA TA sA LA hdenA
-    letI := isUniformAddGroup_locUniformSpace PA TA sA LA hdenA
-    letI := isTopologicalRing_locUniformSpace PA TA sA LA hdenA
-    letI := locUniformSpace PB TB sB LB hdenB
-    letI := isUniformAddGroup_locUniformSpace PB TB sB LB hdenB
-    letI := isTopologicalRing_locUniformSpace PB TB sB LB hdenB
-    letI := isHuberRing_completion_locTopology PB TB sB LB hdenB
-    letI := locUniformSpace PC TC sC LC hdenC
-    letI := isUniformAddGroup_locUniformSpace PC TC sC LC hdenC
-    letI := isTopologicalRing_locUniformSpace PC TC sC LC hdenC
-    letI := isHuberRing_completion_locTopology PC TC sC LC hdenC
-    letI : Algebra (Completion LA) (Completion LB) :=
-      (ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PB SB.plus
-        SB.isRingOfIntegralElements.isPowerBounded_of_mem TB sB LB hdenB
-        (inferInstance : IsAdicHom (algebraMap A B)).continuous.continuousAt hf).toAlgebra
-    letI : Algebra (Completion LA) (Completion LC) :=
-      (ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PC SC.plus
-        SC.isRingOfIntegralElements.isPowerBounded_of_mem TC sC LC hdenC
-        (inferInstance : IsAdicHom (algebraMap A C)).continuous.continuousAt hg).toAlgebra
-    haveI : IsAdicHom (algebraMap (Completion LA) (Completion LB)) :=
-      isAdicHom_ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PB SB.plus
-        SB.isRingOfIntegralElements.isPowerBounded_of_mem TB sB LB hdenB
-        (inferInstance : IsAdicHom (algebraMap A B)) hf
-    haveI : IsAdicHom (algebraMap (Completion LA) (Completion LC)) :=
-      isAdicHom_ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PC SC.plus
-        SC.isRingOfIntegralElements.isPowerBounded_of_mem TC sC LC hdenC
-        (inferInstance : IsAdicHom (algebraMap A C)) hg
-    letI := locUniformSpace PD TD sD LD hdenD
-    letI := isUniformAddGroup_locUniformSpace PD TD sD LD hdenD
-    letI := isTopologicalRing_locUniformSpace PD TD sD LD hdenD
-    ∀ x : CompletedTensor (Completion LA) (Completion LB) (Completion LC),
-      Pair.completedTensorRationalEquiv PA SA TA sA LA hdenA PB SB TB sB LB hdenB
-        PC SC TC sC LC hdenC PD TD sD LD hdenD hf hg hd x ∈
+    (hPB : PB.ringOfDefinition ≤ SB.plus) (hPC : PC.ringOfDefinition ≤ SC.plus)
+    (hf : pairMapsAB) (hg : pairMapsAC) (hd : pairInterEq) :
+    withPairHuber3 hf hg => withPairLocRing PD TD sD LD hdenD =>
+      ∀ x : CompletedTensor (Completion LA) (Completion LB) (Completion LC),
+        pairApp23 Pair.completedTensorRationalEquiv hf hg hd x ∈
           completedPlusSubring PD (SB.completedTensor A SC).plus TD sD LD hdenD ↔
-        x ∈ ((PB.rationalLocalizationPair SB hPB TB sB LB hdenB).completedTensor (Completion LA)
-          (PC.rationalLocalizationPair SC hPC TC sC LC hdenC)).plus := by
-  let _ := locUniformSpace PA TA sA LA hdenA
-  have _ := isUniformAddGroup_locUniformSpace PA TA sA LA hdenA
-  have _ := isTopologicalRing_locUniformSpace PA TA sA LA hdenA
-  let _ := locUniformSpace PB TB sB LB hdenB
-  have _ := isUniformAddGroup_locUniformSpace PB TB sB LB hdenB
-  have _ := isTopologicalRing_locUniformSpace PB TB sB LB hdenB
-  have _ := isHuberRing_completion_locTopology PB TB sB LB hdenB
-  let _ := locUniformSpace PC TC sC LC hdenC
-  have _ := isUniformAddGroup_locUniformSpace PC TC sC LC hdenC
-  have _ := isTopologicalRing_locUniformSpace PC TC sC LC hdenC
-  have _ := isHuberRing_completion_locTopology PC TC sC LC hdenC
-  let _ : Algebra (Completion LA) (Completion LB) :=
-    (ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PB SB.plus
-      SB.isRingOfIntegralElements.isPowerBounded_of_mem TB sB LB hdenB
-      (inferInstance : IsAdicHom (algebraMap A B)).continuous.continuousAt hf).toAlgebra
-  let _ : Algebra (Completion LA) (Completion LC) :=
-    (ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PC SC.plus
-      SC.isRingOfIntegralElements.isPowerBounded_of_mem TC sC LC hdenC
-      (inferInstance : IsAdicHom (algebraMap A C)).continuous.continuousAt hg).toAlgebra
-  have _ : IsAdicHom (algebraMap (Completion LA) (Completion LB)) :=
-    isAdicHom_ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PB SB.plus
-      SB.isRingOfIntegralElements.isPowerBounded_of_mem TB sB LB hdenB
-      (inferInstance : IsAdicHom (algebraMap A B)) hf
-  have _ : IsAdicHom (algebraMap (Completion LA) (Completion LC)) :=
-    isAdicHom_ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PC SC.plus
-      SC.isRingOfIntegralElements.isPowerBounded_of_mem TC sC LC hdenC
-      (inferInstance : IsAdicHom (algebraMap A C)) hg
-  let _ := locUniformSpace PD TD sD LD hdenD
-  have _ := isUniformAddGroup_locUniformSpace PD TD sD LD hdenD
-  have _ := isTopologicalRing_locUniformSpace PD TD sD LD hdenD
-  intro x
-  rw [← Pair.map_plus_completedTensorRationalEquiv
-    PA SA TA sA LA hdenA PB SB TB sB LB hdenB PC SC TC sC LC hdenC
-    PD TD sD LD hdenD hPB hPC hf hg hd]
+          x ∈ (pairCtPair hPB hPC).plus := by
+  pair_tensor_inst hf hg; intro x
+  rw [← pairApp23 Pair.map_plus_completedTensorRationalEquiv hPB hPC hf hg hd]
   simp only [Subring.mem_map_equiv, RingEquiv.symm_apply_apply]
 
-/-- The forward morphism of Huber pairs `O_B(U) ⊗̂_{O_A(W)} O_C(V) → O_D(d)` underlying
-`Pair.completedTensorRationalEquiv`. -/
-noncomputable def Pair.completedTensor.toRationalLoc
-    (hPB : PB.ringOfDefinition ≤ SB.plus)
-    (hPC : PC.ringOfDefinition ≤ SC.plus)
-    (hPD : PD.ringOfDefinition ≤ (SB.completedTensor A SC).plus)
-    (hf : Set.MapsTo (comap (algebraMap A B))
-      (rationalSubset SB.plus TB sB) (rationalSubset SA.plus TA sA))
-    (hg : Set.MapsTo (comap (algebraMap A C))
-      (rationalSubset SC.plus TC sC) (rationalSubset SA.plus TA sA))
-    (hd : Subtype.val ⁻¹' rationalSubset (SB.completedTensor A SC).plus TD sD =
-      ((Pair.completedTensor.inl A SB SC).spaComap ⁻¹'
-        (Subtype.val ⁻¹' rationalSubset SB.plus TB sB)) ∩
-      ((Pair.completedTensor.inr A SB SC).spaComap ⁻¹'
-        (Subtype.val ⁻¹' rationalSubset SC.plus TC sC))) :
-    letI := locUniformSpace PA TA sA LA hdenA
-    letI := isUniformAddGroup_locUniformSpace PA TA sA LA hdenA
-    letI := isTopologicalRing_locUniformSpace PA TA sA LA hdenA
-    letI := locUniformSpace PB TB sB LB hdenB
-    letI := isUniformAddGroup_locUniformSpace PB TB sB LB hdenB
-    letI := isTopologicalRing_locUniformSpace PB TB sB LB hdenB
-    letI := isHuberRing_completion_locTopology PB TB sB LB hdenB
-    letI := locUniformSpace PC TC sC LC hdenC
-    letI := isUniformAddGroup_locUniformSpace PC TC sC LC hdenC
-    letI := isTopologicalRing_locUniformSpace PC TC sC LC hdenC
-    letI := isHuberRing_completion_locTopology PC TC sC LC hdenC
-    letI : Algebra (Completion LA) (Completion LB) :=
-      (ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PB SB.plus
-        SB.isRingOfIntegralElements.isPowerBounded_of_mem TB sB LB hdenB
-        (inferInstance : IsAdicHom (algebraMap A B)).continuous.continuousAt hf).toAlgebra
-    letI : Algebra (Completion LA) (Completion LC) :=
-      (ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PC SC.plus
-        SC.isRingOfIntegralElements.isPowerBounded_of_mem TC sC LC hdenC
-        (inferInstance : IsAdicHom (algebraMap A C)).continuous.continuousAt hg).toAlgebra
-    haveI : IsAdicHom (algebraMap (Completion LA) (Completion LB)) :=
-      isAdicHom_ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PB SB.plus
-        SB.isRingOfIntegralElements.isPowerBounded_of_mem TB sB LB hdenB
-        (inferInstance : IsAdicHom (algebraMap A B)) hf
-    haveI : IsAdicHom (algebraMap (Completion LA) (Completion LC)) :=
-      isAdicHom_ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PC SC.plus
-        SC.isRingOfIntegralElements.isPowerBounded_of_mem TC sC LC hdenC
-        (inferInstance : IsAdicHom (algebraMap A C)) hg
-    letI := locUniformSpace PD TD sD LD hdenD
-    letI := isUniformAddGroup_locUniformSpace PD TD sD LD hdenD
-    letI := isTopologicalRing_locUniformSpace PD TD sD LD hdenD
-    letI := isHuberRing_completion_locTopology PD TD sD LD hdenD
-    Pair.Hom
-      ((PB.rationalLocalizationPair SB hPB TB sB LB hdenB).completedTensor (Completion LA)
-        (PC.rationalLocalizationPair SC hPC TC sC LC hdenC))
-      (PD.rationalLocalizationPair (SB.completedTensor A SC) hPD TD sD LD hdenD) :=
-  letI := locUniformSpace PA TA sA LA hdenA
-  letI := isUniformAddGroup_locUniformSpace PA TA sA LA hdenA
-  letI := isTopologicalRing_locUniformSpace PA TA sA LA hdenA
-  letI := locUniformSpace PB TB sB LB hdenB
-  letI := isUniformAddGroup_locUniformSpace PB TB sB LB hdenB
-  letI := isTopologicalRing_locUniformSpace PB TB sB LB hdenB
-  letI := isHuberRing_completion_locTopology PB TB sB LB hdenB
-  letI := locUniformSpace PC TC sC LC hdenC
-  letI := isUniformAddGroup_locUniformSpace PC TC sC LC hdenC
-  letI := isTopologicalRing_locUniformSpace PC TC sC LC hdenC
-  letI := isHuberRing_completion_locTopology PC TC sC LC hdenC
-  letI : Algebra (Completion LA) (Completion LB) :=
-    (ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PB SB.plus
-      SB.isRingOfIntegralElements.isPowerBounded_of_mem TB sB LB hdenB
-      (inferInstance : IsAdicHom (algebraMap A B)).continuous.continuousAt hf).toAlgebra
-  letI : Algebra (Completion LA) (Completion LC) :=
-    (ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PC SC.plus
-      SC.isRingOfIntegralElements.isPowerBounded_of_mem TC sC LC hdenC
-      (inferInstance : IsAdicHom (algebraMap A C)).continuous.continuousAt hg).toAlgebra
-  haveI : IsAdicHom (algebraMap (Completion LA) (Completion LB)) :=
-    isAdicHom_ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PB SB.plus
-      SB.isRingOfIntegralElements.isPowerBounded_of_mem TB sB LB hdenB
-      (inferInstance : IsAdicHom (algebraMap A B)) hf
-  haveI : IsAdicHom (algebraMap (Completion LA) (Completion LC)) :=
-    isAdicHom_ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PC SC.plus
-      SC.isRingOfIntegralElements.isPowerBounded_of_mem TC sC LC hdenC
-      (inferInstance : IsAdicHom (algebraMap A C)) hg
-  letI := locUniformSpace PD TD sD LD hdenD
-  letI := isUniformAddGroup_locUniformSpace PD TD sD LD hdenD
-  letI := isTopologicalRing_locUniformSpace PD TD sD LD hdenD
-  letI := isHuberRing_completion_locTopology PD TD sD LD hdenD
-  { toRingHom := (Pair.completedTensorRationalEquiv
-      PA SA TA sA LA hdenA PB SB TB sB LB hdenB PC SC TC sC LC hdenC
-      PD TD sD LD hdenD hf hg hd).toRingHom
-    continuous_toRingHom := Pair.continuous_completedTensorRationalEquiv
-      PA SA TA sA LA hdenA PB SB TB sB LB hdenB PC SC TC sC LC hdenC
-      PD TD sD LD hdenD hf hg hd
+section RationalLocProps
+
+variable (hPB : PB.ringOfDefinition ≤ SB.plus) (hPC : PC.ringOfDefinition ≤ SC.plus)
+  (hPD : PD.ringOfDefinition ≤ (SB.completedTensor A SC).plus)
+  (hf : pairMapsAB) (hg : pairMapsAC) (hd : pairInterEq)
+
+/-- Forward Huber-pair morphism `O_B(U) ⊗̂_{O_A(W)} O_C(V) → O_D(d)`. -/
+noncomputable def Pair.completedTensor.toRationalLoc :
+    withPairHuber3 hf hg => withPairLocHuber PD TD sD LD hdenD =>
+      Pair.Hom (pairCtPair hPB hPC)
+        (PD.rationalLocalizationPair (SB.completedTensor A SC) hPD TD sD LD hdenD) :=
+  withPairHuber3 hf hg => withPairLocHuber PD TD sD LD hdenD =>
+  { toRingHom := (pairApp23 Pair.completedTensorRationalEquiv hf hg hd).toRingHom
+    continuous_toRingHom := pairApp23 Pair.continuous_completedTensorRationalEquiv hf hg hd
     map_mem_plus := fun x hx ↦ by
       rw [rationalLocalizationPair_plus]
-      exact (Pair.mem_completedTensor_plus_iff_completedTensorRationalEquiv
-        PA SA TA sA LA hdenA PB SB TB sB LB hdenB PC SC TC sC LC hdenC
-        PD TD sD LD hdenD hPB hPC hf hg hd x).mpr hx }
+      exact (pairApp23 Pair.mem_completedTensor_plus_iff_completedTensorRationalEquiv
+        hPB hPC hf hg hd x).mpr hx }
 
-/-- The inverse morphism of Huber pairs `O_D(d) → O_B(U) ⊗̂_{O_A(W)} O_C(V)` underlying
-`Pair.completedTensorRationalEquiv.symm`. -/
-noncomputable def Pair.completedTensor.ofRationalLoc
-    (hPB : PB.ringOfDefinition ≤ SB.plus)
-    (hPC : PC.ringOfDefinition ≤ SC.plus)
-    (hPD : PD.ringOfDefinition ≤ (SB.completedTensor A SC).plus)
-    (hf : Set.MapsTo (comap (algebraMap A B))
-      (rationalSubset SB.plus TB sB) (rationalSubset SA.plus TA sA))
-    (hg : Set.MapsTo (comap (algebraMap A C))
-      (rationalSubset SC.plus TC sC) (rationalSubset SA.plus TA sA))
-    (hd : Subtype.val ⁻¹' rationalSubset (SB.completedTensor A SC).plus TD sD =
-      ((Pair.completedTensor.inl A SB SC).spaComap ⁻¹'
-        (Subtype.val ⁻¹' rationalSubset SB.plus TB sB)) ∩
-      ((Pair.completedTensor.inr A SB SC).spaComap ⁻¹'
-        (Subtype.val ⁻¹' rationalSubset SC.plus TC sC))) :
-    letI := locUniformSpace PA TA sA LA hdenA
-    letI := isUniformAddGroup_locUniformSpace PA TA sA LA hdenA
-    letI := isTopologicalRing_locUniformSpace PA TA sA LA hdenA
-    letI := locUniformSpace PB TB sB LB hdenB
-    letI := isUniformAddGroup_locUniformSpace PB TB sB LB hdenB
-    letI := isTopologicalRing_locUniformSpace PB TB sB LB hdenB
-    letI := isHuberRing_completion_locTopology PB TB sB LB hdenB
-    letI := locUniformSpace PC TC sC LC hdenC
-    letI := isUniformAddGroup_locUniformSpace PC TC sC LC hdenC
-    letI := isTopologicalRing_locUniformSpace PC TC sC LC hdenC
-    letI := isHuberRing_completion_locTopology PC TC sC LC hdenC
-    letI : Algebra (Completion LA) (Completion LB) :=
-      (ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PB SB.plus
-        SB.isRingOfIntegralElements.isPowerBounded_of_mem TB sB LB hdenB
-        (inferInstance : IsAdicHom (algebraMap A B)).continuous.continuousAt hf).toAlgebra
-    letI : Algebra (Completion LA) (Completion LC) :=
-      (ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PC SC.plus
-        SC.isRingOfIntegralElements.isPowerBounded_of_mem TC sC LC hdenC
-        (inferInstance : IsAdicHom (algebraMap A C)).continuous.continuousAt hg).toAlgebra
-    haveI : IsAdicHom (algebraMap (Completion LA) (Completion LB)) :=
-      isAdicHom_ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PB SB.plus
-        SB.isRingOfIntegralElements.isPowerBounded_of_mem TB sB LB hdenB
-        (inferInstance : IsAdicHom (algebraMap A B)) hf
-    haveI : IsAdicHom (algebraMap (Completion LA) (Completion LC)) :=
-      isAdicHom_ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PC SC.plus
-        SC.isRingOfIntegralElements.isPowerBounded_of_mem TC sC LC hdenC
-        (inferInstance : IsAdicHom (algebraMap A C)) hg
-    letI := locUniformSpace PD TD sD LD hdenD
-    letI := isUniformAddGroup_locUniformSpace PD TD sD LD hdenD
-    letI := isTopologicalRing_locUniformSpace PD TD sD LD hdenD
-    letI := isHuberRing_completion_locTopology PD TD sD LD hdenD
-    Pair.Hom
-      (PD.rationalLocalizationPair (SB.completedTensor A SC) hPD TD sD LD hdenD)
-      ((PB.rationalLocalizationPair SB hPB TB sB LB hdenB).completedTensor (Completion LA)
-        (PC.rationalLocalizationPair SC hPC TC sC LC hdenC)) :=
-  letI := locUniformSpace PA TA sA LA hdenA
-  letI := isUniformAddGroup_locUniformSpace PA TA sA LA hdenA
-  letI := isTopologicalRing_locUniformSpace PA TA sA LA hdenA
-  letI := locUniformSpace PB TB sB LB hdenB
-  letI := isUniformAddGroup_locUniformSpace PB TB sB LB hdenB
-  letI := isTopologicalRing_locUniformSpace PB TB sB LB hdenB
-  letI := isHuberRing_completion_locTopology PB TB sB LB hdenB
-  letI := locUniformSpace PC TC sC LC hdenC
-  letI := isUniformAddGroup_locUniformSpace PC TC sC LC hdenC
-  letI := isTopologicalRing_locUniformSpace PC TC sC LC hdenC
-  letI := isHuberRing_completion_locTopology PC TC sC LC hdenC
-  letI : Algebra (Completion LA) (Completion LB) :=
-    (ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PB SB.plus
-      SB.isRingOfIntegralElements.isPowerBounded_of_mem TB sB LB hdenB
-      (inferInstance : IsAdicHom (algebraMap A B)).continuous.continuousAt hf).toAlgebra
-  letI : Algebra (Completion LA) (Completion LC) :=
-    (ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PC SC.plus
-      SC.isRingOfIntegralElements.isPowerBounded_of_mem TC sC LC hdenC
-      (inferInstance : IsAdicHom (algebraMap A C)).continuous.continuousAt hg).toAlgebra
-  haveI : IsAdicHom (algebraMap (Completion LA) (Completion LB)) :=
-    isAdicHom_ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PB SB.plus
-      SB.isRingOfIntegralElements.isPowerBounded_of_mem TB sB LB hdenB
-      (inferInstance : IsAdicHom (algebraMap A B)) hf
-  haveI : IsAdicHom (algebraMap (Completion LA) (Completion LC)) :=
-    isAdicHom_ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PC SC.plus
-      SC.isRingOfIntegralElements.isPowerBounded_of_mem TC sC LC hdenC
-      (inferInstance : IsAdicHom (algebraMap A C)) hg
-  letI := locUniformSpace PD TD sD LD hdenD
-  letI := isUniformAddGroup_locUniformSpace PD TD sD LD hdenD
-  letI := isTopologicalRing_locUniformSpace PD TD sD LD hdenD
-  letI := isHuberRing_completion_locTopology PD TD sD LD hdenD
-  let e := Pair.completedTensorRationalEquiv
-    PA SA TA sA LA hdenA PB SB TB sB LB hdenB PC SC TC sC LC hdenC
-    PD TD sD LD hdenD hf hg hd
+/-- Inverse Huber-pair morphism `O_D(d) → O_B(U) ⊗̂_{O_A(W)} O_C(V)`. -/
+noncomputable def Pair.completedTensor.ofRationalLoc :
+    withPairHuber3 hf hg => withPairLocHuber PD TD sD LD hdenD =>
+      Pair.Hom (PD.rationalLocalizationPair (SB.completedTensor A SC) hPD TD sD LD hdenD)
+        (pairCtPair hPB hPC) :=
+  withPairHuber3 hf hg => withPairLocHuber PD TD sD LD hdenD =>
+  let e := pairApp23 Pair.completedTensorRationalEquiv hf hg hd
   { toRingHom := e.symm.toRingHom
-    continuous_toRingHom := Pair.continuous_completedTensorRationalEquiv_symm
-      PA SA TA sA LA hdenA PB SB TB sB LB hdenB PC SC TC sC LC hdenC
-      PD TD sD LD hdenD hf hg hd
+    continuous_toRingHom := pairApp23 Pair.continuous_completedTensorRationalEquiv_symm hf hg hd
     map_mem_plus := fun z hz ↦ by
       rw [rationalLocalizationPair_plus] at hz
-      exact (Pair.mem_completedTensor_plus_iff_completedTensorRationalEquiv
-        PA SA TA sA LA hdenA PB SB TB sB LB hdenB PC SC TC sC LC hdenC
-        PD TD sD LD hdenD hPB hPC hf hg hd (e.symm z)).mp (by simpa [e] using hz) }
+      exact (pairApp23 Pair.mem_completedTensor_plus_iff_completedTensorRationalEquiv
+        hPB hPC hf hg hd (e.symm z)).mp (by simpa [e] using hz) }
 
-/-- The underlying ring homomorphism of `Pair.completedTensor.toRationalLoc` is
-`Pair.completedTensorRationalEquiv`. -/
-@[simp]
-theorem Pair.completedTensor.toRationalLoc_toRingHom
-    (hPB : PB.ringOfDefinition ≤ SB.plus)
-    (hPC : PC.ringOfDefinition ≤ SC.plus)
-    (hPD : PD.ringOfDefinition ≤ (SB.completedTensor A SC).plus)
-    (hf : Set.MapsTo (comap (algebraMap A B))
-      (rationalSubset SB.plus TB sB) (rationalSubset SA.plus TA sA))
-    (hg : Set.MapsTo (comap (algebraMap A C))
-      (rationalSubset SC.plus TC sC) (rationalSubset SA.plus TA sA))
-    (hd : Subtype.val ⁻¹' rationalSubset (SB.completedTensor A SC).plus TD sD =
-      ((Pair.completedTensor.inl A SB SC).spaComap ⁻¹'
-        (Subtype.val ⁻¹' rationalSubset SB.plus TB sB)) ∩
-      ((Pair.completedTensor.inr A SB SC).spaComap ⁻¹'
-        (Subtype.val ⁻¹' rationalSubset SC.plus TC sC))) :
-    letI := locUniformSpace PA TA sA LA hdenA
-    letI := isUniformAddGroup_locUniformSpace PA TA sA LA hdenA
-    letI := isTopologicalRing_locUniformSpace PA TA sA LA hdenA
-    letI := locUniformSpace PB TB sB LB hdenB
-    letI := isUniformAddGroup_locUniformSpace PB TB sB LB hdenB
-    letI := isTopologicalRing_locUniformSpace PB TB sB LB hdenB
-    letI := isHuberRing_completion_locTopology PB TB sB LB hdenB
-    letI := locUniformSpace PC TC sC LC hdenC
-    letI := isUniformAddGroup_locUniformSpace PC TC sC LC hdenC
-    letI := isTopologicalRing_locUniformSpace PC TC sC LC hdenC
-    letI := isHuberRing_completion_locTopology PC TC sC LC hdenC
-    letI : Algebra (Completion LA) (Completion LB) :=
-      (ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PB SB.plus
-        SB.isRingOfIntegralElements.isPowerBounded_of_mem TB sB LB hdenB
-        (inferInstance : IsAdicHom (algebraMap A B)).continuous.continuousAt hf).toAlgebra
-    letI : Algebra (Completion LA) (Completion LC) :=
-      (ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PC SC.plus
-        SC.isRingOfIntegralElements.isPowerBounded_of_mem TC sC LC hdenC
-        (inferInstance : IsAdicHom (algebraMap A C)).continuous.continuousAt hg).toAlgebra
-    haveI : IsAdicHom (algebraMap (Completion LA) (Completion LB)) :=
-      isAdicHom_ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PB SB.plus
-        SB.isRingOfIntegralElements.isPowerBounded_of_mem TB sB LB hdenB
-        (inferInstance : IsAdicHom (algebraMap A B)) hf
-    haveI : IsAdicHom (algebraMap (Completion LA) (Completion LC)) :=
-      isAdicHom_ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PC SC.plus
-        SC.isRingOfIntegralElements.isPowerBounded_of_mem TC sC LC hdenC
-        (inferInstance : IsAdicHom (algebraMap A C)) hg
-    letI := locUniformSpace PD TD sD LD hdenD
-    letI := isUniformAddGroup_locUniformSpace PD TD sD LD hdenD
-    letI := isTopologicalRing_locUniformSpace PD TD sD LD hdenD
-    letI := isHuberRing_completion_locTopology PD TD sD LD hdenD
-    (Pair.completedTensor.toRationalLoc PA SA TA sA LA hdenA PB SB TB sB LB hdenB
-      PC SC TC sC LC hdenC PD TD sD LD hdenD hPB hPC hPD hf hg hd).toRingHom =
-      (Pair.completedTensorRationalEquiv PA SA TA sA LA hdenA PB SB TB sB LB hdenB
-        PC SC TC sC LC hdenC PD TD sD LD hdenD hf hg hd :
-        CompletedTensor (Completion LA) (Completion LB) (Completion LC) →+* Completion LD) :=
+/-- Underlying ring homomorphism of `Pair.completedTensor.toRationalLoc`. -/
+@[simp] theorem Pair.completedTensor.toRationalLoc_toRingHom :
+    withPairHuber3 hf hg => withPairLocHuber PD TD sD LD hdenD =>
+      (pairApp23 Pair.completedTensor.toRationalLoc hPB hPC hPD hf hg hd).toRingHom =
+        (pairApp23 Pair.completedTensorRationalEquiv hf hg hd :
+          CompletedTensor (Completion LA) (Completion LB) (Completion LC) →+* Completion LD) :=
   (rfl)
 
-/-- The underlying ring homomorphism of `Pair.completedTensor.ofRationalLoc` is
-`Pair.completedTensorRationalEquiv.symm`. -/
-@[simp]
-theorem Pair.completedTensor.ofRationalLoc_toRingHom
-    (hPB : PB.ringOfDefinition ≤ SB.plus)
-    (hPC : PC.ringOfDefinition ≤ SC.plus)
-    (hPD : PD.ringOfDefinition ≤ (SB.completedTensor A SC).plus)
-    (hf : Set.MapsTo (comap (algebraMap A B))
-      (rationalSubset SB.plus TB sB) (rationalSubset SA.plus TA sA))
-    (hg : Set.MapsTo (comap (algebraMap A C))
-      (rationalSubset SC.plus TC sC) (rationalSubset SA.plus TA sA))
-    (hd : Subtype.val ⁻¹' rationalSubset (SB.completedTensor A SC).plus TD sD =
-      ((Pair.completedTensor.inl A SB SC).spaComap ⁻¹'
-        (Subtype.val ⁻¹' rationalSubset SB.plus TB sB)) ∩
-      ((Pair.completedTensor.inr A SB SC).spaComap ⁻¹'
-        (Subtype.val ⁻¹' rationalSubset SC.plus TC sC))) :
-    letI := locUniformSpace PA TA sA LA hdenA
-    letI := isUniformAddGroup_locUniformSpace PA TA sA LA hdenA
-    letI := isTopologicalRing_locUniformSpace PA TA sA LA hdenA
-    letI := locUniformSpace PB TB sB LB hdenB
-    letI := isUniformAddGroup_locUniformSpace PB TB sB LB hdenB
-    letI := isTopologicalRing_locUniformSpace PB TB sB LB hdenB
-    letI := isHuberRing_completion_locTopology PB TB sB LB hdenB
-    letI := locUniformSpace PC TC sC LC hdenC
-    letI := isUniformAddGroup_locUniformSpace PC TC sC LC hdenC
-    letI := isTopologicalRing_locUniformSpace PC TC sC LC hdenC
-    letI := isHuberRing_completion_locTopology PC TC sC LC hdenC
-    letI : Algebra (Completion LA) (Completion LB) :=
-      (ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PB SB.plus
-        SB.isRingOfIntegralElements.isPowerBounded_of_mem TB sB LB hdenB
-        (inferInstance : IsAdicHom (algebraMap A B)).continuous.continuousAt hf).toAlgebra
-    letI : Algebra (Completion LA) (Completion LC) :=
-      (ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PC SC.plus
-        SC.isRingOfIntegralElements.isPowerBounded_of_mem TC sC LC hdenC
-        (inferInstance : IsAdicHom (algebraMap A C)).continuous.continuousAt hg).toAlgebra
-    haveI : IsAdicHom (algebraMap (Completion LA) (Completion LB)) :=
-      isAdicHom_ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PB SB.plus
-        SB.isRingOfIntegralElements.isPowerBounded_of_mem TB sB LB hdenB
-        (inferInstance : IsAdicHom (algebraMap A B)) hf
-    haveI : IsAdicHom (algebraMap (Completion LA) (Completion LC)) :=
-      isAdicHom_ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PC SC.plus
-        SC.isRingOfIntegralElements.isPowerBounded_of_mem TC sC LC hdenC
-        (inferInstance : IsAdicHom (algebraMap A C)) hg
-    letI := locUniformSpace PD TD sD LD hdenD
-    letI := isUniformAddGroup_locUniformSpace PD TD sD LD hdenD
-    letI := isTopologicalRing_locUniformSpace PD TD sD LD hdenD
-    letI := isHuberRing_completion_locTopology PD TD sD LD hdenD
-    (Pair.completedTensor.ofRationalLoc PA SA TA sA LA hdenA PB SB TB sB LB hdenB
-      PC SC TC sC LC hdenC PD TD sD LD hdenD hPB hPC hPD hf hg hd).toRingHom =
-      ((Pair.completedTensorRationalEquiv PA SA TA sA LA hdenA PB SB TB sB LB hdenB
-        PC SC TC sC LC hdenC PD TD sD LD hdenD hf hg hd).symm :
-        Completion LD →+* CompletedTensor (Completion LA) (Completion LB) (Completion LC)) :=
+/-- Underlying ring homomorphism of `Pair.completedTensor.ofRationalLoc`. -/
+@[simp] theorem Pair.completedTensor.ofRationalLoc_toRingHom :
+    withPairHuber3 hf hg => withPairLocHuber PD TD sD LD hdenD =>
+      (pairApp23 Pair.completedTensor.ofRationalLoc hPB hPC hPD hf hg hd).toRingHom =
+        ((pairApp23 Pair.completedTensorRationalEquiv hf hg hd).symm :
+          Completion LD →+* CompletedTensor (Completion LA) (Completion LB) (Completion LC)) :=
   (rfl)
 
-/-- `Pair.completedTensor.toRationalLoc` and `Pair.completedTensor.ofRationalLoc` compose to the
-identity on `O_D(d)`. -/
-@[simp]
-theorem Pair.completedTensor.toRationalLoc_comp_ofRationalLoc
-    (hPB : PB.ringOfDefinition ≤ SB.plus)
-    (hPC : PC.ringOfDefinition ≤ SC.plus)
-    (hPD : PD.ringOfDefinition ≤ (SB.completedTensor A SC).plus)
-    (hf : Set.MapsTo (comap (algebraMap A B))
-      (rationalSubset SB.plus TB sB) (rationalSubset SA.plus TA sA))
-    (hg : Set.MapsTo (comap (algebraMap A C))
-      (rationalSubset SC.plus TC sC) (rationalSubset SA.plus TA sA))
-    (hd : Subtype.val ⁻¹' rationalSubset (SB.completedTensor A SC).plus TD sD =
-      ((Pair.completedTensor.inl A SB SC).spaComap ⁻¹'
-        (Subtype.val ⁻¹' rationalSubset SB.plus TB sB)) ∩
-      ((Pair.completedTensor.inr A SB SC).spaComap ⁻¹'
-        (Subtype.val ⁻¹' rationalSubset SC.plus TC sC))) :
-    letI := locUniformSpace PA TA sA LA hdenA
-    letI := isUniformAddGroup_locUniformSpace PA TA sA LA hdenA
-    letI := isTopologicalRing_locUniformSpace PA TA sA LA hdenA
-    letI := locUniformSpace PB TB sB LB hdenB
-    letI := isUniformAddGroup_locUniformSpace PB TB sB LB hdenB
-    letI := isTopologicalRing_locUniformSpace PB TB sB LB hdenB
-    letI := isHuberRing_completion_locTopology PB TB sB LB hdenB
-    letI := locUniformSpace PC TC sC LC hdenC
-    letI := isUniformAddGroup_locUniformSpace PC TC sC LC hdenC
-    letI := isTopologicalRing_locUniformSpace PC TC sC LC hdenC
-    letI := isHuberRing_completion_locTopology PC TC sC LC hdenC
-    letI : Algebra (Completion LA) (Completion LB) :=
-      (ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PB SB.plus
-        SB.isRingOfIntegralElements.isPowerBounded_of_mem TB sB LB hdenB
-        (inferInstance : IsAdicHom (algebraMap A B)).continuous.continuousAt hf).toAlgebra
-    letI : Algebra (Completion LA) (Completion LC) :=
-      (ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PC SC.plus
-        SC.isRingOfIntegralElements.isPowerBounded_of_mem TC sC LC hdenC
-        (inferInstance : IsAdicHom (algebraMap A C)).continuous.continuousAt hg).toAlgebra
-    haveI : IsAdicHom (algebraMap (Completion LA) (Completion LB)) :=
-      isAdicHom_ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PB SB.plus
-        SB.isRingOfIntegralElements.isPowerBounded_of_mem TB sB LB hdenB
-        (inferInstance : IsAdicHom (algebraMap A B)) hf
-    haveI : IsAdicHom (algebraMap (Completion LA) (Completion LC)) :=
-      isAdicHom_ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PC SC.plus
-        SC.isRingOfIntegralElements.isPowerBounded_of_mem TC sC LC hdenC
-        (inferInstance : IsAdicHom (algebraMap A C)) hg
-    letI := locUniformSpace PD TD sD LD hdenD
-    letI := isUniformAddGroup_locUniformSpace PD TD sD LD hdenD
-    letI := isTopologicalRing_locUniformSpace PD TD sD LD hdenD
-    letI := isHuberRing_completion_locTopology PD TD sD LD hdenD
-    (Pair.completedTensor.toRationalLoc PA SA TA sA LA hdenA PB SB TB sB LB hdenB
-        PC SC TC sC LC hdenC PD TD sD LD hdenD hPB hPC hPD hf hg hd).comp
-      (Pair.completedTensor.ofRationalLoc PA SA TA sA LA hdenA PB SB TB sB LB hdenB
-        PC SC TC sC LC hdenC PD TD sD LD hdenD hPB hPC hPD hf hg hd) =
-      Pair.Hom.id (PD.rationalLocalizationPair (SB.completedTensor A SC) hPD TD sD LD hdenD) := by
-  let _ := locUniformSpace PA TA sA LA hdenA
-  have _ := isUniformAddGroup_locUniformSpace PA TA sA LA hdenA
-  have _ := isTopologicalRing_locUniformSpace PA TA sA LA hdenA
-  let _ := locUniformSpace PB TB sB LB hdenB
-  have _ := isUniformAddGroup_locUniformSpace PB TB sB LB hdenB
-  have _ := isTopologicalRing_locUniformSpace PB TB sB LB hdenB
-  have _ := isHuberRing_completion_locTopology PB TB sB LB hdenB
-  let _ := locUniformSpace PC TC sC LC hdenC
-  have _ := isUniformAddGroup_locUniformSpace PC TC sC LC hdenC
-  have _ := isTopologicalRing_locUniformSpace PC TC sC LC hdenC
-  have _ := isHuberRing_completion_locTopology PC TC sC LC hdenC
-  let _ : Algebra (Completion LA) (Completion LB) :=
-    (ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PB SB.plus
-      SB.isRingOfIntegralElements.isPowerBounded_of_mem TB sB LB hdenB
-      (inferInstance : IsAdicHom (algebraMap A B)).continuous.continuousAt hf).toAlgebra
-  let _ : Algebra (Completion LA) (Completion LC) :=
-    (ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PC SC.plus
-      SC.isRingOfIntegralElements.isPowerBounded_of_mem TC sC LC hdenC
-      (inferInstance : IsAdicHom (algebraMap A C)).continuous.continuousAt hg).toAlgebra
-  have _ : IsAdicHom (algebraMap (Completion LA) (Completion LB)) :=
-    isAdicHom_ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PB SB.plus
-      SB.isRingOfIntegralElements.isPowerBounded_of_mem TB sB LB hdenB
-      (inferInstance : IsAdicHom (algebraMap A B)) hf
-  have _ : IsAdicHom (algebraMap (Completion LA) (Completion LC)) :=
-    isAdicHom_ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PC SC.plus
-      SC.isRingOfIntegralElements.isPowerBounded_of_mem TC sC LC hdenC
-      (inferInstance : IsAdicHom (algebraMap A C)) hg
-  let _ := locUniformSpace PD TD sD LD hdenD
-  have _ := isUniformAddGroup_locUniformSpace PD TD sD LD hdenD
-  have _ := isTopologicalRing_locUniformSpace PD TD sD LD hdenD
-  have _ := isHuberRing_completion_locTopology PD TD sD LD hdenD
-  ext1
-  simp
+/-- `toRationalLoc` and `ofRationalLoc` compose to the identity on `O_D(d)`. -/
+@[simp] theorem Pair.completedTensor.toRationalLoc_comp_ofRationalLoc :
+    withPairHuber3 hf hg => withPairLocHuber PD TD sD LD hdenD =>
+      (pairApp23 Pair.completedTensor.toRationalLoc hPB hPC hPD hf hg hd).comp
+          (pairApp23 Pair.completedTensor.ofRationalLoc hPB hPC hPD hf hg hd) =
+        Pair.Hom.id (PD.rationalLocalizationPair (SB.completedTensor A SC) hPD TD sD LD hdenD) := by
+  pair_tensor_inst hf hg; ext1; simp
 
-/-- `Pair.completedTensor.ofRationalLoc` and `Pair.completedTensor.toRationalLoc` compose to the
-identity on `O_B(U) ⊗̂_{O_A(W)} O_C(V)`. -/
-@[simp]
-theorem Pair.completedTensor.ofRationalLoc_comp_toRationalLoc
-    (hPB : PB.ringOfDefinition ≤ SB.plus)
-    (hPC : PC.ringOfDefinition ≤ SC.plus)
-    (hPD : PD.ringOfDefinition ≤ (SB.completedTensor A SC).plus)
-    (hf : Set.MapsTo (comap (algebraMap A B))
-      (rationalSubset SB.plus TB sB) (rationalSubset SA.plus TA sA))
-    (hg : Set.MapsTo (comap (algebraMap A C))
-      (rationalSubset SC.plus TC sC) (rationalSubset SA.plus TA sA))
-    (hd : Subtype.val ⁻¹' rationalSubset (SB.completedTensor A SC).plus TD sD =
-      ((Pair.completedTensor.inl A SB SC).spaComap ⁻¹'
-        (Subtype.val ⁻¹' rationalSubset SB.plus TB sB)) ∩
-      ((Pair.completedTensor.inr A SB SC).spaComap ⁻¹'
-        (Subtype.val ⁻¹' rationalSubset SC.plus TC sC))) :
-    letI := locUniformSpace PA TA sA LA hdenA
-    letI := isUniformAddGroup_locUniformSpace PA TA sA LA hdenA
-    letI := isTopologicalRing_locUniformSpace PA TA sA LA hdenA
-    letI := locUniformSpace PB TB sB LB hdenB
-    letI := isUniformAddGroup_locUniformSpace PB TB sB LB hdenB
-    letI := isTopologicalRing_locUniformSpace PB TB sB LB hdenB
-    letI := isHuberRing_completion_locTopology PB TB sB LB hdenB
-    letI := locUniformSpace PC TC sC LC hdenC
-    letI := isUniformAddGroup_locUniformSpace PC TC sC LC hdenC
-    letI := isTopologicalRing_locUniformSpace PC TC sC LC hdenC
-    letI := isHuberRing_completion_locTopology PC TC sC LC hdenC
-    letI : Algebra (Completion LA) (Completion LB) :=
-      (ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PB SB.plus
-        SB.isRingOfIntegralElements.isPowerBounded_of_mem TB sB LB hdenB
-        (inferInstance : IsAdicHom (algebraMap A B)).continuous.continuousAt hf).toAlgebra
-    letI : Algebra (Completion LA) (Completion LC) :=
-      (ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PC SC.plus
-        SC.isRingOfIntegralElements.isPowerBounded_of_mem TC sC LC hdenC
-        (inferInstance : IsAdicHom (algebraMap A C)).continuous.continuousAt hg).toAlgebra
-    haveI : IsAdicHom (algebraMap (Completion LA) (Completion LB)) :=
-      isAdicHom_ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PB SB.plus
-        SB.isRingOfIntegralElements.isPowerBounded_of_mem TB sB LB hdenB
-        (inferInstance : IsAdicHom (algebraMap A B)) hf
-    haveI : IsAdicHom (algebraMap (Completion LA) (Completion LC)) :=
-      isAdicHom_ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PC SC.plus
-        SC.isRingOfIntegralElements.isPowerBounded_of_mem TC sC LC hdenC
-        (inferInstance : IsAdicHom (algebraMap A C)) hg
-    letI := locUniformSpace PD TD sD LD hdenD
-    letI := isUniformAddGroup_locUniformSpace PD TD sD LD hdenD
-    letI := isTopologicalRing_locUniformSpace PD TD sD LD hdenD
-    letI := isHuberRing_completion_locTopology PD TD sD LD hdenD
-    (Pair.completedTensor.ofRationalLoc PA SA TA sA LA hdenA PB SB TB sB LB hdenB
-        PC SC TC sC LC hdenC PD TD sD LD hdenD hPB hPC hPD hf hg hd).comp
-      (Pair.completedTensor.toRationalLoc PA SA TA sA LA hdenA PB SB TB sB LB hdenB
-        PC SC TC sC LC hdenC PD TD sD LD hdenD hPB hPC hPD hf hg hd) =
-      Pair.Hom.id
-        ((PB.rationalLocalizationPair SB hPB TB sB LB hdenB).completedTensor (Completion LA)
-          (PC.rationalLocalizationPair SC hPC TC sC LC hdenC)) := by
-  let _ := locUniformSpace PA TA sA LA hdenA
-  have _ := isUniformAddGroup_locUniformSpace PA TA sA LA hdenA
-  have _ := isTopologicalRing_locUniformSpace PA TA sA LA hdenA
-  let _ := locUniformSpace PB TB sB LB hdenB
-  have _ := isUniformAddGroup_locUniformSpace PB TB sB LB hdenB
-  have _ := isTopologicalRing_locUniformSpace PB TB sB LB hdenB
-  have _ := isHuberRing_completion_locTopology PB TB sB LB hdenB
-  let _ := locUniformSpace PC TC sC LC hdenC
-  have _ := isUniformAddGroup_locUniformSpace PC TC sC LC hdenC
-  have _ := isTopologicalRing_locUniformSpace PC TC sC LC hdenC
-  have _ := isHuberRing_completion_locTopology PC TC sC LC hdenC
-  let _ : Algebra (Completion LA) (Completion LB) :=
-    (ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PB SB.plus
-      SB.isRingOfIntegralElements.isPowerBounded_of_mem TB sB LB hdenB
-      (inferInstance : IsAdicHom (algebraMap A B)).continuous.continuousAt hf).toAlgebra
-  let _ : Algebra (Completion LA) (Completion LC) :=
-    (ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PC SC.plus
-      SC.isRingOfIntegralElements.isPowerBounded_of_mem TC sC LC hdenC
-      (inferInstance : IsAdicHom (algebraMap A C)).continuous.continuousAt hg).toAlgebra
-  have _ : IsAdicHom (algebraMap (Completion LA) (Completion LB)) :=
-    isAdicHom_ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PB SB.plus
-      SB.isRingOfIntegralElements.isPowerBounded_of_mem TB sB LB hdenB
-      (inferInstance : IsAdicHom (algebraMap A B)) hf
-  have _ : IsAdicHom (algebraMap (Completion LA) (Completion LC)) :=
-    isAdicHom_ringHomOfMapsToRationalSubset PA SA.plus TA sA LA hdenA PC SC.plus
-      SC.isRingOfIntegralElements.isPowerBounded_of_mem TC sC LC hdenC
-      (inferInstance : IsAdicHom (algebraMap A C)) hg
-  let _ := locUniformSpace PD TD sD LD hdenD
-  have _ := isUniformAddGroup_locUniformSpace PD TD sD LD hdenD
-  have _ := isTopologicalRing_locUniformSpace PD TD sD LD hdenD
-  have _ := isHuberRing_completion_locTopology PD TD sD LD hdenD
-  ext1
-  simp
+/-- `ofRationalLoc` and `toRationalLoc` compose to the identity on `O_B(U) ⊗̂_{O_A(W)} O_C(V)`. -/
+@[simp] theorem Pair.completedTensor.ofRationalLoc_comp_toRationalLoc :
+    withPairHuber3 hf hg => withPairLocHuber PD TD sD LD hdenD =>
+      (pairApp23 Pair.completedTensor.ofRationalLoc hPB hPC hPD hf hg hd).comp
+          (pairApp23 Pair.completedTensor.toRationalLoc hPB hPC hPD hf hg hd) =
+        Pair.Hom.id (pairCtPair hPB hPC) := by
+  pair_tensor_inst hf hg; ext1; simp
+
+end RationalLocProps
 
 end RationalPair
 
-/-! ### Plus-ring compatibility for `CompletedTensor.completionLocEquiv` -/
-
 section UnlocalisedBase
+
+/-- Abbreviate the product numerator finset in `CompletedTensor A B C`. -/
+local macro "unlocTD" : term =>
+  let i := Lean.mkIdent
+  `((insert (CompletedTensor.inl $(i `A) $(i `B) $(i `C) $(i `s))
+        (($(i `T)).image (CompletedTensor.inl $(i `A) $(i `B) $(i `C))) *
+      insert (CompletedTensor.inr $(i `A) $(i `B) $(i `C) $(i `s'))
+        (($(i `T')).image (CompletedTensor.inr $(i `A) $(i `B) $(i `C))) : Finset _))
+
+/-- Abbreviate the product denominator `inl(s) * inr(s')` in `CompletedTensor A B C`. -/
+local macro "unlocSD" : term =>
+  let i := Lean.mkIdent
+  `((CompletedTensor.inl $(i `A) $(i `B) $(i `C) $(i `s)) *
+    (CompletedTensor.inr $(i `A) $(i `B) $(i `C) $(i `s')))
 
 variable {A B C : Type*} [CommRing A] [CommRing B] [CommRing C] [Algebra A B] [Algebra A C]
   [TopologicalSpace A] [TopologicalSpace B] [TopologicalSpace C]
   [IsTopologicalRing A] [IsTopologicalRing B] [IsTopologicalRing C]
   [IsHuberRing B] [IsHuberRing C]
-  [IsAdicHom (algebraMap A B)] [IsAdicHom (algebraMap A C)]
-  [DecidableEq (CompletedTensor A B C)]
+  [IsAdicHom (algebraMap A B)] [IsAdicHom (algebraMap A C)] [DecidableEq (CompletedTensor A B C)]
   (P : PairOfDefinition B) (SB : Pair B) (hP : P.ringOfDefinition ≤ SB.plus)
   (T : Finset B) (s : B) (S : Type*) [CommRing S] [Algebra B S]
   [IsLocalization.Away s S] (hden : HasDenominatorPower P T s S)
@@ -855,249 +391,71 @@ variable {A B C : Type*} [CommRing A] [CommRing B] [CommRing C] [Algebra A B] [A
   (T' : Finset C) (s' : C) (S' : Type*) [CommRing S'] [Algebra C S']
   [IsLocalization.Away s' S'] (hden' : HasDenominatorPower P' T' s' S')
   (Q : PairOfDefinition (CompletedTensor A B C)) (S'' : Type*) [CommRing S'']
-  [Algebra (CompletedTensor A B C) S'']
-  [IsLocalization.Away (CompletedTensor.inl A B C s * CompletedTensor.inr A B C s') S'']
-  (hden'' : HasDenominatorPower Q
-    (insert (CompletedTensor.inl A B C s) (T.image (CompletedTensor.inl A B C)) *
-      insert (CompletedTensor.inr A B C s') (T'.image (CompletedTensor.inr A B C)) : Finset _)
-    (CompletedTensor.inl A B C s * CompletedTensor.inr A B C s') S'')
+  [Algebra (CompletedTensor A B C) S''] [IsLocalization.Away unlocSD S'']
+  (hden'' : HasDenominatorPower Q unlocTD unlocSD S'')
 
-/-- Over an unlocalised base `A`, `CompletedTensor.completionLocEquiv` also carries the completed
-tensor plus ring onto `completedPlusSubring`. -/
+/-- Induced `Algebra A (Completion L)` structure on an unlocalised-base factor. -/
+local macro "unlocAlg " R:term:arg P:term:arg T:term:arg s:term:arg L:term:arg h:term:arg : term =>
+  let i := Lean.mkIdent
+  `(((toCompletionLoc $P $T $s $L $h).comp (algebraMap $(i `A) $R)).toAlgebra)
+
+/-- Adicness of `algebraMap A (Completion L)` on an unlocalised-base factor. -/
+local macro "unlocAdic " R:term:arg P:term:arg T:term:arg s:term:arg L:term:arg h:term:arg : term =>
+  let i := Lean.mkIdent
+  `((IsAdicHom.comp (isAdicHom_toCompletionLoc $P $T $s $L $h)
+      (inferInstance : IsAdicHom (algebraMap $(i `A) $R)) :
+      IsAdicHom (algebraMap $(i `A) (Completion $L))))
+
+/-- Install unlocalised-base completed-tensor localization instances in a term. -/
+local macro "withUnlocInst " " => " body:term : term =>
+  let i := Lean.mkIdent
+  `(withPairLocHuber $(i `P) $(i `T) $(i `s) $(i `S) $(i `hden) =>
+    withPairLocHuber $(i `P') $(i `T') $(i `s') $(i `S') $(i `hden') =>
+    letI := unlocAlg $(i `B) $(i `P) $(i `T) $(i `s) $(i `S) $(i `hden)
+    letI := unlocAlg $(i `C) $(i `P') $(i `T') $(i `s') $(i `S') $(i `hden')
+    haveI := unlocAdic $(i `B) $(i `P) $(i `T) $(i `s) $(i `S) $(i `hden)
+    haveI := unlocAdic $(i `C) $(i `P') $(i `T') $(i `s') $(i `S') $(i `hden')
+    withPairLocRing $(i `Q) _ _ $(i `S'') $(i `hden'') => $body)
+
+/-- Register unlocalised-base completed-tensor localization instances in tactic mode. -/
+local macro "pair_unloc_inst" : tactic =>
+  let i := Lean.mkIdent
+  `(tactic| (
+    pair_loc_huber $(i `P) $(i `T) $(i `s) $(i `S) $(i `hden)
+    pair_loc_huber $(i `P') $(i `T') $(i `s') $(i `S') $(i `hden')
+    pair_loc_huber $(i `Q) _ _ $(i `S'') $(i `hden'')
+    let _ := unlocAlg $(i `B) $(i `P) $(i `T) $(i `s) $(i `S) $(i `hden)
+    let _ := unlocAlg $(i `C) $(i `P') $(i `T') $(i `s') $(i `S') $(i `hden')
+    have _ := unlocAdic $(i `B) $(i `P) $(i `T) $(i `s) $(i `S) $(i `hden)
+    have _ := unlocAdic $(i `C) $(i `P') $(i `T') $(i `s') $(i `S') $(i `hden')))
+
+/-- Over an unlocalised base `A`, `CompletedTensor.completionLocEquiv` carries the completed tensor
+plus ring onto `completedPlusSubring`. -/
 theorem Pair.map_plus_completionLocEquiv :
-    letI := locUniformSpace P T s S hden
-    letI := isUniformAddGroup_locUniformSpace P T s S hden
-    letI := isTopologicalRing_locUniformSpace P T s S hden
-    letI := isHuberRing_completion_locTopology P T s S hden
-    letI := locUniformSpace P' T' s' S' hden'
-    letI := isUniformAddGroup_locUniformSpace P' T' s' S' hden'
-    letI := isTopologicalRing_locUniformSpace P' T' s' S' hden'
-    letI := isHuberRing_completion_locTopology P' T' s' S' hden'
-    letI : Algebra A (Completion S) :=
-      ((toCompletionLoc P T s S hden).comp (algebraMap A B)).toAlgebra
-    letI : Algebra A (Completion S') :=
-      ((toCompletionLoc P' T' s' S' hden').comp (algebraMap A C)).toAlgebra
-    haveI : IsAdicHom (algebraMap A (Completion S)) :=
-      IsAdicHom.comp (isAdicHom_toCompletionLoc P T s S hden)
-        (inferInstance : IsAdicHom (algebraMap A B))
-    haveI : IsAdicHom (algebraMap A (Completion S')) :=
-      IsAdicHom.comp (isAdicHom_toCompletionLoc P' T' s' S' hden')
-        (inferInstance : IsAdicHom (algebraMap A C))
-    letI := locUniformSpace Q _ _ S'' hden''
-    letI := isUniformAddGroup_locUniformSpace Q _ _ S'' hden''
-    letI := isTopologicalRing_locUniformSpace Q _ _ S'' hden''
-    ((P.rationalLocalizationPair SB hP T s S hden).completedTensor A
-      (P'.rationalLocalizationPair SC hP' T' s' S' hden')).plus.map
-      (CompletedTensor.completionLocEquiv P T s S hden P' T' s' S' hden' Q S'' hden'' :
-        CompletedTensor A (Completion S) (Completion S') →+* Completion S'') =
-      completedPlusSubring Q (SB.completedTensor A SC).plus
-        (insert (CompletedTensor.inl A B C s) (T.image (CompletedTensor.inl A B C)) *
-          insert (CompletedTensor.inr A B C s') (T'.image (CompletedTensor.inr A B C)) : Finset _)
-        (CompletedTensor.inl A B C s * CompletedTensor.inr A B C s') S'' hden'' := by
-  let _ := locUniformSpace P T s S hden
-  have _ := isUniformAddGroup_locUniformSpace P T s S hden
-  have _ := isTopologicalRing_locUniformSpace P T s S hden
-  have _ := isHuberRing_completion_locTopology P T s S hden
-  let _ := locUniformSpace P' T' s' S' hden'
-  have _ := isUniformAddGroup_locUniformSpace P' T' s' S' hden'
-  have _ := isTopologicalRing_locUniformSpace P' T' s' S' hden'
-  have _ := isHuberRing_completion_locTopology P' T' s' S' hden'
-  let _ : Algebra A (Completion S) :=
-    ((toCompletionLoc P T s S hden).comp (algebraMap A B)).toAlgebra
-  let _ : Algebra A (Completion S') :=
-    ((toCompletionLoc P' T' s' S' hden').comp (algebraMap A C)).toAlgebra
-  have _ : IsAdicHom (algebraMap A (Completion S)) :=
-    IsAdicHom.comp (isAdicHom_toCompletionLoc P T s S hden)
-      (inferInstance : IsAdicHom (algebraMap A B))
-  have _ : IsAdicHom (algebraMap A (Completion S')) :=
-    IsAdicHom.comp (isAdicHom_toCompletionLoc P' T' s' S' hden')
-      (inferInstance : IsAdicHom (algebraMap A C))
-  let _ := locUniformSpace Q _ _ S'' hden''
-  have _ := isUniformAddGroup_locUniformSpace Q _ _ S'' hden''
-  have _ := isTopologicalRing_locUniformSpace Q _ _ S'' hden''
-  have _ := isHuberRing_completion_locTopology Q _ _ S'' hden''
-  let OU := P.rationalLocalizationPair SB hP T s S hden
-  let OV := P'.rationalLocalizationPair SC hP' T' s' S' hden'
-  let SD := SB.completedTensor A SC
-  let T'' : Finset (CompletedTensor A B C) :=
-    insert (CompletedTensor.inl A B C s) (T.image (CompletedTensor.inl A B C)) *
-      insert (CompletedTensor.inr A B C s') (T'.image (CompletedTensor.inr A B C))
-  let s'' : CompletedTensor A B C := CompletedTensor.inl A B C s * CompletedTensor.inr A B C s'
-  let ODplus := completedPlusSubring Q SD.plus T'' s'' S'' hden''
-  let e := CompletedTensor.completionLocEquiv P T s S hden P' T' s' S' hden' Q S'' hden''
-  have he : Continuous e :=
-    CompletedTensor.continuous_completionLocEquiv P T s S hden P' T' s' S' hden' Q S'' hden''
-  have he' : Continuous e.symm :=
-    CompletedTensor.continuous_completionLocEquiv_symm P T s S hden P' T' s' S' hden' Q S'' hden''
-  have hd : Subtype.val ⁻¹' rationalSubset SD.plus T'' s'' =
-      ((Pair.completedTensor.inl A SB SC).spaComap ⁻¹'
-        (Subtype.val ⁻¹' rationalSubset SB.plus T s)) ∩
-      ((Pair.completedTensor.inr A SB SC).spaComap ⁻¹'
-        (Subtype.val ⁻¹' rationalSubset SC.plus T' s')) := by
-    convert (Pair.completedTensor.inter_preimage_rationalSubset
-      (A := A) SB SC T s T' s').symm
-  have hOD_ring : IsRingOfIntegralElements ODplus :=
-    isRingOfIntegralElements_completedPlusSubring Q SD.plus
-      (fun _ hj ↦ SD.isRingOfIntegralElements.mem_of_isTopologicallyNilpotent
-        (Q.isTopologicallyNilpotent_of_mem_idealOfDefinition hj))
-      SD.isRingOfIntegralElements.isPowerBounded_of_mem T'' s'' S'' hden''
-  have _ := hOD_ring.isIntegrallyClosedIn
-  have hOD_closed : IsClosed (ODplus : Set (Completion S'')) :=
-    ODplus.toAddSubgroup.isClosed_of_isOpen hOD_ring.isOpen
-  have hfwd : (OU.completedTensor A OV).plus ≤ ODplus.comap (e : _ →+* _) := by
-    refine OU.completedTensor_plus_le_comap OV hOD_closed he (fun u hu ↦ ?_) (fun v hv ↦ ?_)
-    · have hL := eq_ringHomOfMapsToRationalSubset P SB.plus T s S hden Q SD.plus
-        SD.isRingOfIntegralElements.isPowerBounded_of_mem T'' s'' S'' hden''
-        (CompletedTensor.continuous_inl A B C).continuousAt
-        (Pair.completedTensor.mapsTo_inl_of_inter_eq hd)
-        ((e : _ →+* _).comp (CompletedTensor.inl A (Completion S) (Completion S')))
-        (he.comp (CompletedTensor.continuous_inl _ _ _))
-        (RingHom.ext fun b ↦ by simp [e, toCompletionLoc_apply])
-      have hu' : u ∈ completedPlusSubring P SB.plus T s S hden := by
-        simpa only [OU, rationalLocalizationPair_plus] using hu
-      rw [← RingHom.comp_apply, hL]
-      exact ringHomOfMapsToRationalSubset_mem_completedPlusSubring P SB.plus T s S hden Q SD.plus
-        (fun _ hj ↦ SD.isRingOfIntegralElements.mem_of_isTopologicallyNilpotent
-          (Q.isTopologicallyNilpotent_of_mem_idealOfDefinition hj))
-        SD.isRingOfIntegralElements.isPowerBounded_of_mem T'' s'' S'' hden''
-        (CompletedTensor.continuous_inl A B C).continuousAt
-        (Pair.completedTensor.mapsTo_inl_of_inter_eq hd) u hu'
-    · have hR := eq_ringHomOfMapsToRationalSubset P' SC.plus T' s' S' hden' Q SD.plus
-        SD.isRingOfIntegralElements.isPowerBounded_of_mem T'' s'' S'' hden''
-        (CompletedTensor.continuous_inr A B C).continuousAt
-        (Pair.completedTensor.mapsTo_inr_of_inter_eq hd)
-        ((e : _ →+* _).comp (CompletedTensor.inr A (Completion S) (Completion S')))
-        (he.comp (CompletedTensor.continuous_inr _ _ _))
-        (RingHom.ext fun c ↦ by simp [e, toCompletionLoc_apply])
-      have hv' : v ∈ completedPlusSubring P' SC.plus T' s' S' hden' := by
-        simpa only [OV, rationalLocalizationPair_plus] using hv
-      rw [← RingHom.comp_apply, hR]
-      exact ringHomOfMapsToRationalSubset_mem_completedPlusSubring P' SC.plus T' s' S' hden'
-        Q SD.plus
-        (fun _ hj ↦ SD.isRingOfIntegralElements.mem_of_isTopologicallyNilpotent
-          (Q.isTopologicallyNilpotent_of_mem_idealOfDefinition hj))
-        SD.isRingOfIntegralElements.isPowerBounded_of_mem T'' s'' S'' hden''
-        (CompletedTensor.continuous_inr A B C).continuousAt
-        (Pair.completedTensor.mapsTo_inr_of_inter_eq hd) v hv'
-  let g : CompletedTensor A B C →+* CompletedTensor A (Completion S) (Completion S') :=
-    (e.symm : _ →+* _).comp (toCompletionLoc Q T'' s'' S'' hden'')
-  have hg_cont : Continuous g := he'.comp (continuous_toCompletionLoc Q T'' s'' S'' hden'')
-  have hgB : g.comp (CompletedTensor.inl A B C) =
-      (CompletedTensor.inl A (Completion S) (Completion S')).comp
-        (toCompletionLoc P T s S hden) :=
-    RingHom.ext fun b ↦ by simp [g, e, toCompletionLoc_apply]
-  have hgC : g.comp (CompletedTensor.inr A B C) =
-      (CompletedTensor.inr A (Completion S) (Completion S')).comp
-        (toCompletionLoc P' T' s' S' hden') :=
-    RingHom.ext fun c ↦ by simp [g, e, toCompletionLoc_apply]
-  have _ := (OU.completedTensor A OV).isRingOfIntegralElements.isIntegrallyClosedIn
-  have hE_closed : IsClosed ((OU.completedTensor A OV).plus :
-      Set (CompletedTensor A (Completion S) (Completion S'))) :=
-    (OU.completedTensor A OV).plus.toAddSubgroup.isClosed_of_isOpen
-      (OU.completedTensor A OV).isRingOfIntegralElements.isOpen
-  have hg_plus : SD.plus ≤ (OU.completedTensor A OV).plus.comap g := by
-    refine SB.completedTensor_plus_le_comap SC hE_closed hg_cont
-      (fun b hb ↦ ?_) (fun c hc ↦ ?_)
-    · have hb' : toCompletionLoc P T s S hden b ∈ OU.plus := by
-        rw [rationalLocalizationPair_plus]
-        exact toCompletionLoc_mem_completedPlusSubring P SB.plus T s S hden hb
-      have hinl := OU.inl_mem_completedTensor_plus (A := A) OV hb'
-      rwa [← RingHom.comp_apply, ← hgB, RingHom.comp_apply] at hinl
-    · have hc' : toCompletionLoc P' T' s' S' hden' c ∈ OV.plus := by
-        rw [rationalLocalizationPair_plus]
-        exact toCompletionLoc_mem_completedPlusSubring P' SC.plus T' s' S' hden' hc
-      have hinr := OU.inr_mem_completedTensor_plus (A := A) OV hc'
-      rwa [← RingHom.comp_apply, ← hgC, RingHom.comp_apply] at hinr
-  ext z
-  rw [Subring.mem_map]
-  refine ⟨fun ⟨x, hx, hxz⟩ ↦ hxz ▸ hfwd hx, fun hz ↦ ⟨e.symm z, ?_, e.apply_symm_apply z⟩⟩
-  refine (OU.completedTensor A OV).isRingOfIntegralElements.mem_of_forall_vle_one fun w hw ↦ ?_
-  let gHom : Pair.Hom SD (OU.completedTensor A OV) := ⟨g, hg_cont, fun d hd' ↦ hg_plus hd'⟩
-  have hmemD : gHom.spaComap ⟨w, hw⟩ ∈ Subtype.val ⁻¹' rationalSubset SD.plus T'' s'' := by
-    rw [hd]
-    refine ⟨?_, ?_⟩
-    · simp only [Set.mem_preimage, Pair.Hom.spaComap_val, Pair.completedTensor.toRingHom_inl]
-      rw [← Function.comp_apply (f := comap (CompletedTensor.inl A B C)), ← comap_comp,
-        hgB, comap_comp, Function.comp_apply]
-      have hwB : comap (CompletedTensor.inl A (Completion S) (Completion S')) w ∈
-          spa (completedPlusSubring P SB.plus T s S hden) := by
-        rw [← rationalLocalizationPair_plus P SB hP T s S hden]
-        simpa only [Pair.Hom.spaComap_val, Pair.completedTensor.toRingHom_inl] using
-          ((Pair.completedTensor.inl A OU OV).spaComap ⟨w, hw⟩).2
-      simpa only [spaComapLoc_val] using
-        spaComapLoc_mem_rationalSubset P SB.plus T s S hden ⟨_, hwB⟩
-    · simp only [Set.mem_preimage, Pair.Hom.spaComap_val, Pair.completedTensor.toRingHom_inr]
-      rw [← Function.comp_apply (f := comap (CompletedTensor.inr A B C)), ← comap_comp,
-        hgC, comap_comp, Function.comp_apply]
-      have hwC : comap (CompletedTensor.inr A (Completion S) (Completion S')) w ∈
-          spa (completedPlusSubring P' SC.plus T' s' S' hden') := by
-        rw [← rationalLocalizationPair_plus P' SC hP' T' s' S' hden']
-        simpa only [Pair.Hom.spaComap_val, Pair.completedTensor.toRingHom_inr] using
-          ((Pair.completedTensor.inr A OU OV).spaComap ⟨w, hw⟩).2
-      simpa only [spaComapLoc_val] using
-        spaComapLoc_mem_rationalSubset P' SC.plus T' s' S' hden' ⟨_, hwC⟩
-  have hcomap := comap_mem_spa_completedPlusSubring Q SD.plus T'' s'' S'' hden''
-    (e.symm : _ →+* _) he' ((mem_spa_iff _ _).mp hw).1
-    (by simpa only [Set.mem_preimage, Pair.Hom.spaComap_val] using hmemD)
-  simpa only [comap_vle, map_one, RingEquiv.coe_toRingHom] using
-    ((mem_spa_iff _ _).mp hcomap).2 z hz
+    withUnlocInst =>
+      ((P.rationalLocalizationPair SB hP T s S hden).completedTensor A
+        (P'.rationalLocalizationPair SC hP' T' s' S' hden')).plus.map
+        (CompletedTensor.completionLocEquiv P T s S hden P' T' s' S' hden' Q S'' hden'' :
+          CompletedTensor A (Completion S) (Completion S') →+* Completion S'') =
+        completedPlusSubring Q (SB.completedTensor A SC).plus unlocTD unlocSD S'' hden'' := by
+  pair_unloc_inst
+  exact map_plus_of_ringEquiv P SB hP T s S hden P' SC hP' T' s' S' hden' Q _ _ S'' hden''
+    (CompletedTensor.completionLocEquiv P T s S hden P' T' s' S' hden' Q S'' hden'')
+    (CompletedTensor.continuous_completionLocEquiv P T s S hden P' T' s' S' hden' Q S'' hden'')
+    (CompletedTensor.continuous_completionLocEquiv_symm P T s S hden P' T' s' S' hden' Q S'' hden'')
+    (fun b ↦ by simp [toCompletionLoc_apply]) (fun c ↦ by simp [toCompletionLoc_apply])
+    (by convert (Pair.completedTensor.inter_preimage_rationalSubset (A := A) SB SC T s T' s').symm)
 
 /-- Membership in the completed tensor plus ring over an unlocalised base `A` is equivalent to
-membership of the image under `CompletedTensor.completionLocEquiv` in `completedPlusSubring` (not
-`@[simp]` because `mem_completedPlusSubring_iff` already rewrites the right-hand side). -/
+membership of the image under `CompletedTensor.completionLocEquiv` in `completedPlusSubring`. -/
 theorem Pair.mem_completedTensor_plus_iff_completionLocEquiv :
-    letI := locUniformSpace P T s S hden
-    letI := isUniformAddGroup_locUniformSpace P T s S hden
-    letI := isTopologicalRing_locUniformSpace P T s S hden
-    letI := isHuberRing_completion_locTopology P T s S hden
-    letI := locUniformSpace P' T' s' S' hden'
-    letI := isUniformAddGroup_locUniformSpace P' T' s' S' hden'
-    letI := isTopologicalRing_locUniformSpace P' T' s' S' hden'
-    letI := isHuberRing_completion_locTopology P' T' s' S' hden'
-    letI : Algebra A (Completion S) :=
-      ((toCompletionLoc P T s S hden).comp (algebraMap A B)).toAlgebra
-    letI : Algebra A (Completion S') :=
-      ((toCompletionLoc P' T' s' S' hden').comp (algebraMap A C)).toAlgebra
-    haveI : IsAdicHom (algebraMap A (Completion S)) :=
-      IsAdicHom.comp (isAdicHom_toCompletionLoc P T s S hden)
-        (inferInstance : IsAdicHom (algebraMap A B))
-    haveI : IsAdicHom (algebraMap A (Completion S')) :=
-      IsAdicHom.comp (isAdicHom_toCompletionLoc P' T' s' S' hden')
-        (inferInstance : IsAdicHom (algebraMap A C))
-    letI := locUniformSpace Q _ _ S'' hden''
-    letI := isUniformAddGroup_locUniformSpace Q _ _ S'' hden''
-    letI := isTopologicalRing_locUniformSpace Q _ _ S'' hden''
-    ∀ x : CompletedTensor A (Completion S) (Completion S'),
-      CompletedTensor.completionLocEquiv P T s S hden P' T' s' S' hden' Q S'' hden'' x ∈
-          completedPlusSubring Q (SB.completedTensor A SC).plus
-            (insert (CompletedTensor.inl A B C s) (T.image (CompletedTensor.inl A B C)) *
-              insert (CompletedTensor.inr A B C s') (T'.image (CompletedTensor.inr A B C)) :
-                Finset _)
-            (CompletedTensor.inl A B C s * CompletedTensor.inr A B C s') S'' hden'' ↔
-        x ∈ ((P.rationalLocalizationPair SB hP T s S hden).completedTensor A
-          (P'.rationalLocalizationPair SC hP' T' s' S' hden')).plus := by
-  let _ := locUniformSpace P T s S hden
-  have _ := isUniformAddGroup_locUniformSpace P T s S hden
-  have _ := isTopologicalRing_locUniformSpace P T s S hden
-  have _ := isHuberRing_completion_locTopology P T s S hden
-  let _ := locUniformSpace P' T' s' S' hden'
-  have _ := isUniformAddGroup_locUniformSpace P' T' s' S' hden'
-  have _ := isTopologicalRing_locUniformSpace P' T' s' S' hden'
-  have _ := isHuberRing_completion_locTopology P' T' s' S' hden'
-  let _ : Algebra A (Completion S) :=
-    ((toCompletionLoc P T s S hden).comp (algebraMap A B)).toAlgebra
-  let _ : Algebra A (Completion S') :=
-    ((toCompletionLoc P' T' s' S' hden').comp (algebraMap A C)).toAlgebra
-  have _ : IsAdicHom (algebraMap A (Completion S)) :=
-    IsAdicHom.comp (isAdicHom_toCompletionLoc P T s S hden)
-      (inferInstance : IsAdicHom (algebraMap A B))
-  have _ : IsAdicHom (algebraMap A (Completion S')) :=
-    IsAdicHom.comp (isAdicHom_toCompletionLoc P' T' s' S' hden')
-      (inferInstance : IsAdicHom (algebraMap A C))
-  let _ := locUniformSpace Q _ _ S'' hden''
-  have _ := isUniformAddGroup_locUniformSpace Q _ _ S'' hden''
-  have _ := isTopologicalRing_locUniformSpace Q _ _ S'' hden''
-  intro x
+    withUnlocInst =>
+      ∀ x : CompletedTensor A (Completion S) (Completion S'),
+        CompletedTensor.completionLocEquiv P T s S hden P' T' s' S' hden' Q S'' hden'' x ∈
+            completedPlusSubring Q (SB.completedTensor A SC).plus unlocTD unlocSD S'' hden'' ↔
+          x ∈ ((P.rationalLocalizationPair SB hP T s S hden).completedTensor A
+            (P'.rationalLocalizationPair SC hP' T' s' S' hden')).plus := by
+  pair_unloc_inst; intro x
   rw [← Pair.map_plus_completionLocEquiv P SB hP T s S hden P' SC hP' T' s' S' hden' Q S'' hden'']
   simp only [Subring.mem_map_equiv, RingEquiv.symm_apply_apply]
 
