@@ -6,6 +6,7 @@ Authors: The Tau Ceti contributors
 module
 
 public import Mathlib.Analysis.Analytic.Constructions
+import Mathlib.Analysis.Analytic.Composition
 
 /-!
 # Analytic constructions: products and finite sums
@@ -16,6 +17,11 @@ slices `y ↦ f (x, y)` with `x` near `p.1` (`AnalyticAt.eventually_analyticAt_c
 
 Concatenating two finite families of vectors, `p ↦ Sum.elim p.1 p.2`, is analytic
 (`TauCeti.analyticAt_sumElim`, `TauCeti.analyticOnNhd_sumElim`).
+
+Replacing one coordinate of an analytic map into a finite product by an analytic coordinate map
+preserves analyticity (`AnalyticWithinAt.update`, `AnalyticAt.update`, `AnalyticOn.update`,
+`AnalyticOnNhd.update`), so one-variable coordinate slices `w ↦ f (Function.update z i w)` are
+analytic (`AnalyticAt.comp_update`).
 
 Finite sums of functions admitting power series on a common ball admit the summed power series on
 that ball (`Finset.hasFPowerSeriesOnBall_sum`, `Finset.hasFPowerSeriesWithinOnBall_sum`).
@@ -57,6 +63,57 @@ theorem analyticOnNhd_sumElim {ι ι' : Type*} [Fintype ι] [Fintype ι']
 end TauCeti
 
 end Products
+
+section Update
+
+variable {𝕜 : Type*} [NontriviallyNormedField 𝕜]
+  {E : Type*} [NormedAddCommGroup E] [NormedSpace 𝕜 E]
+  {ι : Type*} [Fintype ι] [DecidableEq ι]
+  {G : ι → Type*} [∀ j, NormedAddCommGroup (G j)] [∀ j, NormedSpace 𝕜 (G j)]
+
+/-- Replacing the `i`-th coordinate of an analytic family within `s` by an analytic function within
+`s` preserves `AnalyticWithinAt`. -/
+theorem AnalyticWithinAt.update {f : E → ∀ j, G j} {s : Set E} {x : E}
+    (hf : AnalyticWithinAt 𝕜 f s x) (i : ι) {g : E → G i} (hg : AnalyticWithinAt 𝕜 g s x) :
+    AnalyticWithinAt 𝕜 (fun z ↦ Function.update (f z) i (g z)) s x :=
+  analyticWithinAt_pi_iff.2 fun j ↦ by
+    rcases eq_or_ne j i with rfl | hj
+    · simpa using hg
+    · simpa [hj] using analyticWithinAt_pi_iff.1 hf j
+
+/-- Replacing the `i`-th coordinate of an analytic map into a finite product by an analytic
+coordinate map preserves `AnalyticAt`. -/
+@[fun_prop]
+theorem AnalyticAt.update {f : E → ∀ j, G j} {x : E}
+    (hf : AnalyticAt 𝕜 f x) (i : ι) {g : E → G i} (hg : AnalyticAt 𝕜 g x) :
+    AnalyticAt 𝕜 (fun z ↦ Function.update (f z) i (g z)) x := by
+  simp_rw [← analyticWithinAt_univ] at hf hg ⊢
+  exact hf.update i hg
+
+/-- Replacing the `i`-th coordinate of an `AnalyticOn` map into a finite product by an `AnalyticOn`
+coordinate map preserves `AnalyticOn`. -/
+theorem AnalyticOn.update {f : E → ∀ j, G j} {s : Set E}
+    (hf : AnalyticOn 𝕜 f s) (i : ι) {g : E → G i} (hg : AnalyticOn 𝕜 g s) :
+    AnalyticOn 𝕜 (fun z ↦ Function.update (f z) i (g z)) s :=
+  fun x hx ↦ (hf x hx).update i (hg x hx)
+
+/-- Replacing the `i`-th coordinate of an `AnalyticOnNhd` map into a finite product by an
+`AnalyticOnNhd` coordinate map preserves `AnalyticOnNhd`. -/
+@[fun_prop]
+theorem AnalyticOnNhd.update {f : E → ∀ j, G j} {s : Set E}
+    (hf : AnalyticOnNhd 𝕜 f s) (i : ι) {g : E → G i} (hg : AnalyticOnNhd 𝕜 g s) :
+    AnalyticOnNhd 𝕜 (fun z ↦ Function.update (f z) i (g z)) s :=
+  fun x hx ↦ (hf x hx).update i (hg x hx)
+
+/-- If `f` is analytic at `Function.update z i a`, then its `i`-th coordinate slice
+`w ↦ f (Function.update z i w)` is analytic at `a`. -/
+theorem AnalyticAt.comp_update {F : Type*} [NormedAddCommGroup F] [NormedSpace 𝕜 F]
+    {f : (∀ j, G j) → F} {z : ∀ j, G j} {i : ι} {a : G i}
+    (hf : AnalyticAt 𝕜 f (Function.update z i a)) :
+    AnalyticAt 𝕜 (fun w ↦ f (Function.update z i w)) a :=
+  hf.comp ((analyticAt_const (x := a)).update i analyticAt_id)
+
+end Update
 
 section FinsetSum
 
