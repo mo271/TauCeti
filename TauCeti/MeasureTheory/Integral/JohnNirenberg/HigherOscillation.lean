@@ -24,6 +24,9 @@ function with an `Lᵠ` function on a cube.
 * `TauCeti.setLAverage_enorm_sub_setAverage_rpow_le_of_bmoSeminorm_le`: every power of the
   oscillation of a function of bounded mean oscillation on a cube has average bounded by the
   corresponding power of its BMO seminorm.
+* `TauCeti.MemBMO.memLp_restrict_ball_pi`, `TauCeti.MemBMO.memLp_restrict_of_isBounded_pi`: every
+  function of bounded mean oscillation on `ι → ℝ` belongs to `Lᵖ` on every ball and bounded set for
+  `p < ∞`.
 * `TauCeti.setLIntegral_enorm_sub_mul_enorm_rpow_le`, `TauCeti.setLIntegral_enorm_sub_mul_enorm_le`:
   on a cube containing `x`, the `Lᵗ` norm of `|b - a| ‖f‖` for a function `b` of bounded mean
   oscillation is controlled by `‖b‖_{BMO}` and the maximal function of `‖f‖^q` at `x`, `t < q`,
@@ -137,6 +140,54 @@ theorem setLAverage_enorm_sub_setAverage_rpow_le_of_bmoSeminorm_le {f : (ι → 
   exact ENNReal.coe_le_coe.2 le_self_add
 
 end HigherOscillation
+
+section LocalMemLp
+
+open Metric
+
+variable [CompleteSpace E] {μ : Measure (ι → ℝ)} [μ.IsAddHaarMeasure]
+
+/-- **Functions of bounded mean oscillation are locally in `Lᵖ` for every `p < ∞`.** On every ball
+of `ℝⁿ = ι → ℝ`, the John–Nirenberg inequality makes `f - f_B` `p`-integrable, and the constant
+`f_B` is `p`-integrable since balls have finite Haar measure. -/
+theorem MemBMO.memLp_restrict_ball_pi {f : (ι → ℝ) → E} (hf : MemBMO f μ) {p : ℝ≥0∞} (hp : p ≠ ∞)
+    (c : ι → ℝ) (r : ℝ) : MemLp f p (μ.restrict (ball c r)) := by
+  have : IsFiniteMeasure (μ.restrict (ball c r)) :=
+    isFiniteMeasure_restrict.2 measure_ball_lt_top.ne
+  rcases isEmpty_or_nonempty ι with hι | hι
+  · convert (memLp_const (f 0) : MemLp _ p (μ.restrict (ball c r))) using 1
+    ext x
+    rw [Subsingleton.elim x 0]
+  have hfm : AEStronglyMeasurable f (μ.restrict (ball c r)) :=
+    hf.locallyIntegrable.aestronglyMeasurable.restrict
+  rcases eq_or_ne p 0 with rfl | hp0
+  · exact memLp_zero_iff_aestronglyMeasurable.2 hfm
+  have hq : 0 < p.toReal := ENNReal.toReal_pos hp0 hp
+  set a := ⨍ y in ball c r, f y ∂μ
+  set M : ℝ≥0 := (bmoSeminorm f μ).toNNReal
+  have hM : bmoSeminorm f μ ≤ M := (ENNReal.coe_toNNReal hf.bmoSeminorm_ne_top).ge
+  have hosc := setLAverage_enorm_sub_setAverage_rpow_le_of_bmoSeminorm_le
+    hf.locallyIntegrable hM hq c r
+  have hsub : MemLp (fun x => f x - a) p (μ.restrict (ball c r)) := by
+    refine (eLpNorm_lt_top_iff_lintegral_rpow_eNorm_lt_top hp0 hp
+      (hfm.sub aestronglyMeasurable_const)).2 ?_
+    rw [← measure_mul_setLAverage _ measure_ball_lt_top.ne]
+    exact ENNReal.mul_lt_top measure_ball_lt_top
+      (hosc.trans_lt (ENNReal.mul_lt_top ENNReal.ofReal_ne_top.lt_top
+        (ENNReal.rpow_lt_top_of_nonneg hq.le ENNReal.coe_ne_top)))
+  convert hsub.add (memLp_const a) using 1
+  ext x
+  exact (sub_add_cancel (f x) a).symm
+
+/-- Every function of bounded mean oscillation on `ℝⁿ = ι → ℝ` belongs to `Lᵖ` on every bounded set
+for every `p < ∞`. -/
+theorem MemBMO.memLp_restrict_of_isBounded_pi {f : (ι → ℝ) → E} (hf : MemBMO f μ) {p : ℝ≥0∞}
+    (hp : p ≠ ∞) {s : Set (ι → ℝ)} (hs : Bornology.IsBounded s) :
+    MemLp f p (μ.restrict s) := by
+  obtain ⟨r, hr⟩ := hs.subset_ball (0 : ι → ℝ)
+  exact (hf.memLp_restrict_ball_pi hp 0 r).mono_measure (Measure.restrict_mono hr le_rfl)
+
+end LocalMemLp
 
 section Product
 

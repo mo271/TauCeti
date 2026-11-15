@@ -145,9 +145,10 @@ and letting the truncations increase to `F` gives the bound for `∫⁻ F ^ q`.
   **maximal inequality**, in product and in quotient form.
 * `TauCeti.ae_maximalFunction_lt_top`: the maximal function of an `L¹` function is finite almost
   everywhere.
-* `TauCeti.lintegral_rpow_maximalFunction_le`, `TauCeti.eLpNorm_maximalFunction_le`: the
-  **strong type `(p, p)` maximal inequality** for `1 < p < ∞`, with the explicit constant
-  `TauCeti.maximalFunctionConst`.
+* `TauCeti.lintegral_rpow_maximalFunction_le`, `TauCeti.eLpNorm_maximalFunction_le`,
+  `TauCeti.eLpNorm_maximalFunction_rpow_le`: the **strong type `(p, p)` maximal inequality** for
+  `1 < p < ∞` and its fractional-power variant `(M(‖f‖ₑ ^ q)) ^ q⁻¹` for `0 < q < p`, with the
+  explicit constant `TauCeti.maximalFunctionConst`.
 * `TauCeti.lintegral_rpow_le_of_sq_le_maximalFunction`: integrating a pointwise bound of `g²` by
   three maximal functions, as in the sharp function method.
 * `TauCeti.mul_setLIntegral_lt_maximalFunction_le`,
@@ -619,6 +620,43 @@ theorem eLpNorm_maximalFunction_le [TopologicalSpace F] (μ : Measure E) [μ.IsA
     _ = maximalFunctionConst (finrank ℝ E) p.toReal ^ (1 / p.toReal) *
           (∫⁻ x, ‖f x‖ₑ ^ p.toReal ∂μ) ^ (1 / p.toReal) :=
         ENNReal.mul_rpow_of_nonneg _ _ (by positivity)
+    _ ≤ _ := by gcongr
+
+/-- **The `Lᵖ` bound for the `q`-maximal function `(M(‖f‖ₑ ^ q)) ^ q⁻¹`.** Applying the strong
+maximal inequality at the exponent `p / q > 1`, for `0 < q < p < ∞`, bounds the `Lᵖ` seminorm of
+`x ↦ (M(‖f‖ₑ ^ q) x) ^ q⁻¹` by `maximalFunctionConst n (p / q) ^ (1 / p)` times `‖f‖_p`. -/
+theorem eLpNorm_maximalFunction_rpow_le [TopologicalSpace F] (μ : Measure E) [μ.IsAddHaarMeasure]
+    {f : E → F} (hf : AEMeasurable (fun x => ‖f x‖ₑ) μ) {q : ℝ} {p : ℝ≥0∞} (hq : 0 < q)
+    (hqp : q < p.toReal) (hp_top : p ≠ ∞) :
+    eLpNorm (fun x => maximalFunction μ (fun y => ‖f y‖ₑ ^ q) x ^ q⁻¹) p μ ≤
+      maximalFunctionConst (finrank ℝ E) (p.toReal / q) ^ (1 / p.toReal) * eLpNorm f p μ := by
+  have hp_pos : 0 < p.toReal := hq.trans hqp
+  have hp₀ : p ≠ 0 := fun h => by simp [h] at hp_pos
+  have hpq : 1 < p.toReal / q := (one_lt_div hq).2 hqp
+  have hfle : (∫⁻ x, ‖f x‖ₑ ^ p.toReal ∂μ) ^ (1 / p.toReal) ≤ eLpNorm f p μ := by
+    by_cases hfm : AEStronglyMeasurable f μ
+    · exact (eLpNorm_eq_lintegral_rpow_eNorm_toReal hp₀ hp_top hfm).ge
+    · simp [eLpNorm_of_not_aestronglyMeasurable hfm]
+  have hMm : Measurable fun x => maximalFunction μ (fun y => ‖f y‖ₑ ^ q) x ^ q⁻¹ :=
+    (measurable_maximalFunction μ fun y => ‖f y‖ₑ ^ q).pow_const q⁻¹
+  rw [eLpNorm_eq_lintegral_rpow_eNorm_toReal hp₀ hp_top hMm.aestronglyMeasurable]
+  calc (∫⁻ x, ‖maximalFunction μ (fun y => ‖f y‖ₑ ^ q) x ^ q⁻¹‖ₑ ^ p.toReal ∂μ) ^ (1 / p.toReal)
+      = (∫⁻ x, maximalFunction μ (fun y => ‖f y‖ₑ ^ q) x ^ (p.toReal / q) ∂μ) ^ (1 / p.toReal) := by
+        congr 1
+        refine lintegral_congr fun x => ?_
+        rw [eNorm_eq_self, ← ENNReal.rpow_mul, inv_mul_eq_div]
+    _ ≤ (maximalFunctionConst (finrank ℝ E) (p.toReal / q) *
+          ∫⁻ x, (‖f x‖ₑ ^ q) ^ (p.toReal / q) ∂μ) ^ (1 / p.toReal) := by
+        refine ENNReal.rpow_le_rpow ?_ (by positivity)
+        simpa only [eNorm_eq_self] using
+          lintegral_rpow_maximalFunction_le μ (f := fun y => ‖f y‖ₑ ^ q)
+            (by simpa only [eNorm_eq_self] using hf.pow_const q) hpq
+    _ = maximalFunctionConst (finrank ℝ E) (p.toReal / q) ^ (1 / p.toReal) *
+          (∫⁻ x, ‖f x‖ₑ ^ p.toReal ∂μ) ^ (1 / p.toReal) := by
+        rw [ENNReal.mul_rpow_of_nonneg _ _ (by positivity)]
+        congr 2
+        refine lintegral_congr fun x => ?_
+        rw [← ENNReal.rpow_mul, mul_div_cancel₀ _ hq.ne']
     _ ≤ _ := by gcongr
 
 /- The integration step below follows the corresponding helper of
