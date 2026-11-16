@@ -87,6 +87,11 @@ rows.  It depends on `t` only through its tabloid. -/
 def rowCount (t : YoungTableau μ) (m i : ℕ) : ℕ :=
   (Finset.univ.filter fun k : Fin μ.card ↦ (k : ℕ) < m ∧ rowIndex t k ≤ i).card
 
+theorem rowCount_def (t : YoungTableau μ) (m i : ℕ) :
+    rowCount t m i =
+      (Finset.univ.filter fun k : Fin μ.card ↦ (k : ℕ) < m ∧ rowIndex t k ≤ i).card :=
+  (rfl)
+
 theorem rowCount_congr {t u : YoungTableau μ} (h : rowIndex t = rowIndex u) (m i : ℕ) :
     rowCount t m i = rowCount u m i := by
   rw [rowCount, rowCount, h]
@@ -142,6 +147,10 @@ many as those that `u` does. -/
 def TabloidDominates (t u : YoungTableau μ) : Prop :=
   ∀ m i : ℕ, rowCount u m i ≤ rowCount t m i
 
+theorem tabloidDominates_iff {t u : YoungTableau μ} :
+    TabloidDominates t u ↔ ∀ m i : ℕ, rowCount u m i ≤ rowCount t m i :=
+  (Iff.rfl)
+
 theorem tabloidDominates_refl (t : YoungTableau μ) : TabloidDominates t t := fun _ _ ↦ le_rfl
 
 theorem TabloidDominates.trans {t u v : YoungTableau μ} (h : TabloidDominates t u)
@@ -163,19 +172,21 @@ theorem TabloidDominates.antisymm {t u : YoungTableau μ} (h : TabloidDominates 
 /-- A numerical refinement of dominance: the total of all the counts that can differ.  Dominance
 increases it, and a dominating tableau of no greater weight has the same rows
 (`rowIndex_eq_of_tabloidDominates`). -/
-private def rowWeight (t : YoungTableau μ) : ℕ :=
+def rowWeight (t : YoungTableau μ) : ℕ :=
   ∑ m ∈ Finset.range (μ.card + 1), ∑ i ∈ Finset.range (μ.colLen 0), rowCount t m i
 
-private theorem rowWeight_congr {t u : YoungTableau μ} (h : rowIndex t = rowIndex u) :
+/-- `rowWeight` depends on a tableau only through the row of each label. -/
+theorem rowWeight_congr {t u : YoungTableau μ} (h : rowIndex t = rowIndex u) :
     rowWeight t = rowWeight u := by
   refine Finset.sum_congr rfl fun m _ ↦ Finset.sum_congr rfl fun i _ ↦ rowCount_congr h m i
 
-private theorem rowWeight_le_of_tabloidDominates {t u : YoungTableau μ} (h : TabloidDominates t u) :
+/-- Dominance weakly increases `rowWeight`. -/
+theorem rowWeight_le_of_tabloidDominates {t u : YoungTableau μ} (h : TabloidDominates t u) :
     rowWeight u ≤ rowWeight t :=
   Finset.sum_le_sum fun m _ ↦ Finset.sum_le_sum fun i _ ↦ h m i
 
 /-- **Dominance with no gain of weight is equality of tabloids.** -/
-private theorem rowIndex_eq_of_tabloidDominates {t u : YoungTableau μ} (h : TabloidDominates t u)
+theorem rowIndex_eq_of_tabloidDominates {t u : YoungTableau μ} (h : TabloidDominates t u)
     (hw : rowWeight t ≤ rowWeight u) : rowIndex u = rowIndex t := by
   have hinner := (Finset.sum_eq_sum_iff_of_le
     fun m (_ : m ∈ Finset.range (μ.card + 1)) ↦ Finset.sum_le_sum fun i _ ↦ h m i).mp
