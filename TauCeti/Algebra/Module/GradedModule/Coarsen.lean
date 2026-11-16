@@ -36,8 +36,10 @@ super (parity-graded) object, for example when Koszul signs only depend on parit
 
 ## Main results
 
-* `TauCeti.coarsenGrading_le_iff`: the universal property of the coarsened pieces, and
-  `TauCeti.coarsenGrading_induction`: the corresponding induction principle on elements.
+* `TauCeti.coarsenGrading_le_iff`: the universal property of the coarsened pieces,
+  `TauCeti.coarsenGrading_induction`: the corresponding induction principle on elements,
+  `TauCeti.coarsenGrading_apply_of_injective`: preservation of pieces along an injective map, and
+  `TauCeti.coarsenGrading_eq_bot_of_forall_ne`: vanishing outside the range of the reindexing.
 * `TauCeti.decompose_coarsenGrading`: the coarsened homogeneous components are the sums of the
   original components in each fibre.
 * `TauCeti.mem_coarsenGrading_iff`: an element lies in the coarsened piece of degree `k` exactly
@@ -98,6 +100,18 @@ theorem coarsenGrading_induction {ℳ : ι → Submodule R M} {f : ι → κ} {k
   Submodule.iSup_induction (motive := motive) _ hx
     (fun i _ hy ↦ Submodule.iSup_induction (motive := motive) _ hy (fun hi z hz ↦ mem i hi z hz)
       zero add) zero add
+
+/-- Along an injective reindexing `f : ι → κ`, the coarsened piece at `f i` is `ℳ i`. -/
+theorem coarsenGrading_apply_of_injective (ℳ : ι → Submodule R M) {f : ι → κ}
+    (hf : Function.Injective f) (i : ι) :
+    coarsenGrading ℳ f (f i) = ℳ i :=
+  le_antisymm (coarsenGrading_le_iff.2 fun _ hj ↦ hf hj ▸ le_rfl) (le_coarsenGrading ℳ f i)
+
+/-- Outside the range of `f : ι → κ`, the coarsened piece vanishes. -/
+theorem coarsenGrading_eq_bot_of_forall_ne (ℳ : ι → Submodule R M) {f : ι → κ} {k : κ}
+    (hk : ∀ i, f i ≠ k) :
+    coarsenGrading ℳ f k = ⊥ :=
+  eq_bot_iff.2 (coarsenGrading_le_iff.2 fun i hi ↦ False.elim (hk i hi))
 
 /-- Coarsening along the identity does nothing. -/
 @[simp]

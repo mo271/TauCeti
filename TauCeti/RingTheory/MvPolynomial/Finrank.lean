@@ -16,8 +16,9 @@ import Mathlib.LinearAlgebra.Dimension.Constructions
 /-!
 # Dimension of homogeneous and bounded-degree polynomials
 
-The monomial basis of a homogeneous component is indexed by exponent vectors of its degree.
-For two variables this gives dimension `w + 1`, used for the scalar-matrix trace on binary forms.
+The monomial basis of a homogeneous component is indexed by exponent vectors of its degree, giving
+dimension `(n + d choose n)` for homogeneous polynomials of degree `d` in `n + 1` variables
+(`TauCeti.finrank_homogeneousSubmodule_fin_succ`) and `w + 1` for binary forms.
 Changing the coefficients along a ring homomorphism, `TauCeti.mapHomogeneousSubmodule`, is
 semilinear and sends this basis to the monomial basis over the new ring.
 Summing over the degrees, the polynomials of total degree at most `m` in `d` variables have
@@ -171,5 +172,12 @@ theorem finrank_homogeneousSubmodule_fin_two (R : Type*) [CommSemiring R]
     [StrongRankCondition R] (w : ℕ) :
     Module.finrank R (homogeneousSubmodule (Fin 2) R w) = w + 1 := by
   rw [finrank_homogeneousSubmodule_eq_multichoose, Fintype.card_fin, Nat.multichoose_two]
+
+/-- The degree-`d` homogeneous polynomials in `n + 1` variables have rank `(n + d).choose n`. -/
+theorem finrank_homogeneousSubmodule_fin_succ (R : Type*) [CommSemiring R]
+    [StrongRankCondition R] (n d : ℕ) :
+    Module.finrank R (homogeneousSubmodule (Fin (n + 1)) R d) = (n + d).choose n := by
+  rw [finrank_homogeneousSubmodule_eq_multichoose, Fintype.card_fin, Nat.multichoose_eq,
+    Nat.succ_add_sub_one, add_comm n d, Nat.choose_symm_add, add_comm d n]
 
 end TauCeti
