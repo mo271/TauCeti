@@ -9,6 +9,7 @@ public import Mathlib.Algebra.GCDMonoid.Finset
 public import Mathlib.Algebra.GCDMonoid.Nat
 public import Mathlib.LinearAlgebra.Matrix.Block
 public import Mathlib.LinearAlgebra.Matrix.Cartan.Basic
+public import TauCeti.LinearAlgebra.Matrix.Cartan.Generalized
 
 import Mathlib.Tactic.LinearCombination
 
@@ -42,6 +43,8 @@ obtained by allowing `d i = 0`, which the positivity of the symmetrizer excludes
 
 ## Main results
 
+* `TauCeti.SymmetrizableDatum.isGeneralizedCartan`: the underlying matrix of a symmetrizable datum
+  is a generalized Cartan matrix.
 * `TauCeti.SymmetrizableDatum.isSymm_symmetrizedMatrix`: the symmetrized matrix is symmetric.
 * `TauCeti.SymmetrizableDatum.cartan_map_eq_diagonal_inv_mul`: `A = D⁻¹ B` over any division
   ring of characteristic zero.
@@ -97,6 +100,12 @@ namespace SymmetrizableDatum
 attribute [simp] diag
 
 variable {I J K I' I'' : Type*} (A : SymmetrizableDatum I)
+
+/-- The underlying matrix of a symmetrizable datum is a generalized Cartan matrix. -/
+theorem isGeneralizedCartan : A.cartan.IsGeneralizedCartan where
+  diag := A.diag
+  offDiag_nonpos := A.offDiag_nonpos
+  zero_comm := A.zero_comm
 
 /-- The symmetrizer is nonzero. -/
 @[simp]
