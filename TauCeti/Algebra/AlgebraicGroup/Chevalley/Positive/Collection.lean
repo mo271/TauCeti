@@ -6,23 +6,25 @@ Authors: The Tau Ceti contributors
 module
 
 public import TauCeti.Algebra.AlgebraicGroup.Chevalley.Positive.Basic
-import TauCeti.Algebra.Group.Subgroup.OrderedProduct
-import TauCeti.LinearAlgebra.RootSystem.SimplyConnectedRootDatum.LieAlgebra.Root.Commutator.SimplyLaced
-import TauCeti.LinearAlgebra.RootSystem.SimplyConnectedRootDatum.LieAlgebra.Root.Commutator.Basic
-import TauCeti.LinearAlgebra.RootSystem.SimplyConnectedRootDatum.WeightDegree
+import TauCeti.LinearAlgebra.RootSystem.SimplyConnectedRootDatum.NotG2
+import TauCeti.LinearAlgebra.RootSystem.SimplyConnectedRootDatum.LieAlgebra.Root.Collection.NotG2
+import TauCeti.LinearAlgebra.RootSystem.SimplyConnectedRootDatum.LieAlgebra.Root.Collection.G2
 
 /-!
-# Positive-root products in simply laced types
+# Positive-root products for Chevalley data
 
-For a simply laced Chevalley datum, every element of the positive-root subgroup is a product
-with one factor from each positive root subgroup, in any enumeration without repetition.
-This works on the admissible lattice over every commutative value ring. It is the existence
-part of positive-root coordinates, not their uniqueness or a point-generation theorem for the
-whole Chevalley group.
+For every valid Dynkin type and every Chevalley datum, each element of the positive-root subgroup
+is a product with one factor from each positive root subgroup, in any enumeration without
+repetition. This works on the admissible lattice and in the datum's point group over every
+commutative value ring, including rings with nilpotents and fields of bad characteristic. It is
+the existence part of positive-root coordinates, without asserting uniqueness for general data or
+generation of the whole Chevalley group.
 
-The simply laced commutator formula puts the commutator of two positive root elements in the
-root group at their sum, when that sum is a root. Its height is greater than either original
-height. Thus `TauCeti.mem_biSup_iff_exists_list_prod_map` collects the factors in any chosen order.
+Outside type `G₂`, height-raising commutators collect factors in any order via
+`DynkinType.mem_iSup_posRoots_chevalleyRootSubgroup_iff_exists_list_prod`. In type `G₂`, the
+native six-root table order collects factors via
+`DynkinType.mem_biSup_posRoots_g2_iff_exists_list_prod_map`, identified with `posRoots` of the
+rational system by `DynkinType.mem_posRoots_rational_g2_iff`.
 
 ## References
 
@@ -32,8 +34,7 @@ height. Thus `TauCeti.mem_biSup_iff_exists_list_prod_map` collects the factors i
 
 public section
 
-open scoped commutatorElement
-open TensorProduct TauCeti.UniversalEnvelopingAlgebra
+open Multiplicative TensorProduct TauCeti.UniversalEnvelopingAlgebra
 
 namespace TauCeti.DynkinType.ChevalleyDatum
 
@@ -43,67 +44,10 @@ variable {t : DynkinType} {ht : t.Valid} (D : ChevalleyDatum t ht)
 
 attribute [local instance high] Algebra.toModule
 
-private theorem commutator_range_root_le_iSup_height (hs : t.IsSimplyLaced)
-    (A : CommAlgCat.{v} ℤ) (i j : Fin t.numRoots)
-    (hi : i ∈ posRoots (t.rationalRootSystem ht) (t.rationalBase ht))
-    (hj : j ∈ posRoots (t.rationalRootSystem ht) (t.rationalBase ht)) :
-    ⁅(chevalleyRootSubgroup D.representation D.lattice D.representation_mem_lattice
-        D.isNilpotent_representation_rootGenerator i A).range,
-      (chevalleyRootSubgroup D.representation D.lattice D.representation_mem_lattice
-        D.isNilpotent_representation_rootGenerator j A).range⁆ ≤
-      ⨆ k ∈ {k ∈ posRootsFinset (t.rationalRootSystem ht) (t.rationalBase ht) |
-        max ((t.rationalBase ht).height i) ((t.rationalBase ht).height j) <
-          (t.rationalBase ht).height k},
-        (chevalleyRootSubgroup D.representation D.lattice D.representation_mem_lattice
-          D.isNilpotent_representation_rootGenerator k A).range := by
-  classical
-  let X := fun γ => chevalleyRootSubgroup D.representation D.lattice
-    D.representation_mem_lattice D.isNilpotent_representation_rootGenerator γ A
-  apply Subgroup.commutator_le.mpr
-  rintro _ ⟨u, rfl⟩ _ ⟨v, rfl⟩
-  by_cases hadd : (t.simplyConnectedRootDatum ht).root i +
-      (t.simplyConnectedRootDatum ht).root j ∈ Set.range (t.simplyConnectedRootDatum ht).root
-  · obtain ⟨k, hk⟩ := hadd
-    have hheight : (t.rationalBase ht).height k =
-        (t.rationalBase ht).height i + (t.rationalBase ht).height j := by
-      have h := congrArg (t.weightDegree ht) hk
-      simp only [map_add, weightDegree_root] at h
-      exact_mod_cast h
-    have hhi := one_le_height_of_mem_posRoots _ _ hi
-    have hhj := one_le_height_of_mem_posRoots _ _ hj
-    have hkpos : k ∈ posRoots (t.rationalRootSystem ht) (t.rationalBase ht) := by
-      rw [mem_posRoots, RootPairing.Base.isPos_iff]
-      omega
-    have hkS : k ∈ {k ∈ posRootsFinset (t.rationalRootSystem ht) (t.rationalBase ht) |
-        max ((t.rationalBase ht).height i) ((t.rationalBase ht).height j) <
-          (t.rationalBase ht).height k} := by
-      simp only [Finset.mem_filter, mem_posRootsFinset]
-      exact ⟨hkpos, by omega⟩
-    have heq := commutatorElement_chevalleyRootSubgroup_of_isSimplyLaced D.representation
-      D.lattice D.representation_mem_lattice D.isNilpotent_representation_rootGenerator
-      hs hk A u.toAdd v.toAdd
-    simp only [ofAdd_toAdd] at heq
-    rw [heq]
-    exact le_iSup₂ (f := fun k _ => (X k).range) k hkS ⟨_, rfl⟩
-  · have hzero : (t.simplyConnectedRootDatum ht).root i +
-        (t.simplyConnectedRootDatum ht).root j ≠ 0 := by
-      intro hz
-      have h := congrArg (t.weightDegree ht) hz
-      have hdi := t.weightDegree_root_pos ht hi
-      have hdj := t.weightDegree_root_pos ht hj
-      simp only [map_add, map_zero] at h
-      linarith
-    have heq := (commute_chevalleyRootSubgroup D.representation D.lattice
-      D.representation_mem_lattice D.isNilpotent_representation_rootGenerator
-      hadd hzero A u.toAdd v.toAdd).commutator_eq
-    simp only [ofAdd_toAdd] at heq
-    rw [heq]
-    exact Subgroup.one_mem _
-
-/-- In simply laced types every element of the positive subgroup has a root-product expression.
-The list enumerates all positive roots without repetition, in any order; no field or
+/-- Every element of the positive lattice subgroup has a root-product expression, for every valid
+Dynkin type. The list enumerates all positive roots without repetition, in any order; no field or
 characteristic restriction is needed. -/
-theorem mem_positiveSubgroup_iff_exists_prod_of_isSimplyLaced (hs : t.IsSimplyLaced)
+theorem mem_positiveSubgroup_iff_exists_prod
     (l : List (Fin t.numRoots)) (hl : l.Nodup)
     (hcover : ∀ γ, γ ∈ l ↔ γ ∈ posRoots (t.rationalRootSystem ht) (t.rationalBase ht))
     (A : CommAlgCat.{v} ℤ)
@@ -113,35 +57,71 @@ theorem mem_positiveSubgroup_iff_exists_prod_of_isSimplyLaced (hs : t.IsSimplyLa
         D.representation_mem_lattice D.isNilpotent_representation_rootGenerator γ A (u γ)).prod =
         g := by
   classical
-  let X := fun γ => chevalleyRootSubgroup D.representation D.lattice
-    D.representation_mem_lattice D.isNilpotent_representation_rootGenerator γ A
-  let S := posRootsFinset (t.rationalRootSystem ht) (t.rationalBase ht)
-  have hcomm : ∀ i ∈ S, ∀ j ∈ S, i ≠ j →
-      ⁅(X i).range, (X j).range⁆ ≤
-        ⨆ k ∈ {k ∈ S | max ((t.rationalBase ht).height i) ((t.rationalBase ht).height j) <
-          (t.rationalBase ht).height k}, (X k).range := by
-    intro i hi j hj _
-    exact D.commutator_range_root_le_iSup_height hs A i j
-      ((mem_posRootsFinset _ _ i).mp hi) ((mem_posRootsFinset _ _ j).mp hj)
-  have hwhole : D.positiveSubgroup A = ⨆ γ ∈ S, (X γ).range := by
-    have hjoin : (⨆ γ ∈ S, (X γ).range) =
-        Subgroup.closure (⋃ γ ∈ S, Set.range (X γ)) := by
-      simp only [← MonoidHom.coe_range, Subgroup.closure_iUnion, Subgroup.closure_eq]
-    rw [hjoin, D.positiveSubgroup_eq_closure]
-    congr 1
-    ext x
-    simp only [Set.mem_ofPred_eq, Set.mem_iUnion, Set.mem_range, S, mem_posRootsFinset, X,
-      exists_prop]
-  have hlS : ∀ γ, γ ∈ l ↔ γ ∈ S := by simpa only [S, mem_posRootsFinset] using hcover
-  rw [hwhole, TauCeti.mem_biSup_iff_exists_list_prod_map hcomm hl hlS]
+  rw [D.positiveSubgroup_eq_iSup A]
+  by_cases htG2 : t = G2
+  · subst t
+    let toSix : {γ // γ ∈ l} → Fin 6 := fun γ =>
+      ⟨γ.1.val, (mem_posRoots_rational_g2_iff ht γ.1).mp ((hcover γ.1).mp γ.2)⟩
+    let fromSix : Fin 6 → Fin G2.numRoots := fun i => Fin.castAdd 6 i
+    have htoSix_inj : Function.Injective toSix := fun a b hab =>
+      Subtype.ext (Fin.ext (congrArg (Fin.val : Fin 6 → ℕ) hab))
+    have hl₆ : (l.attach.map toSix).Nodup := hl.attach.map htoSix_inj
+    have hcover₆ : ∀ i : Fin 6, i ∈ l.attach.map toSix := fun i =>
+      List.mem_map.mpr ⟨⟨fromSix i,
+        (hcover _).mpr ((mem_posRoots_rational_g2_iff ht _).mpr i.isLt)⟩,
+        List.mem_attach _ _, Fin.ext rfl⟩
+    have hl₆_cast : (l.attach.map toSix).map fromSix = l := by
+      rw [List.map_map]
+      refine (List.map_congr_left fun γ _ => ?_).trans
+        ((List.attach_map_val (l := l) (f := fun x => x)).trans l.map_id)
+      exact Fin.ext rfl
+    generalize l.attach.map toSix = l₆ at hl₆ hcover₆ hl₆_cast
+    rw [mem_biSup_posRoots_g2_iff_exists_list_prod_map D.representation D.lattice
+      D.representation_mem_lattice D.isNilpotent_representation_rootGenerator A l₆ hl₆ hcover₆ g]
+    constructor
+    · rintro ⟨f, hf⟩
+      refine ⟨fun γ => if h : (γ : ℕ) < 6 then ofAdd (f ⟨γ.val, h⟩) else 1, ?_⟩
+      rw [← hl₆_cast, List.map_map]
+      refine (congrArg List.prod (List.map_congr_left fun i _ => ?_)).trans hf
+      dsimp only [Function.comp_def, fromSix]
+      exact congrArg _ (dite_eq_left i.isLt)
+    · rintro ⟨u, hu⟩
+      refine ⟨fun i => toAdd (u (fromSix i)), ?_⟩
+      rw [← hu, ← hl₆_cast, List.map_map]
+      simp only [ofAdd_toAdd]
+      rfl
+  · have := isNotG2_rationalRootSystem_of_ne_G2 (ht := ht) htG2
+    rw [mem_iSup_posRoots_chevalleyRootSubgroup_iff_exists_list_prod D.representation D.lattice
+      D.representation_mem_lattice D.isNilpotent_representation_rootGenerator A l hl hcover g]
+    constructor
+    · rintro ⟨u, hu⟩
+      exact ⟨fun γ => ofAdd (u γ), hu⟩
+    · rintro ⟨u, hu⟩
+      refine ⟨fun γ => toAdd (u γ), ?_⟩
+      simpa only [ofAdd_toAdd] using hu
+
+/-- Every positive point of a Chevalley datum is an ordered product with one factor from each
+positive root subgroup, in any duplicate-free enumeration of the positive roots. -/
+theorem mem_positivePoints_iff_exists_prod
+    (l : List (Fin t.numRoots)) (hl : l.Nodup)
+    (hcover : ∀ γ, γ ∈ l ↔ γ ∈ posRoots (t.rationalRootSystem ht) (t.rationalBase ht))
+    (A : Type v) [CommRing A] (g : D.points A) :
+    g ∈ D.positivePoints A ↔ ∃ u : Fin t.numRoots → Multiplicative A,
+      (l.map fun γ => D.rootSubgroupPoints γ A (u γ)).prod = g := by
   constructor
-  · rintro ⟨f, hf, hprod⟩
-    choose u hu using hf
-    refine ⟨u, ?_⟩
-    calc
-      _ = (l.map f).prod := congrArg List.prod (List.map_congr_left fun γ _ => hu γ)
-      _ = g := hprod
-  · rintro ⟨u, hu⟩
-    exact ⟨fun γ => X γ (u γ), fun γ => ⟨u γ, rfl⟩, hu⟩
+  · intro hg
+    obtain ⟨q, hq, hmatrix⟩ := D.mem_positivePoints_iff.mp hg
+    obtain ⟨u, hu⟩ :=
+      (D.mem_positiveSubgroup_iff_exists_prod l hl hcover (CommAlgCat.of ℤ A) q).mp hq
+    refine ⟨u, (D.points A).subtype_injective ?_⟩
+    have h := congrArg
+      (Units.map (LinearMap.toMatrixAlgEquiv (D.basis.baseChange A)).toMonoidHom) hu
+    simpa only [map_list_prod, List.map_map, Function.comp_def, Subgroup.subtype_apply,
+      D.coe_rootSubgroupPoints, MulEquiv.toMonoidHom_eq_coe, hmatrix] using h
+  · rintro ⟨u, rfl⟩
+    apply Subgroup.list_prod_mem
+    intro x hx
+    obtain ⟨γ, hγ, rfl⟩ := List.mem_map.mp hx
+    exact D.rootSubgroupPoints_mem_positivePoints A ((hcover γ).mp hγ) (u γ)
 
 end TauCeti.DynkinType.ChevalleyDatum
