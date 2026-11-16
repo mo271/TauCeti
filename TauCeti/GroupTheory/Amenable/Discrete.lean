@@ -39,6 +39,12 @@ open scoped BoundedContinuousFunction
 
 namespace TauCeti
 
+to_additive_name_hint UCB AddUCB
+to_additive_name_hint Mean AddMean
+to_additive_name_hint Amenable AddAmenable
+
+section Multiplicative
+
 variable {G : Type*} [Group G] [TopologicalSpace G]
 
 section Discrete
@@ -50,6 +56,9 @@ namespace Mean
 variable (G) in
 /-- Means on a discrete group correspond to normalized positive linear functionals on all
 bounded functions. -/
+@[to_additive
+/-- Means on a discrete additive group correspond to normalized positive linear functionals on all
+bounded functions. -/]
 def boundedContinuousFunctionEquiv :
     Mean G ≃ {m : (G →ᵇ ℝ) →ₚ[ℝ] ℝ // m 1 = 1} where
   toFun m := ⟨{
@@ -78,12 +87,12 @@ def boundedContinuousFunctionEquiv :
       PositiveLinearMap.coe_toLinearMap, coe_toPositiveLinearMap, mk₀_apply,
       AlgEquiv.apply_symm_apply]
 
-@[simp]
+@[to_additive (attr := simp)]
 theorem boundedContinuousFunctionEquiv_apply (m : Mean G) (f : G →ᵇ ℝ) :
     (boundedContinuousFunctionEquiv G m).1 f = m ((UCB.discreteAlgEquiv G).symm f) :=
   (rfl)
 
-@[simp]
+@[to_additive (attr := simp)]
 theorem boundedContinuousFunctionEquiv_symm_apply
     (m : {m : (G →ᵇ ℝ) →ₚ[ℝ] ℝ // m 1 = 1}) (f : UCB G) :
     (boundedContinuousFunctionEquiv G).symm m f = m.1 (f : G →ᵇ ℝ) := by
@@ -112,18 +121,24 @@ variable {H : Type*} [Group H] [TopologicalSpace H] [IsTopologicalGroup H]
 
 /-- The pushforward `f ↦ m (f ∘ r)` of a mean `m` on a discrete group `G` along an arbitrary map
 `r : G → H` into a topological group, as a mean on `UCB H`. -/
+@[to_additive
+/-- The pushforward `f ↦ m (f ∘ r)` of a mean `m` on a discrete additive group `G` along an
+arbitrary map `r : G → H` into a topological additive group, as a mean on `AddUCB H`. -/]
 def mapOfDiscrete (r : G → H) (m : Mean G) : Mean H :=
   mk₀ (m.toPositiveLinearMap.toLinearMap ∘ₗ (UCB.compRightAlgHomOfDiscrete r).toLinearMap)
     (fun f hf => map_nonneg m (by simpa using UCB.monotone_compRightAlgHomOfDiscrete r hf))
     (by simp)
 
-@[simp]
+@[to_additive (attr := simp)]
 theorem mapOfDiscrete_apply (r : G → H) (m : Mean G) (f : UCB H) :
     m.mapOfDiscrete r f = m (UCB.compRightAlgHomOfDiscrete r f) :=
   mk₀_apply _ _ _ f
 
 /-- Along a continuous homomorphism, the pushforward out of a discrete group is the pushforward
 `TauCeti.Mean.map`. -/
+@[to_additive
+/-- Along a continuous additive homomorphism, the pushforward out of a discrete additive group is
+the pushforward `TauCeti.AddMean.map`. -/]
 theorem mapOfDiscrete_coe (φ : G →ₜ* H) (m : Mean G) : m.mapOfDiscrete (φ : G → H) = m.map φ :=
   ext fun f => by simp [UCB.compRightAlgHomOfDiscrete_coe]
 
@@ -161,11 +176,71 @@ end Discrete
 
 /-- An abstract group which is amenable with the discrete topology is amenable with any
 group topology. -/
+@[to_additive
+/-- An abstract additive group which is amenable with the discrete topology is amenable with any
+additive group topology. -/]
 theorem Amenable.of_discrete [IsTopologicalGroup G]
     (h : letI : TopologicalSpace G := ⊥;
       letI := discreteTopology_bot G; Amenable G) :
     Amenable G := by
   let : @DiscreteTopology G ⊥ := discreteTopology_bot G
   exact Amenable.of_le (t₁ := ⊥) bot_le h
+
+end Multiplicative
+
+section AdditiveDiscrete
+
+variable {G : Type*} [AddGroup G] [TopologicalSpace G] [DiscreteTopology G]
+
+namespace AddMean
+
+/-- The correspondence of means on a discrete additive group preserves and reflects left
+invariance. -/
+theorem isLeftInvariant_iff_boundedContinuousFunction (m : AddMean G) :
+    m.IsLeftInvariant ↔ ∀ (g : G) (f : G →ᵇ ℝ),
+      (boundedContinuousFunctionEquiv G m).1
+          (f.compContinuous (ContinuousMap.addLeft (-g))) =
+        (boundedContinuousFunctionEquiv G m).1 f := by
+  rw [isLeftInvariant_iff]
+  constructor
+  · intro hm g f
+    simpa only [boundedContinuousFunctionEquiv_apply,
+      AddUCB.discreteAlgEquiv_symm_compContinuous_addLeft] using
+      hm g ((AddUCB.discreteAlgEquiv G).symm f)
+  · intro hm g f
+    simpa only [boundedContinuousFunctionEquiv_apply,
+      AddUCB.discreteAlgEquiv_symm_compContinuous_addLeft, AlgEquiv.symm_apply_apply] using
+      hm g (AddUCB.discreteAlgEquiv G f)
+
+/-- If `r (φ h + x) = h + r x` for an additive homomorphism `φ : H →+ G`, then the pushforward of
+a left-invariant mean along `r` is left invariant. -/
+theorem IsLeftInvariant.mapOfDiscrete {H : Type*} [AddGroup H] [TopologicalSpace H]
+    [IsTopologicalAddGroup H] {m : AddMean G} (hm : m.IsLeftInvariant) (φ : H →+ G) {r : G → H}
+    (hr : ∀ h x, r (φ h + x) = h + r x) : (m.mapOfDiscrete r).IsLeftInvariant := by
+  refine isLeftInvariant_iff.2 fun h f => ?_
+  rw [mapOfDiscrete_apply, mapOfDiscrete_apply,
+    AddUCB.compRightAlgHomOfDiscrete_leftTranslation φ hr, hm.apply_leftTranslation]
+
+end AddMean
+
+variable (G) in
+/-- A discrete additive group is amenable exactly when all bounded functions admit a normalized
+positive left-invariant real linear functional. -/
+theorem addAmenable_iff_exists_boundedContinuousFunction_mean :
+    AddAmenable G ↔ ∃ m : (G →ᵇ ℝ) →ₚ[ℝ] ℝ, m 1 = 1 ∧
+      ∀ (g : G) (f : G →ᵇ ℝ),
+        m (f.compContinuous (ContinuousMap.addLeft (-g))) = m f := by
+  rw [addAmenable_iff]
+  constructor
+  · rintro ⟨m, hm⟩
+    exact ⟨(AddMean.boundedContinuousFunctionEquiv G m).1,
+      (AddMean.boundedContinuousFunctionEquiv G m).2,
+      (m.isLeftInvariant_iff_boundedContinuousFunction).1 hm⟩
+  · rintro ⟨m, h₁, hm⟩
+    refine ⟨(AddMean.boundedContinuousFunctionEquiv G).symm ⟨m, h₁⟩, ?_⟩
+    rw [AddMean.isLeftInvariant_iff_boundedContinuousFunction]
+    simpa using hm
+
+end AdditiveDiscrete
 
 end TauCeti

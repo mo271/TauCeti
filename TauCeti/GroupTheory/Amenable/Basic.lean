@@ -26,21 +26,26 @@ isomorphisms of topological groups.
 
 ## Main definitions
 
-* `TauCeti.Mean.IsLeftInvariant`: `m (L_g f) = m f` for all `g` and `f`.
-* `TauCeti.Mean.map φ`: the pushforward of means along a continuous homomorphism `φ`.
-* `TauCeti.Amenable G`: `UCB G` carries a left-invariant mean.
+* `TauCeti.Mean.IsLeftInvariant`, `TauCeti.AddMean.IsLeftInvariant`: `m (L_g f) = m f` for all `g`
+  and `f`.
+* `TauCeti.Mean.map φ`, `TauCeti.AddMean.map φ`: the pushforward of means along a continuous
+  homomorphism `φ`.
+* `TauCeti.Amenable G`, `TauCeti.AddAmenable G`: `UCB G` (respectively `AddUCB G`) carries a
+  left-invariant mean.
 
 ## Main results
 
 * `TauCeti.Mean.convex_toContinuousLinearMap_image_setOf_isLeftInvariant`: the left-invariant
   means form a convex set.
-* `TauCeti.Mean.IsLeftInvariant.map`: pushforward along a continuous homomorphism with dense
-  range preserves left invariance.
-* `TauCeti.Amenable.of_denseRange`: amenability passes to the target of a continuous homomorphism
-  with dense range, in particular to images under surjective continuous homomorphisms.
-* `TauCeti.Amenable.of_le`: amenability passes from a finer to a coarser group topology.
-* `ContinuousMulEquiv.amenable_iff`: amenability is invariant under isomorphisms of topological
-  groups.
+* `TauCeti.Mean.IsLeftInvariant.map`, `TauCeti.AddMean.IsLeftInvariant.map`: pushforward along a
+  continuous homomorphism with dense range preserves left invariance.
+* `TauCeti.Amenable.of_denseRange`, `TauCeti.AddAmenable.of_denseRange`: amenability passes to the
+  target of a continuous homomorphism with dense range, in particular to images under surjective
+  continuous homomorphisms.
+* `TauCeti.Amenable.of_le`, `TauCeti.AddAmenable.of_le`: amenability passes from a finer to a
+  coarser group topology.
+* `ContinuousMulEquiv.amenable_iff`, `ContinuousAddEquiv.addAmenable_iff`: amenability is invariant
+  under isomorphisms of topological groups.
 
 ## References
 
@@ -52,7 +57,48 @@ public section
 
 noncomputable section
 
+to_additive_name_hint UCB AddUCB
+to_additive_name_hint Mean AddMean
+to_additive_name_hint Amenable AddAmenable
+
 namespace TauCeti
+
+section AdditiveMean
+
+variable {G : Type*} [AddGroup G] [TopologicalSpace G] [IsTopologicalAddGroup G]
+
+namespace AddMean
+
+/-- A mean `m` on `AddUCB G` is left invariant when `m (L_g f) = m f` for every `g` and `f`, where
+`(L_g f)(x) = f (-g + x)`. -/
+def IsLeftInvariant (m : AddMean G) : Prop :=
+  ∀ (g : G) (f : AddUCB G), m (AddUCB.leftTranslation g f) = m f
+
+/-- The defining property of a left-invariant mean on `AddUCB G`. -/
+theorem isLeftInvariant_iff {m : AddMean G} :
+    m.IsLeftInvariant ↔ ∀ (g : G) (f : AddUCB G), m (AddUCB.leftTranslation g f) = m f :=
+  Iff.rfl
+
+/-- A left-invariant mean takes the same value at a function and at its left translates. -/
+@[simp]
+theorem IsLeftInvariant.apply_leftTranslation {m : AddMean G} (hm : m.IsLeftInvariant) (g : G)
+    (f : AddUCB G) : m (AddUCB.leftTranslation g f) = m f :=
+  hm g f
+
+/-- The left-invariant means on `AddUCB G` form a convex set of continuous linear functionals. -/
+theorem convex_toContinuousLinearMap_image_setOf_isLeftInvariant :
+    Convex ℝ (toContinuousLinearMap '' {m : AddMean G | m.IsLeftInvariant}) := by
+  rintro _ ⟨m, hm, rfl⟩ _ ⟨n, hn, rfl⟩ a b ha hb hab
+  obtain ⟨k, hk⟩ := convex_range_toContinuousLinearMap ⟨m, rfl⟩ ⟨n, rfl⟩ ha hb hab
+  refine ⟨k, fun g f => ?_, hk⟩
+  have h := congr($hk (AddUCB.leftTranslation g f) - $hk f)
+  simp only [coe_toContinuousLinearMap, add_apply, smul_apply, smul_eq_mul, hm g f, hn g f,
+    sub_self] at h
+  exact sub_eq_zero.1 h
+
+end AddMean
+
+end AdditiveMean
 
 variable {G H K : Type*} [Group G] [TopologicalSpace G] [IsTopologicalGroup G]
   [Group H] [TopologicalSpace H] [IsTopologicalGroup H]
@@ -62,6 +108,7 @@ namespace Mean
 
 /-- A mean `m` on `UCB G` is left invariant when `m (L_g f) = m f` for every `g` and `f`, where
 `(L_g f)(x) = f (g⁻¹ * x)`. -/
+@[to_additive existing]
 def IsLeftInvariant (m : Mean G) : Prop :=
   ∀ (g : G) (f : UCB G), m (UCB.leftTranslation g f) = m f
 
@@ -89,25 +136,57 @@ theorem convex_toContinuousLinearMap_image_setOf_isLeftInvariant :
 
 /-- The pushforward `f ↦ m (f ∘ φ)` of a mean `m` on `UCB G` along a continuous homomorphism
 `φ : G →ₜ* H`, as a mean on `UCB H`. -/
+@[to_additive
+/-- The pushforward `f ↦ m (f ∘ φ)` of a mean `m` on `AddUCB G` along a continuous additive
+homomorphism `φ : G →ₜ+ H`, as a mean on `AddUCB H`. -/]
 def map (φ : G →ₜ* H) (m : Mean G) : Mean H :=
   mk₀ (m.toPositiveLinearMap.toLinearMap ∘ₗ (UCB.compRightAlgHom φ).toLinearMap)
     (fun f hf => map_nonneg m (by simpa using UCB.monotone_compRightAlgHom φ hf)) (by simp)
 
-@[simp]
+@[to_additive (attr := simp)]
 theorem map_apply (φ : G →ₜ* H) (m : Mean G) (f : UCB H) :
     m.map φ f = m (UCB.compRightAlgHom φ f) :=
   mk₀_apply _ _ _ f
 
 /-- The pushforward along the identity is the identity. -/
-@[simp]
+@[to_additive (attr := simp) /-- The pushforward along the identity is the identity. -/]
 theorem map_id (m : Mean G) : m.map (ContinuousMonoidHom.id G) = m :=
   ext fun f => by simp
 
 /-- Pushing forward along `φ` and then along `ψ` is pushing forward along `ψ ∘ φ`. -/
-@[simp]
+@[to_additive (attr := simp)
+/-- Pushing forward along `φ` and then along `ψ` is pushing forward along `ψ ∘ φ`. -/]
 theorem map_map (ψ : H →ₜ* K) (φ : G →ₜ* H) (m : Mean G) :
     (m.map φ).map ψ = m.map (ψ.comp φ) :=
   ext fun f => by simp [UCB.compRightAlgHom_comp]
+
+end Mean
+
+namespace AddMean
+
+variable {A B : Type*} [AddGroup A] [TopologicalSpace A] [IsTopologicalAddGroup A]
+  [AddGroup B] [TopologicalSpace B] [IsTopologicalAddGroup B]
+
+/-- The pushforward of a left-invariant mean along a continuous additive homomorphism `φ` is
+invariant under left translation by the elements `φ g` of the range of `φ`. -/
+theorem IsLeftInvariant.map_apply_leftTranslation {m : AddMean A} (hm : m.IsLeftInvariant)
+    (φ : A →ₜ+ B) (g : A) (f : AddUCB B) :
+    m.map φ (AddUCB.leftTranslation (φ g) f) = m.map φ f := by
+  rw [map_apply, map_apply, AddUCB.compRightAlgHom_leftTranslation, hm]
+
+/-- The pushforward of a left-invariant mean along a continuous additive homomorphism with dense
+range is left invariant. -/
+theorem IsLeftInvariant.map {m : AddMean A} (hm : m.IsLeftInvariant) {φ : A →ₜ+ B}
+    (hφ : DenseRange φ) : (m.map φ).IsLeftInvariant := by
+  intro h f
+  have hc : Continuous fun k : B => m.map φ (AddUCB.leftTranslation k f) :=
+    (map_continuous (m.map φ)).comp (AddUCB.continuous_leftTranslation_apply f)
+  exact hφ.induction_on (p := fun k => m.map φ (AddUCB.leftTranslation k f) = m.map φ f) h
+    (isClosed_eq hc continuous_const) fun g => hm.map_apply_leftTranslation φ g f
+
+end AddMean
+
+namespace Mean
 
 /-- The pushforward of a left-invariant mean along a continuous homomorphism `φ` is invariant under
 left translation by the elements `φ g` of the range of `φ`. -/
@@ -118,6 +197,7 @@ theorem IsLeftInvariant.map_apply_leftTranslation {m : Mean G} (hm : m.IsLeftInv
 
 /-- The pushforward of a left-invariant mean along a continuous homomorphism with dense range is
 left invariant. -/
+@[to_additive existing]
 theorem IsLeftInvariant.map {m : Mean G} (hm : m.IsLeftInvariant) {φ : G →ₜ* H}
     (hφ : DenseRange φ) : (m.map φ).IsLeftInvariant := by
   -- the pushforward is invariant under translation by the range, and
@@ -130,19 +210,33 @@ theorem IsLeftInvariant.map {m : Mean G} (hm : m.IsLeftInvariant) {φ : G →ₜ
 
 end Mean
 
+/-- A topological additive group `G` is amenable when `AddUCB G` carries a left-invariant mean. -/
+class AddAmenable (G : Type*) [AddGroup G] [TopologicalSpace G] [IsTopologicalAddGroup G] :
+    Prop where
+  /-- An amenable additive group has a left-invariant mean on `AddUCB G`. -/
+  exists_isLeftInvariant : ∃ m : AddMean G, m.IsLeftInvariant
+
 variable (G) in
 /-- A topological group `G` is amenable when `UCB G` carries a left-invariant mean. -/
+@[to_additive existing, to_additive_dont_translate]
 class Amenable : Prop where
   /-- An amenable group has a left-invariant mean on `UCB G`. -/
   exists_isLeftInvariant : ∃ m : Mean G, m.IsLeftInvariant
 
 variable (G) in
 /-- A topological group is amenable exactly when `UCB G` carries a left-invariant mean. -/
+@[to_additive
+/-- A topological additive group is amenable exactly when `AddUCB G` carries a left-invariant
+mean. -/]
 theorem amenable_iff : Amenable G ↔ ∃ m : Mean G, m.IsLeftInvariant :=
   ⟨fun h => h.1, fun h => ⟨h⟩⟩
 
 /-- The target of a continuous homomorphism with dense range from an amenable topological group
 is amenable; in particular, so is the image under a surjective continuous homomorphism. -/
+@[to_additive
+/-- The target of a continuous additive homomorphism with dense range from an amenable topological
+additive group is amenable; in particular, so is the image under a surjective continuous additive
+homomorphism. -/]
 theorem Amenable.of_denseRange [Amenable G] (φ : G →ₜ* H) (hφ : DenseRange φ) :
     Amenable H :=
   have ⟨m, hm⟩ := Amenable.exists_isLeftInvariant (G := G)
@@ -150,6 +244,9 @@ theorem Amenable.of_denseRange [Amenable G] (φ : G →ₜ* H) (hφ : DenseRange
 
 omit [TopologicalSpace G] [IsTopologicalGroup G] in
 /-- Amenability passes from a finer group topology to a coarser group topology. -/
+@[to_additive
+/-- Amenability passes from a finer additive group topology to a coarser additive group
+topology. -/]
 theorem Amenable.of_le {t₁ t₂ : TopologicalSpace G}
     [@IsTopologicalGroup G t₁ _] [@IsTopologicalGroup G t₂ _] (h : t₁ ≤ t₂)
     (ha : @Amenable G _ t₁ _) : @Amenable G _ t₂ _ := by
@@ -169,6 +266,7 @@ variable {G H : Type*} [Group G] [TopologicalSpace G] [IsTopologicalGroup G]
   [Group H] [TopologicalSpace H] [IsTopologicalGroup H]
 
 /-- Amenability is invariant under isomorphisms of topological groups. -/
+@[to_additive /-- Amenability is invariant under isomorphisms of topological additive groups. -/]
 theorem amenable_iff (e : G ≃ₜ* H) : Amenable G ↔ Amenable H :=
   ⟨fun _ => .of_denseRange (e : G →ₜ* H) e.surjective.denseRange,
     fun _ => .of_denseRange (e.symm : H →ₜ* G) e.symm.surjective.denseRange⟩
