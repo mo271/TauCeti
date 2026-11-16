@@ -5,6 +5,7 @@ Authors: The Tau Ceti contributors
 -/
 module
 
+public import Mathlib.Topology.Maps.Proper.Basic
 public import Mathlib.Topology.Order.ProjIcc
 public import Mathlib.Topology.UnitInterval
 
@@ -16,6 +17,11 @@ Let `h : T × Y → Y`, with `T` compact, fix every point of a set `A ⊆ Y` at 
 continuous and `φ` is continuous at the points with `q z ∉ A`; nothing is required of `φ` over
 `A`. This is a tube-lemma argument over the compact parameter space `T`.
 
+When `h` is also proper and `T` is Hausdorff, an ultrafilter `𝒰` along which `z ↦ h (φ z, q z)`
+converges forces `q` to converge to a point `y₀` at which the limit value of `h` is recovered
+(`ContinuousMap.exists_tendsto_of_tendsto_apply_prodMk`). This upgrades NDR cylinder deformations
+and NDR products to proper maps without separation hypotheses on the underlying spaces.
+
 Such times typically have the form `min 1 (t / u y)` for a control function `u : Y → I` vanishing
 exactly on `A`, which is discontinuous at `A` but continuous off it. The file records that
 continuity, together with the fact that the real value of such a control function is nonzero off
@@ -25,6 +31,8 @@ continuity, together with the fact that the real value of such a control functio
 
 * `ContinuousMap.continuous_apply_prodMk_of_fixed`: a homotopy fixing `A`, evaluated at a time
   that is continuous away from `A`, is continuous.
+* `ContinuousMap.exists_tendsto_of_tendsto_apply_prodMk`: ultrafilter convergence through a proper
+  homotopy fixing `A` evaluated at a variable time into a Hausdorff parameter space.
 * `TauCeti.coe_ne_zero_iff_notMem`: a function to `I` vanishing exactly on `A` has nonzero real
   value exactly off `A`.
 * `ContinuousMap.continuousAt_projIcc_div_of_notMem`: the time `min 1 (t / u y)`, as a point of
@@ -58,6 +66,28 @@ theorem continuous_apply_prodMk_of_fixed [CompactSpace T] (h : C(T × Y, Y)) {A 
           (by simpa [hA t _ hz] using hW)
     exact (hq.continuousAt.eventually htube).mono fun z' hz' ↦ hz' (φ z') trivial
   · exact h.continuous.continuousAt.comp ((hφ z hz).prodMk hq.continuousAt)
+
+/-- Let `h : T × Y → Y`, with `T` Hausdorff, be a proper map that fixes every point of `A` at all
+times, and let `φ : Z → T` be continuous at every `z` with `q z ∉ A`. If `z ↦ h (φ z, q z)`
+converges to `y` along an ultrafilter `𝒰` on `Z`, then `q` converges along `𝒰` to some `y₀ : Y`
+such that `h (φ z₀, q z₀) = y` whenever `𝒰 ≤ 𝓝 z₀` and `q z₀ = y₀`. -/
+theorem exists_tendsto_of_tendsto_apply_prodMk [T2Space T] (h : C(T × Y, Y)) (hh : IsProperMap h)
+    {A : Set Y} (hA : ∀ t, ∀ y ∈ A, h (t, y) = y) {q : Z → Y} {φ : Z → T}
+    (hφ : ∀ z, q z ∉ A → ContinuousAt φ z) {𝒰 : Ultrafilter Z} {y : Y}
+    (hy : Tendsto (fun z ↦ h (φ z, q z)) 𝒰 (𝓝 y)) :
+    ∃ y₀, Tendsto q 𝒰 (𝓝 y₀) ∧
+      ∀ z₀, (𝒰 : Filter Z) ≤ 𝓝 z₀ → q z₀ = y₀ → h (φ z₀, q z₀) = y := by
+  have hmap : Tendsto h (𝒰.map fun z ↦ (φ z, q z)) (𝓝 y) := by
+    rwa [Ultrafilter.coe_map, tendsto_map'_iff]
+  obtain ⟨⟨t₀, y₀⟩, hty, hle⟩ := hh.ultrafilter_le_nhds_of_tendsto hmap
+  rw [Ultrafilter.coe_map, nhds_prod_eq, le_prod, tendsto_map'_iff, tendsto_map'_iff] at hle
+  refine ⟨y₀, hle.2, fun z₀ hz₀ hqz ↦ ?_⟩
+  rw [hqz]
+  by_cases hyA : y₀ ∈ A
+  · rw [hA _ _ hyA, ← hA t₀ _ hyA, hty]
+  · have ht : φ z₀ = t₀ :=
+      tendsto_nhds_unique ((hφ z₀ (hqz ▸ hyA)).tendsto.mono_left hz₀) hle.1
+    rw [ht, hty]
 
 end ContinuousMap
 
