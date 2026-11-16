@@ -42,6 +42,8 @@ their restrictions to the module.
 * `AdicCompletion.linearMap_ext_of_finite`: a linear map over the completion out of the completion
   of a finite module is determined on the image of the module, since
   `AdicCompletion.ofTensorProduct` is surjective.
+* `AdicCompletion.finite`: the adic completion of a finite module is finite over the completed
+  ring.
 
 ## References
 
@@ -115,3 +117,8 @@ theorem AdicCompletion.linearMap_ext_of_finite [Module.Finite R M] {P : Type*} [
   induction t using TensorProduct.inductionOn with
   | tmul a x => simp [ofTensorProduct_tmul, h]
   | add s t hs ht => simp [hs, ht]
+
+/-- The adic completion of a finite `R`-module is finitely generated over `AdicCompletion I R`. -/
+instance AdicCompletion.finite [Module.Finite R M] :
+    Module.Finite (AdicCompletion I R) (AdicCompletion I M) :=
+  Module.Finite.of_surjective (ofTensorProduct I M) (ofTensorProduct_surjective_of_finite I M)
