@@ -28,7 +28,7 @@ this makes the additive and idempotent envelope `Karoubi (Mat_ C)` of an `R`-lin
 ## Main results
 
 * `CategoryTheory.Mat_.smul_apply`: scalars act entrywise on matrices.
-* The instance `CategoryTheory.Linear R (Mat_ C)`.
+* The instances `CategoryTheory.Linear R (Mat_ C)` and `CategoryTheory.Mat_.instModuleFiniteHom`.
 * The instances `(Mat_.embedding C).Linear R`, `F.mapMat_.Linear R` and
   `(Mat_.lift F).Linear R` for an `R`-linear functor `F`.
 -/
@@ -50,6 +50,11 @@ namespace Mat_
 entrywise. -/
 instance instModuleHom (M N : Mat_ C) : Module R (M ⟶ N) :=
   inferInstanceAs <| Module R (∀ i j, M.X i ⟶ N.X j)
+
+/-- If `C` has finite Hom modules over `R`, so does `Mat_ C`. -/
+instance instModuleFiniteHom [∀ X Y : C, Module.Finite R (X ⟶ Y)] (M N : Mat_ C) :
+    Module.Finite R (M ⟶ N) :=
+  inferInstanceAs <| Module.Finite R (∀ i j, M.X i ⟶ N.X j)
 
 /-- Scalars act entrywise on matrices of morphisms. -/
 @[simp]

@@ -32,6 +32,8 @@ self-adjoint unitary `IsStarProjection.two_mul_sub_one_mem_unitary`. Conversely,
   `(1 + u) * (1 + u) = (1 + u) + (1 + u)`.
 * `TauCeti.one_add_mul_one_add_mul_one_add_of_mul_self_eq_one`: if `u * u = 1` and
   `u * v + v * u = 0`, then `(1 + u) * (1 + v) * (1 + u) = (1 + u) + (1 + u)`.
+* `IsIdempotentElem.conj_one_add_mul_sub_mul`: if `e` and `e + u` are idempotent and `u * u = 0`,
+  conjugating `e + u` by the unit `1 + (e * u - u * e)` recovers `e`.
 -/
 
 public section
@@ -58,6 +60,88 @@ variable {R : Type*} [Ring R] {p : R}
 theorem two_mul_sub_one_mul_self (hp : IsIdempotentElem p) : (2 * p - 1) * (2 * p - 1) = 1 := by
   simp only [two_mul, add_mul, mul_add, sub_mul, mul_sub, one_mul, mul_one, hp.eq]
   abel
+
+section SqZeroPerturbation
+
+variable {e u : R}
+
+private theorem mul_add_mul_and_sandwiches_of_add (he : IsIdempotentElem e) (hu : u * u = 0)
+    (heu : IsIdempotentElem (e + u)) :
+    e * u + u * e = u ∧ e * u * e = 0 ∧ u * e * u = 0 := by
+  have hsum : e * u + u * e = u := by
+    apply add_left_cancel (a := e)
+    calc
+      e + (e * u + u * e) = (e + u) * (e + u) := by
+        rw [add_mul, mul_add, mul_add, he.eq, hu, add_zero, add_assoc]
+      _ = e + u := heu.eq
+  have heue : e * u * e = 0 := by
+    apply add_left_cancel (a := e * u)
+    calc
+      e * u + e * u * e = e * (e * u + u * e) := by
+        rw [mul_add, ← mul_assoc, ← mul_assoc, he.eq]
+      _ = e * u + 0 := by rw [hsum, add_zero]
+  have hueu : u * e * u = 0 := by
+    calc
+      u * e * u = 0 + u * e * u := (zero_add _).symm
+      _ = (e * u + u * e) * u := by rw [add_mul, mul_assoc e u u, hu, mul_zero]
+      _ = 0 := by rw [hsum, hu]
+  exact ⟨hsum, heue, hueu⟩
+
+/-- If `e` and `e + u` are idempotent and `u * u = 0`, the commutator `e * u - u * e` squares to
+zero. -/
+theorem mul_sub_mul_mul_self_eq_zero (he : IsIdempotentElem e) (hu : u * u = 0)
+    (heu : IsIdempotentElem (e + u)) :
+    (e * u - u * e) * (e * u - u * e) = 0 := by
+  obtain ⟨_, heue, hueu⟩ := he.mul_add_mul_and_sandwiches_of_add hu heu
+  have h1 : e * u * (e * u) = 0 := by rw [← mul_assoc, heue, zero_mul]
+  have h2 : u * e * (e * u) = 0 := by rw [mul_assoc, ← mul_assoc e e u, he.eq, ← mul_assoc, hueu]
+  have h3 : e * u * (u * e) = 0 := by
+    rw [mul_assoc, ← mul_assoc u u e, hu, zero_mul, mul_zero]
+  have h4 : u * e * (u * e) = 0 := by rw [mul_assoc, ← mul_assoc e u e, heue, mul_zero]
+  rw [sub_mul, mul_sub, mul_sub, h1, h2, h3, h4, sub_zero, sub_zero]
+
+/-- If `e` and `e + u` are idempotent and `u * u = 0`, then `1 + (e * u - u * e)` and
+`1 - (e * u - u * e)` multiply to `1`. -/
+theorem one_add_mul_sub_mul_mul_one_sub (he : IsIdempotentElem e) (hu : u * u = 0)
+    (heu : IsIdempotentElem (e + u)) :
+    (1 + (e * u - u * e)) * (1 - (e * u - u * e)) = 1 := by
+  rw [add_mul, one_mul, mul_sub, mul_one, he.mul_sub_mul_mul_self_eq_zero hu heu, sub_zero]
+  abel
+
+/-- If `e` and `e + u` are idempotent and `u * u = 0`, then `1 - (e * u - u * e)` and
+`1 + (e * u - u * e)` multiply to `1`. -/
+theorem one_sub_mul_sub_mul_mul_one_add (he : IsIdempotentElem e) (hu : u * u = 0)
+    (heu : IsIdempotentElem (e + u)) :
+    (1 - (e * u - u * e)) * (1 + (e * u - u * e)) = 1 := by
+  rw [sub_mul, one_mul, mul_add, mul_one, he.mul_sub_mul_mul_self_eq_zero hu heu, add_zero]
+  abel
+
+/-- **Conjugation of a square-zero perturbation of an idempotent**: in any ring, if `e` and
+`e + u` are idempotent and `u * u = 0`, conjugating `e + u` by the unit `1 + (e * u - u * e)`
+recovers `e`. -/
+theorem conj_one_add_mul_sub_mul (he : IsIdempotentElem e) (hu : u * u = 0)
+    (heu : IsIdempotentElem (e + u)) :
+    (1 + (e * u - u * e)) * (e + u) * (1 - (e * u - u * e)) = e := by
+  obtain ⟨hsum, heue, hueu⟩ := he.mul_add_mul_and_sandwiches_of_add hu heu
+  have hpe : (e * u - u * e) * e = -(u * e) := by
+    rw [sub_mul, heue, mul_assoc, he.eq, zero_sub]
+  have hpu : (e * u - u * e) * u = 0 := by
+    rw [sub_mul, mul_assoc, hu, mul_zero, hueu, sub_self]
+  have hep : e * (e * u - u * e) = e * u := by
+    rw [mul_sub, ← mul_assoc, he.eq, ← mul_assoc, heue, sub_zero]
+  have heup : e * u * (e * u - u * e) = 0 := by
+    rw [mul_sub, ← mul_assoc, heue, zero_mul, mul_assoc e u (u * e), ← mul_assoc u u e, hu,
+      zero_mul, mul_zero, sub_self]
+  have hleft : (1 + (e * u - u * e)) * (e + u) = e + e * u := by
+    calc
+      (1 + (e * u - u * e)) * (e + u) = e + u + (-(u * e) + 0) := by
+        rw [add_mul, one_mul, mul_add, hpe, hpu]
+      _ = e + (e * u + u * e) + (-(u * e) + 0) := by rw [hsum]
+      _ = e + e * u := by abel
+  rw [hleft, add_mul, mul_sub e, mul_one, hep, mul_sub (e * u), mul_one, heup, sub_zero]
+  abel
+
+end SqZeroPerturbation
 
 end Ring
 

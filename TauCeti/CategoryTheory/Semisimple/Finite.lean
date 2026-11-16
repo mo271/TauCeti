@@ -28,6 +28,8 @@ rings is needed.
 
 * `TauCeti.finite_simpleClasses_of_forall_simple_exists_hom_ne_zero`: a finite family receiving
   a nonzero morphism from every simple object forces finiteness of simple classes.
+* `TauCeti.finite_simpleClasses_of_forall_exists_biproduct`: decomposing every object as a finite
+  biproduct drawn from a finite family forces finiteness of simple classes.
 * `CategoryTheory.Functor.finite_simpleClasses_of_faithful_leftAdjoint`: finiteness transfers
   along a faithful left adjoint between finite semisimple categories.
 
@@ -63,6 +65,24 @@ theorem finite_simpleClasses_of_forall_simple_exists_hom_ne_zero {ι : Type*} [F
     exact ⟨i, Finset.mem_univ i, Finsupp.mem_support_iff.mpr (by simpa using hm)⟩
   exact Finite.of_injective (fun S : SimpleClasses C ↦ (⟨S, hs S⟩ : ↥s))
     (fun _ _ h ↦ congrArg Subtype.val h)
+
+/-- If every object of a finite semisimple category decomposes as a finite biproduct of members of
+a finite family `X`, then `SimpleClasses C` is finite. -/
+theorem finite_simpleClasses_of_forall_exists_biproduct [HasFiniteBiproducts C]
+    {ι : Type*} [Finite ι] (X : ι → C)
+    (hgen : ∀ Y : C, ∃ (α : Type) (_ : Finite α) (a : α → ι),
+      Nonempty (Y ≅ ⨁ fun p ↦ X (a p))) :
+    Finite (SimpleClasses C) := by
+  classical
+  refine finite_simpleClasses_of_forall_simple_exists_hom_ne_zero X fun S _ ↦ ?_
+  obtain ⟨α, _, a, ⟨e⟩⟩ := hgen S
+  let _ := Fintype.ofFinite α
+  have hp : ∃ p : α, e.hom ≫ biproduct.π (fun p ↦ X (a p)) p ≠ 0 := by
+    by_contra! h0
+    have he : e.hom = 0 := biproduct.hom_ext _ _ fun p ↦ by simpa using h0 p
+    exact CategoryTheory.id_ne_zero S (by simpa [he] using e.hom_inv_id.symm)
+  obtain ⟨p, hp⟩ := hp
+  exact ⟨a p, e.hom ≫ biproduct.π _ p, hp⟩
 
 end TauCeti
 

@@ -30,6 +30,8 @@ finite-dimensionality of morphism spaces are separate hypotheses when they are n
 * `TauCeti.IsFiniteSemisimpleCategory`: every object is a finite biproduct of simple objects.
 * `TauCeti.IsFiniteSemisimpleCategory.of_equivalence`: transport finite semisimplicity across an
   equivalence.
+* `TauCeti.IsFiniteSemisimpleCategory.of_forall_exists_biproduct`: obtain finite semisimplicity
+  from decompositions into finite biproducts over an indexed family of simple objects.
 * `TauCeti.IsFiniteSemisimpleCategory.exists_biproduct_simples_of_isZero`,
   `TauCeti.IsFiniteSemisimpleCategory.exists_biproduct_simples_of_simple` and
   `TauCeti.IsFiniteSemisimpleCategory.exists_biproduct_simples_biprod`: zero objects and simple
@@ -102,6 +104,19 @@ theorem iff_of_equivalence (e : C ≌ D) :
   · intro h
     let _ := h
     exact of_equivalence e.symm
+
+/-- An abelian category in which every object decomposes as a finite biproduct of members of a
+family of simple objects is finite semisimple. -/
+theorem of_forall_exists_biproduct [HasFiniteBiproducts C] {ι : Type*} (X : ι → C)
+    [∀ i, Simple (X i)]
+    (hgen : ∀ Y : C, ∃ (α : Type) (_ : Finite α) (a : α → ι),
+      Nonempty (Y ≅ ⨁ fun p ↦ X (a p))) :
+    IsFiniteSemisimpleCategory C where
+  exists_biproduct_simples Y := by
+    classical
+    obtain ⟨α, _, a, ⟨e⟩⟩ := hgen Y
+    let _ := Fintype.ofFinite α
+    exact ⟨α, inferInstance, fun p ↦ X (a p), fun _ ↦ inferInstance, inferInstance, ⟨e⟩⟩
 
 end Abelian
 

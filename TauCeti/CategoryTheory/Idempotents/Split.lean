@@ -6,17 +6,24 @@ Authors: The Tau Ceti contributors
 module
 
 public import Mathlib.CategoryTheory.Preadditive.Biproducts
+public import TauCeti.Algebra.Ring.Idempotent.Basic
 
 /-!
-# Sums of orthogonal split idempotents
+# Sums and perturbations of split idempotents
 
 An idempotent `e` of `X` splits when `e = r ≫ i` for morphisms `i : Y ⟶ X` and `r : X ⟶ Y` with
-`i ≫ r = 𝟙 Y`, as in Mathlib's `CategoryTheory.IsIdempotentComplete`. In a preadditive category
-with binary biproducts, the sum of two orthogonal split idempotents splits through the biproduct
-of their images.
+`i ≫ r = 𝟙 Y`, as in Mathlib's `CategoryTheory.IsIdempotentComplete`. Splitting is invariant under
+conjugation by an isomorphism; in a preadditive category, an idempotent perturbation `e + u` of a
+split idempotent `e` by a square-zero endomorphism `u` is conjugate to `e` and therefore splits,
+and when binary biproducts exist, the sum of two orthogonal split idempotents splits through the
+biproduct of their images.
 
 ## Main results
 
+* `TauCeti.exists_split_of_iso_conj`: an idempotent splits whenever a conjugate by an isomorphism
+  splits.
+* `TauCeti.exists_split_add_of_sq_eq_zero`: an idempotent perturbation `e + u` of a split
+  idempotent `e` by `u` with `u ≫ u = 0` splits.
 * `TauCeti.exists_split_add_of_comp_eq_zero`: the sum of two orthogonal split idempotents splits.
 -/
 
@@ -25,6 +32,37 @@ public section
 namespace TauCeti
 
 open CategoryTheory CategoryTheory.Limits
+
+/-- **Splitting of idempotents is invariant under conjugation by an isomorphism**: if
+`φ.inv ≫ e ≫ φ.hom` splits, then `e` splits through the same object. -/
+theorem exists_split_of_iso_conj {C : Type*} [Category* C] {X X' : C} (φ : X ≅ X') {e : X ⟶ X}
+    (h : ∃ (Y : C) (i : Y ⟶ X') (r : X' ⟶ Y), i ≫ r = 𝟙 Y ∧ r ≫ i = φ.inv ≫ e ≫ φ.hom) :
+    ∃ (Y : C) (i : Y ⟶ X) (r : X ⟶ Y), i ≫ r = 𝟙 Y ∧ r ≫ i = e := by
+  obtain ⟨Y, i, r, hir, hri⟩ := h
+  exact ⟨Y, i ≫ φ.inv, φ.hom ≫ r, by simp [hir], by simp [reassoc_of% hri]⟩
+
+/-- **Square-zero perturbations of split idempotents split**: in a preadditive category, if `e` and
+`e + u` are idempotent endomorphisms of `X`, `u ≫ u = 0`, and `e` splits, then `e + u` splits
+through the same object. -/
+theorem exists_split_add_of_sq_eq_zero {C : Type*} [Category* C] [Preadditive C] {X : C}
+    {e u : X ⟶ X} (he : e ≫ e = e) (hu : u ≫ u = 0) (heu : (e + u) ≫ (e + u) = e + u)
+    (hsplit : ∃ (Y : C) (i : Y ⟶ X) (r : X ⟶ Y), i ≫ r = 𝟙 Y ∧ r ≫ i = e) :
+    ∃ (Y : C) (i : Y ⟶ X) (r : X ⟶ Y), i ≫ r = 𝟙 Y ∧ r ≫ i = e + u := by
+  let e' : End X := End.of e
+  let u' : End X := End.of u
+  have he' : IsIdempotentElem e' := End.ext he
+  have hu' : u' * u' = 0 := End.ext hu
+  have heu' : IsIdempotentElem (e' + u') := End.ext heu
+  let a : End X := 1 + (e' * u' - u' * e')
+  let b : End X := 1 - (e' * u' - u' * e')
+  let φ : X ≅ X :=
+    { hom := a.asHom
+      inv := b.asHom
+      hom_inv_id := congrArg End.asHom (he'.one_sub_mul_sub_mul_mul_one_add hu' heu')
+      inv_hom_id := congrArg End.asHom (he'.one_add_mul_sub_mul_mul_one_sub hu' heu') }
+  have hconj : φ.inv ≫ (e + u) ≫ φ.hom = e :=
+    congrArg End.asHom (he'.conj_one_add_mul_sub_mul hu' heu')
+  exact exists_split_of_iso_conj φ (hconj.symm ▸ hsplit)
 
 variable {C : Type*} [Category* C] [Preadditive C] [HasBinaryBiproducts C]
 
