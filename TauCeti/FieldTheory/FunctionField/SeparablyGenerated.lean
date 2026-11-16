@@ -6,6 +6,7 @@ Authors: The Tau Ceti contributors
 module
 
 public import TauCeti.FieldTheory.FunctionField.Basic
+public import TauCeti.FieldTheory.Separable.Regular
 public import TauCeti.FieldTheory.Separable.TranscendenceDegreeOne
 
 /-!
@@ -19,10 +20,11 @@ element.
 
 Over an imperfect field a separating element still exists when `F` is geometrically reduced over
 `k`, for instance when `L ⊗[k] F` is reduced for an algebraically closed field `L` over `k`
-(`Algebra.IsGeometricallyReduced.of_isReduced_tensorProduct`). If `F ⊗[k] L` is even a domain,
-then `k` is moreover algebraically closed in `F`
-(`TauCeti.algebraicClosure_eq_bot_of_isDomain_tensorProduct`), so `F` is separably generated with
-exact constants, that is, a regular extension of `k`.
+(`Algebra.IsGeometricallyReduced.of_isReduced_tensorProduct`). Combining this with
+`TauCeti.isGeometricallyReduced_of_separating` equates geometric reducedness of a function field
+with the existence of a separating element. If `F ⊗[k] L` is even a domain, then `k` is moreover
+algebraically closed in `F` (`TauCeti.algebraicClosure_eq_bot_of_isDomain_tensorProduct`), so `F`
+is separably generated with exact constants, that is, a regular extension of `k`.
 
 In general a separating element need not exist. An element of `F` outside `k` with a
 `p`-power in `k`, such as `t^{1/p}` in `𝔽_p(t^{1/p})(X)` over `𝔽_p(t)`, would be both separable
@@ -35,6 +37,12 @@ not.
   function field over a perfect field has a separating element.
 * `TauCeti.IsFunctionField.exists_transcendental_and_isSeparable_adjoin_of_isGeometricallyReduced`:
   a geometrically reduced function field has a separating element.
+* `TauCeti.IsFunctionField.isGeometricallyReduced_iff_exists_separating`: a function field is
+  geometrically reduced iff it admits a separating element.
+* `TauCeti.IsFunctionField.isDomain_tensorProduct_iff_exists_separating_and_isIntegrallyClosedIn`,
+  `TauCeti.IsFunctionField.forall_isDomain_tensorProduct_field_iff`: regular-extension
+  equivalences for function fields over an algebraically closed test field and across all field
+  extensions.
 * `TauCeti.not_isSeparable_adjoin_of_pow_mem`: an element outside `k` with a power
   `α ^ q ^ n` in `k` rules out every separating element.
 
@@ -49,7 +57,7 @@ public section
 
 noncomputable section
 
-open scoped IntermediateField
+open scoped IntermediateField TensorProduct
 
 namespace TauCeti
 
@@ -80,7 +88,35 @@ theorem exists_transcendental_and_isSeparable_adjoin_of_isGeometricallyReduced
   exact TauCeti.exists_transcendental_and_isSeparable_adjoin_of_isGeometricallyReduced
     hF.trdeg_eq_one
 
-end IsFunctionField
+/-- A one-variable function field is geometrically reduced over its base field if and
+only if it admits a separating element. -/
+theorem isGeometricallyReduced_iff_exists_separating (hF : IsFunctionField k F) :
+    Algebra.IsGeometricallyReduced k F ↔
+      ∃ x : F, Transcendental k x ∧ Algebra.IsSeparable k⟮x⟯ F :=
+  ⟨fun _ ↦ hF.exists_transcendental_and_isSeparable_adjoin_of_isGeometricallyReduced,
+    fun ⟨_, hx, _⟩ ↦ isGeometricallyReduced_of_separating hx⟩
 
+/-- **Regular-extension equivalence for one-variable function fields.** For an
+algebraically closed field `Ω` over `k`, `F ⊗[k] Ω` is a domain if and only if `F/k`
+admits a separating element and `k` is integrally closed in `F`. -/
+theorem isDomain_tensorProduct_iff_exists_separating_and_isIntegrallyClosedIn
+    (hF : IsFunctionField k F) (Ω : Type*) [Field Ω] [Algebra k Ω] [IsAlgClosed Ω] :
+    IsDomain (F ⊗[k] Ω) ↔
+      (∃ x : F, Transcendental k x ∧ Algebra.IsSeparable k⟮x⟯ F) ∧
+        IsIntegrallyClosedIn k F := by
+  rw [isDomain_tensorProduct_iff_isGeometricallyReduced_and_isIntegrallyClosedIn Ω,
+    hF.isGeometricallyReduced_iff_exists_separating]
+
+/-- A one-variable function field `F/k` stays a domain after tensoring with every field
+extension `K/k` if and only if `F/k` admits a separating element and `k` is integrally
+closed in `F`. -/
+theorem forall_isDomain_tensorProduct_field_iff (hF : IsFunctionField k F) :
+    (∀ (K : Type u) [Field K] [Algebra k K], IsDomain (F ⊗[k] K)) ↔
+      (∃ x : F, Transcendental k x ∧ Algebra.IsSeparable k⟮x⟯ F) ∧
+        IsIntegrallyClosedIn k F := by
+  rw [TauCeti.forall_isDomain_tensorProduct_field_iff,
+    hF.isGeometricallyReduced_iff_exists_separating]
+
+end IsFunctionField
 
 end TauCeti

@@ -18,6 +18,7 @@ import Mathlib.RingTheory.AlgebraicIndependent.AlgebraicClosure
 import Mathlib.RingTheory.AlgebraicIndependent.TranscendenceBasis
 import Mathlib.RingTheory.TensorProduct.MvPolynomial
 import TauCeti.FieldTheory.Minpoly.IsIntegrallyClosedIn
+import TauCeti.RingTheory.IntegralClosure.IntegrallyClosed
 
 /-!
 # Relative algebraic closure: finiteness and extension of scalars
@@ -36,7 +37,8 @@ finiteness is what reduces integral closures in finitely generated field extensi
 closures in finite ones, as in Stacks, Lemma 10.162.2 (03GH).
 
 Second, let `L` be an algebraically closed field containing `k`. If `K ⊗[k] L` is a domain, then
-`k` is algebraically closed in `K`: the relative algebraic closure `algebraicClosure k K` is `⊥`.
+`k` is algebraically closed in `K`: the relative algebraic closure `algebraicClosure k K` is `⊥`
+(equivalently, `IsIntegrallyClosedIn k K`).
 
 Indeed, `E = algebraicClosure k K` is algebraic over `k`, and `L ⊗[k] E` embeds in the domain
 `L ⊗[k] K` because every `k`-module is flat. So `L ⊗[k] E` is a domain that is integral over the
@@ -58,8 +60,12 @@ closure of `K`, and Mathlib's `IntermediateField.LinearDisjoint.isDomain`.
   generates a subalgebra linearly disjoint from the relative algebraic closure.
 * `TauCeti.finiteDimensional_algebraicClosure`: the relative algebraic closure of `k` in a
   finitely generated field extension is finite over `k`.
-* `TauCeti.algebraicClosure_eq_bot_of_isDomain_tensorProduct`: if `K ⊗[k] L` is a domain for an
-  algebraically closed field `L` over `k`, then `algebraicClosure k K = ⊥`.
+* `TauCeti.algebraicClosure_eq_bot_iff_isIntegrallyClosedIn`: `algebraicClosure k K = ⊥` holds iff
+  `IsIntegrallyClosedIn k K`.
+* `TauCeti.algebraicClosure_eq_bot_of_isDomain_tensorProduct` and
+  `TauCeti.isIntegrallyClosedIn_of_isDomain_tensorProduct`: if `K ⊗[k] L` is a domain for an
+  algebraically closed field `L` over `k`, then `algebraicClosure k K = ⊥` and
+  `IsIntegrallyClosedIn k K`.
 * `TauCeti.isDomain_tensorProduct_of_isIntegrallyClosedIn`: exact constants give a domain after
   a separable algebraic extension of scalars.
 
@@ -151,6 +157,14 @@ theorem isDomain_tensorProduct_of_isIntegrallyClosedIn (hex : IsIntegrallyClosed
   exact ((Algebra.TensorProduct.congr e.equivFieldRange.symm (AlgEquiv.refl : K ≃ₐ[k] K)).trans
     (Algebra.TensorProduct.comm k L K)).symm.toMulEquiv.isDomain
 
+/-- `k` is integrally closed in `K` exactly when no element of `K` outside `k` is algebraic over
+`k`, that is, when the relative algebraic closure of `k` in `K` is `k` itself. -/
+theorem algebraicClosure_eq_bot_iff_isIntegrallyClosedIn :
+    algebraicClosure k K = ⊥ ↔ IsIntegrallyClosedIn k K := by
+  rw [← IsIntegrallyClosedIn.integralClosure_eq_bot_iff K (algebraMap k K).injective,
+    ← algebraicClosure_toSubalgebra, ← IntermediateField.bot_toSubalgebra,
+    IntermediateField.toSubalgebra_inj]
+
 /-- If `K ⊗[k] L` is a domain for some algebraically closed field `L` over `k`, then `k` is
 algebraically closed in `K`. -/
 theorem algebraicClosure_eq_bot_of_isDomain_tensorProduct (L : Type*) [Field L] [Algebra k L]
@@ -171,5 +185,12 @@ theorem algebraicClosure_eq_bot_of_isDomain_tensorProduct (L : Type*) [Field L] 
   rw [Module.rank_self, Module.rank_baseChange, Cardinal.lift_one, Cardinal.lift_lift,
     eq_comm, Cardinal.lift_eq_one] at hrank
   exact IntermediateField.rank_eq_one_iff.mp hrank
+
+/-- If `K ⊗[k] L` is a domain for some algebraically closed field `L` over `k`, then `k` is
+integrally closed in `K`. -/
+theorem isIntegrallyClosedIn_of_isDomain_tensorProduct (L : Type*) [Field L] [Algebra k L]
+    [IsAlgClosed L] [IsDomain (K ⊗[k] L)] : IsIntegrallyClosedIn k K :=
+  algebraicClosure_eq_bot_iff_isIntegrallyClosedIn.mp
+    (algebraicClosure_eq_bot_of_isDomain_tensorProduct L)
 
 end TauCeti

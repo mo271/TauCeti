@@ -32,10 +32,12 @@ This uses Mathlib's linear disjointness of separable and purely inseparable exte
   `[F' : k'(x)] ≤ [F : k(x)]` for any constant extension, when `F / k(x)` is finite.
 * `TauCeti.finiteDimensional_adjoin_simple_of_constantCompositum_eq_top`: `F' / k'(x)` is finite
   when `F / k(x)` is, for any constant extension.
-* `TauCeti.finiteDimensional_ratFunc_of_constantCompositum_eq_top` and
-  `TauCeti.finrank_ratFunc_eq_of_constantCompositum_eq_top`: the same statements for `F` and `F'`
-  given as algebras over `k(t)` and `k'(t)`, with `t` acting compatibly: `F'` is finite over
-  `k'(t)` when `F` is finite over `k(t)`, and then `[F' : k'(t)] = [F : k(t)]`.
+* `TauCeti.finiteDimensional_ratFunc_of_constantCompositum_eq_top`,
+  `TauCeti.isSeparable_ratFunc_of_constantCompositum_eq_top`, and
+  `TauCeti.finrank_ratFunc_eq_of_constantCompositum_eq_top`: the corresponding statements for `F`
+  and `F'` given as algebras over `k(t)` and `k'(t)`, with `t` acting compatibly: `F'` is finite
+  (respectively separable) over `k'(t)` when `F` is finite (respectively separable) over `k(t)`,
+  and `[F' : k'(t)] = [F : k(t)]` for separable algebraic constants over an exact constant field.
 * `TauCeti.finrank_over_constantCompositum_eq_finrank_of_constantCompositum_eq_top`:
   `[F' : E · k'] = [F : E]` for every subfield `E` of `F` containing `k`.
 * `TauCeti.finrank_over_constantCompositum_eq_finrank_of_isPurelyInseparable`:
@@ -238,6 +240,22 @@ theorem finiteDimensional_ratFunc_of_constantCompositum_eq_top [FiniteDimensiona
   rw [hX] at this
   exact Module.finite_of_finrank_pos
     (finrank_adjoin_algebraMap_X (k := k') (F := F') ▸ Module.finrank_pos)
+
+/-- **Extending constants preserves separability over the rational function field**: if
+`F' = F · k'`, the variable of `k'(t)` acts on `F'` as the variable of `k(t)` acts on `F`, and `F`
+is separable over `k(t)`, then `F'` is separable over `k'(t)`. Neither algebraicity nor
+separability of `k' / k` is required. -/
+theorem isSeparable_ratFunc_of_constantCompositum_eq_top [Algebra.IsSeparable (RatFunc k) F]
+    (h : constantCompositum F k' F' = ⊤)
+    (hX : algebraMap F F' (algebraMap (RatFunc k) F RatFunc.X) =
+      algebraMap (RatFunc k') F' RatFunc.X) :
+    Algebra.IsSeparable (RatFunc k') F' := by
+  have : Algebra.IsSeparable k⟮algebraMap (RatFunc k) F RatFunc.X⟯ F :=
+    isSeparable_adjoin_algebraMap_X_iff.mpr inferInstance
+  have hsep := isSeparable_adjoin_image_of_constantCompositum_eq_top (k := k)
+    (S := {algebraMap (RatFunc k) F RatFunc.X}) h
+  rw [Set.image_singleton, hX] at hsep
+  exact isSeparable_adjoin_algebraMap_X_iff.mp hsep
 
 /-- **A separable algebraic extension of an exact constant field preserves the degree over the
 rational function field**: if `F' = F · k'` and the variable of `k'(t)` acts on `F'` as the
