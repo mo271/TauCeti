@@ -141,7 +141,34 @@ theorem eq_quotientTrace (σ : A ⧸ τ.traceRadical hτ →ₗ[R] R)
   obtain ⟨x, rfl⟩ := Ideal.Quotient.mkₐ_surjective R (τ.traceRadical hτ) x
   exact (LinearMap.congr_fun hσ x).trans (τ.quotientTrace_mk hτ x).symm
 
+/-- Scaling a tracial linear functional by a scalar preserves traciality. -/
+theorem smul_mul_comm (c : R) (hτ : ∀ x y, τ (x * y) = τ (y * x)) (x y : A) :
+    (c • τ) (x * y) = (c • τ) (y * x) := by
+  simp only [LinearMap.smul_apply, hτ]
+
+/-- Scaling a tracial linear functional can only enlarge its trace radical. -/
+theorem le_traceRadical_smul (c : R) :
+    τ.traceRadical hτ ≤ (c • τ).traceRadical (τ.smul_mul_comm c hτ) := by
+  intro x hx y
+  simp [hx y]
+
+/-- Scaling a tracial linear functional by a unit leaves its trace radical unchanged. -/
+theorem traceRadical_smul_of_isUnit {c : R} (hc : IsUnit c) :
+    (c • τ).traceRadical (τ.smul_mul_comm c hτ) = τ.traceRadical hτ := by
+  refine le_antisymm (fun x hx y ↦ ?_) (τ.le_traceRadical_smul hτ c)
+  obtain ⟨u, rfl⟩ := hc
+  have hy := congrArg ((↑u⁻¹ : R) * ·) (hx y)
+  simpa only [LinearMap.smul_apply, smul_eq_mul, ← mul_assoc, Units.inv_mul, one_mul,
+    mul_zero] using hy
+
 variable {τ} {σ : B →ₗ[R] R} (hσ : ∀ x y, σ (x * y) = σ (y * x))
+
+/-- The kernel of an algebra map is contained in the radical of any trace pulled back along it. -/
+theorem ker_le_traceRadical (f : A →ₐ[R] B) (hf : σ ∘ₗ f.toLinearMap = τ) :
+    RingHom.ker f ≤ τ.traceRadical hτ := by
+  intro x hx y
+  have heq : σ (f (x * y)) = τ (x * y) := LinearMap.congr_fun hf (x * y)
+  rw [← heq, map_mul, RingHom.mem_ker.mp hx, zero_mul, map_zero]
 
 /-- Pullback of the target radical is contained in the source radical for a trace-preserving
 map. The reverse inclusion need not hold for a nonsurjective map. -/
@@ -161,6 +188,60 @@ theorem comap_traceRadical_of_surjective (f : A →ₐ[R] B)
   obtain ⟨y, rfl⟩ := hsurj y
   have heq : σ (f (x * y)) = τ (x * y) := LinearMap.congr_fun hf _
   simpa only [map_mul] using heq.trans (hx y)
+
+/-- A surjective trace-preserving algebra map induces an algebra isomorphism between the
+trace-radical quotients. -/
+noncomputable def quotientTraceEquivOfSurjective (f : A →ₐ[R] B)
+    (hf : σ ∘ₗ f.toLinearMap = τ) (hsurj : Function.Surjective f) :
+    (A ⧸ τ.traceRadical hτ) ≃ₐ[R] B ⧸ σ.traceRadical hσ :=
+  AlgEquiv.ofBijective
+    (Ideal.quotientMapₐ (σ.traceRadical hσ) f
+      (comap_traceRadical_of_surjective hτ hσ f hf hsurj).ge)
+    ⟨by
+      intro x y hxy
+      obtain ⟨x, rfl⟩ := Ideal.Quotient.mk_surjective x
+      obtain ⟨y, rfl⟩ := Ideal.Quotient.mk_surjective y
+      rw [Ideal.quotient_map_mkₐ, Ideal.quotient_map_mkₐ, Ideal.Quotient.mkₐ_eq_mk,
+        Ideal.Quotient.eq] at hxy
+      exact Ideal.Quotient.eq.mpr
+        ((comap_traceRadical_of_surjective hτ hσ f hf hsurj) ▸
+          Ideal.mem_comap.mpr (by simpa only [map_sub] using hxy)),
+      fun y ↦ by
+        obtain ⟨b, rfl⟩ := Ideal.Quotient.mk_surjective y
+        obtain ⟨a, rfl⟩ := hsurj b
+        exact ⟨Ideal.Quotient.mk _ a, Ideal.quotient_map_mkₐ _ _ _⟩⟩
+
+/-- The induced trace-quotient isomorphism acts on representatives by `f`. -/
+@[simp]
+theorem quotientTraceEquivOfSurjective_mk (f : A →ₐ[R] B)
+    (hf : σ ∘ₗ f.toLinearMap = τ) (hsurj : Function.Surjective f) (x : A) :
+    quotientTraceEquivOfSurjective hτ hσ f hf hsurj (Ideal.Quotient.mk (τ.traceRadical hτ) x) =
+      Ideal.Quotient.mk (σ.traceRadical hσ) (f x) :=
+  Ideal.quotient_map_mkₐ (σ.traceRadical hσ) f
+    (comap_traceRadical_of_surjective hτ hσ f hf hsurj).ge
+
+/-- The induced trace-quotient isomorphism intertwines the quotient traces. -/
+@[simp]
+theorem quotientTrace_quotientTraceEquivOfSurjective (f : A →ₐ[R] B)
+    (hf : σ ∘ₗ f.toLinearMap = τ) (hsurj : Function.Surjective f)
+    (x : A ⧸ τ.traceRadical hτ) :
+    σ.quotientTrace hσ (quotientTraceEquivOfSurjective hτ hσ f hf hsurj x) =
+      τ.quotientTrace hτ x := by
+  obtain ⟨x, rfl⟩ := Ideal.Quotient.mk_surjective x
+  rw [quotientTraceEquivOfSurjective_mk, σ.quotientTrace_mk hσ, τ.quotientTrace_mk hτ]
+  exact LinearMap.congr_fun hf x
+
+/-- The inverse of the induced trace-quotient isomorphism also intertwines the quotient traces. -/
+@[simp]
+theorem quotientTrace_quotientTraceEquivOfSurjective_symm (f : A →ₐ[R] B)
+    (hf : σ ∘ₗ f.toLinearMap = τ) (hsurj : Function.Surjective f)
+    (y : B ⧸ σ.traceRadical hσ) :
+    τ.quotientTrace hτ ((quotientTraceEquivOfSurjective hτ hσ f hf hsurj).symm y) =
+      σ.quotientTrace hσ y := by
+  let e := quotientTraceEquivOfSurjective hτ hσ f hf hsurj
+  have h := quotientTrace_quotientTraceEquivOfSurjective hτ hσ f hf hsurj (e.symm y)
+  rw [e.apply_symm_apply] at h
+  exact h.symm
 
 end LinearMap
 

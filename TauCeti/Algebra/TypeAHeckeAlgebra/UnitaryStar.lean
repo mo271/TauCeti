@@ -8,9 +8,10 @@ module
 public import Mathlib.Algebra.Star.Subalgebra
 public import TauCeti.Algebra.Star.Unitary
 public import TauCeti.Algebra.TypeAHeckeAlgebra.Complement
+public import TauCeti.Algebra.TypeAHeckeAlgebra.Embedding
 
 /-!
-# The unit-circle involution on the infinite type-A Hecke algebra
+# The unit-circle involution on type-A Hecke algebras
 
 For a unitary unit parameter `q` in a commutative star ring, so `star q = q⁻¹` (for example a
 complex number of modulus one), the type-A Hecke algebra has an involution sending every
@@ -21,24 +22,31 @@ the opposite algebra.
 
 In this fiber every generator, every rescaled generator `q • T i`, and the image of every braid
 are unitary. Finite stages are invariant under the involution, and strand shifts, the
-complement automorphism and the index/sign characters commute with it. This is the algebraic
-star structure on which positive traces at unit-circle parameters are stated; no positivity or
-C*-completion is asserted.
+complement automorphism and the index/sign characters commute with it. The finite presentation
+`TypeAHeckeAlgebra` inherits the involution through `TypeAHeckeAlgebra.toInfinite` and
+`TypeAHeckeAlgebra.stageEquiv`, preserving both `toInfinite` and the tower inclusions `strandIncl`.
+This is the algebraic star structure on which positive traces at unit-circle parameters are stated;
+no positivity or C*-completion is asserted.
 
 The real-parameter involution of `TauCeti.Algebra.TypeAHeckeAlgebra.Star`, in which the
 generators are self-adjoint, is a different structure on a different parameter fiber. The two
 fibers meet only where `q = q⁻¹`; there `T i⁻¹ = T i`, so both involutions fix the generators
-and agree. To keep the two APIs apart, the declarations here live in the namespace
-`TauCeti.InfiniteTypeAHeckeAlgebra.UnitCircle`.
+and agree. To keep the two APIs apart, the declarations here live in the namespaces
+`TauCeti.InfiniteTypeAHeckeAlgebra.UnitCircle` and `TauCeti.TypeAHeckeAlgebra.UnitCircle`.
 
 ## Main definitions and results
 
-* `UnitCircle.instStarRing`: the unit-circle star ring structure, for `Fact (q ∈ unitary R)`.
+* `InfiniteTypeAHeckeAlgebra.UnitCircle.instStarRing`,
+  `TypeAHeckeAlgebra.UnitCircle.instStarRing`: the unit-circle star ring structures, for
+  `Fact (q ∈ unitary R)`.
 * `UnitCircle.star_T`: the involution sends `T i` to its inverse.
 * `UnitCircle.T_mem_unitary`, `UnitCircle.braidHom_mem_unitary`: generators and braid images
   are unitary.
 * `UnitCircle.map_star_iff`: the star-algebra universal property, in terms of unitary images
   of the generators.
+* `TypeAHeckeAlgebra.UnitCircle.toInfinite_star`,
+  `TypeAHeckeAlgebra.UnitCircle.strandIncl_star`: the embedding into the infinite algebra and
+  the tower inclusions preserve the unit-circle involution.
 
 ## References
 
@@ -229,3 +237,127 @@ theorem signCharacter_star (x : InfiniteTypeAHeckeAlgebra R q) :
       (-star ⟨(q : R), hq.out⟩ : unitary R).prop) x
 
 end TauCeti.InfiniteTypeAHeckeAlgebra.UnitCircle
+
+namespace TauCeti.TypeAHeckeAlgebra.UnitCircle
+
+variable {R : Type*} [CommRing R] [StarRing R] {q : Rˣ} {n : ℕ}
+variable [hq : Fact ((q : R) ∈ unitary R)]
+
+/-- The unit-circle involution on the finite presentation, transported through its proved
+embedding in the infinite algebra. -/
+private noncomputable def finiteStar (x : TypeAHeckeAlgebra R q n) :
+    TypeAHeckeAlgebra R q n :=
+  (stageEquiv R q n).symm ⟨star (toInfinite R q n x),
+    InfiniteTypeAHeckeAlgebra.UnitCircle.star_mem_stage_iff.mpr
+      (by rw [← range_toInfinite]; exact ⟨x, rfl⟩)⟩
+
+private theorem toInfinite_finiteStar (x : TypeAHeckeAlgebra R q n) :
+    toInfinite R q n (finiteStar x) = star (toInfinite R q n x) := by
+  simp [finiteStar, toInfinite_stageEquiv_symm_apply]
+
+/-- For a unitary unit parameter, the finite Hecke algebra is a star ring sending each simple
+generator to its inverse and conjugating scalars. -/
+@[no_expose]
+noncomputable instance instStarRing : StarRing (TypeAHeckeAlgebra R q n) where
+  star := finiteStar
+  star_involutive x := by
+    apply toInfinite_injective R q n
+    simp [toInfinite_finiteStar]
+  star_mul x y := by
+    apply toInfinite_injective R q n
+    simp [toInfinite_finiteStar]
+  star_add x y := by
+    apply toInfinite_injective R q n
+    simp [toInfinite_finiteStar]
+
+/-- The finite-to-infinite embedding preserves the unit-circle involution. -/
+@[simp]
+theorem toInfinite_star (x : TypeAHeckeAlgebra R q n) :
+    toInfinite R q n (star x) = star (toInfinite R q n x) :=
+  toInfinite_finiteStar x
+
+/-- The finite unit-circle involution conjugates coefficients. -/
+noncomputable instance instStarModule : StarModule R (TypeAHeckeAlgebra R q n) where
+  star_smul r x := by
+    apply toInfinite_injective R q n
+    simp
+
+/-- In the unit-circle convention the adjoint of a simple generator is its inverse. -/
+@[simp]
+theorem star_T (i : Fin (n - 1)) :
+    star (T q i) = (↑(unitT q i)⁻¹ : TypeAHeckeAlgebra R q n) := by
+  apply toInfinite_injective R q n
+  simp [val_inv_unitT, InfiniteTypeAHeckeAlgebra.val_inv_unitT]
+
+/-- The adjoint of the inverse of a simple generator is the generator. -/
+theorem star_val_inv_unitT (i : Fin (n - 1)) :
+    star (↑(unitT q i)⁻¹ : TypeAHeckeAlgebra R q n) = T q i := by
+  rw [← star_T, star_star]
+
+/-- Every simple generator is unitary in the unit-circle convention. -/
+theorem T_mem_unitary (i : Fin (n - 1)) : T q i ∈ unitary (TypeAHeckeAlgebra R q n) :=
+  Unitary.mem_iff.mpr ⟨by rw [star_T, ← val_unitT (q := q) i, Units.inv_mul],
+    by rw [star_T, ← val_unitT (q := q) i, Units.mul_inv]⟩
+
+/-- In the `g i = q • T i` convention, the rescaled generators are unitary as well. -/
+theorem smul_T_mem_unitary (i : Fin (n - 1)) :
+    (q : R) • T q i ∈ unitary (TypeAHeckeAlgebra R q n) :=
+  Unitary.smul_mem_of_mem hq.out (T_mem_unitary i)
+
+/-- The finite braid representation is unitary in the unit-circle convention: every braid on `n`
+strands is sent to a unitary element. -/
+theorem braidHom_mem_unitary (b : BraidGroup n) :
+    (braidHom R q n b : TypeAHeckeAlgebra R q n) ∈ unitary (TypeAHeckeAlgebra R q n) := by
+  have h : braidHom R q n b ∈ unitarySubgroup (TypeAHeckeAlgebra R q n)ˣ := by
+    induction b using BraidGroup.sigma_induction_on with
+    | sigma i =>
+      rw [braidHom_sigma, mem_unitarySubgroup_iff, Units.unitary_eq, Submonoid.mem_comap,
+        Units.coeHom_apply, val_unitT]
+      exact T_mem_unitary i
+    | one => simp [one_mem]
+    | mul b b' hb hb' => simpa only [map_mul] using mul_mem hb hb'
+    | inv b hb => simpa only [map_inv] using inv_mem hb
+  rw [mem_unitarySubgroup_iff, Units.unitary_eq] at h
+  exact h
+
+/-- The adjoint of the image of a braid is its inverse, the image of the inverse braid. -/
+@[simp]
+theorem star_braidHom (b : BraidGroup n) :
+    star (braidHom R q n b : TypeAHeckeAlgebra R q n) = ↑(braidHom R q n b)⁻¹ :=
+  Units.mem_unitary_iff_star_eq_inv.1 (braidHom_mem_unitary b)
+
+section UniversalProperty
+
+variable {A : Type*} [Semiring A] [StarRing A] [Algebra R A] [StarModule R A]
+
+/-- An algebra map out of the finite unit-circle Hecke algebra preserves star exactly when its
+generator images are unitary. -/
+theorem map_star_iff {F : TypeAHeckeAlgebra R q n →ₐ[R] A} :
+    (∀ x, F (star x) = star (F x)) ↔ ∀ i : Fin (n - 1), F (T q i) ∈ unitary A := by
+  constructor
+  · intro h i
+    exact Unitary.map_mem (F := TypeAHeckeAlgebra R q n →⋆ₐ[R] A)
+      { F with map_star' := h } (T_mem_unitary i)
+  · intro h x
+    have hx : x ∈ Algebra.adjoin R (Set.range (T (n := n) q)) := by simp [adjoin_range_T]
+    induction hx using Algebra.adjoin_induction with
+    | mem x hx =>
+      obtain ⟨i, rfl⟩ := hx
+      have hu := Units.inv_eq_of_mul_eq_one_left
+        (u := Units.map (F : TypeAHeckeAlgebra R q n →* A) (unitT q i))
+        (a := star (F (T q i))) (by simpa using Unitary.star_mul_self_of_mem (h i))
+      simpa using hu
+    | algebraMap r => simp [← algebraMap_star_comm]
+    | add x y _ _ hx hy => simp only [star_add, map_add, hx, hy]
+    | mul x y _ _ hx hy => simp only [star_mul, map_mul, hx, hy]
+
+end UniversalProperty
+
+/-- The unit-preserving tower maps commute with the unit-circle involutions. -/
+@[simp]
+theorem strandIncl_star (x : TypeAHeckeAlgebra R q n) :
+    strandIncl R q n (star x) = star (strandIncl R q n x) := by
+  apply toInfinite_injective R q (n + 1)
+  simp [toInfinite_strandIncl]
+
+end TauCeti.TypeAHeckeAlgebra.UnitCircle
