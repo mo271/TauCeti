@@ -8,21 +8,26 @@ module
 public import Mathlib.FieldTheory.PurelyInseparable.PerfectClosure
 public import Mathlib.FieldTheory.RatFunc.IntermediateField
 public import Mathlib.FieldTheory.Relrank
+public import Mathlib.RingTheory.AlgebraicIndependent.TranscendenceBasis
+import Mathlib.RingTheory.Localization.Integral
 
 /-!
 # Power subfields of a rational function field
 
 For a field `K` and an exponent `n`, this file computes the degree of `K(X)` over the subfield
-`K(X ^ n)`, and records that `K(X)` is purely inseparable over `K(X ^ q)` when `q` is the
-exponential characteristic of `K`.  Transporting the first degree along the identification of
-`K(X)` with `K⟮x⟯` gives `[K(x) : K(x ^ n)] = n` for an arbitrary transcendental element `x` of an
-extension of `K`.
+`K(X ^ n)`, records that `K(X)` is purely inseparable over `K(X ^ q)` when `q` is the
+exponential characteristic of `K`, and shows that `X ^ n` (`n ≠ 0`) forms a singleton transcendence
+basis of `K(X)` over `K`.  Transporting the degree formula along the identification of `K(X)` with
+`K⟮x⟯` gives `[K(x) : K(x ^ n)] = n` for an arbitrary transcendental element `x` of an extension of
+`K`.
 
 ## Main results
 
 * `TauCeti.RatFunc.finrank_adjoin_X_pow`: `[K(X) : K(X ^ n)] = n`.
 * `TauCeti.RatFunc.isPurelyInseparable_adjoin_X_pow`: `K(X) / K(X ^ q)` is purely inseparable
   for `q` the exponential characteristic of `K`.
+* `TauCeti.RatFunc.isTranscendenceBasis_X_pow`: for `n ≠ 0`, the singleton family `X ^ n` is a
+  transcendence basis of `K(X)` over `K`.
 * `Transcendental.relfinrank_adjoin_pow_adjoin`: `[K(x) : K(x ^ n)] = n` for `x` transcendental.
 
 ## Mathematical context
@@ -66,6 +71,20 @@ instance isPurelyInseparable_adjoin_X_pow (K : Type*) [Field K] (q : ℕ) [ExpCh
     (isPurelyInseparable_adjoin_simple_iff_pow_mem E (_root_.RatFunc K) q).mpr
       ⟨1, AdjoinSimple.gen K _, by rw [pow_one, AdjoinSimple.algebraMap_gen]⟩
   exact (_root_.RatFunc.IntermediateField.adjoinXEquiv E).isPurelyInseparable
+
+/-- For `n ≠ 0`, the singleton family `X ^ n` is a transcendence basis of `K(X)` over `K`. -/
+theorem isTranscendenceBasis_X_pow (K : Type*) [Field K] {ι : Type*} [Unique ι] {n : ℕ}
+    (hn : n ≠ 0) :
+    IsTranscendenceBasis K (fun _ : ι ↦ (_root_.RatFunc.X : _root_.RatFunc K) ^ n) := by
+  have htr : Transcendental K ((_root_.RatFunc.X : _root_.RatFunc K) ^ n) := fun halg ↦
+    _root_.RatFunc.transcendental_X (halg.of_pow (Nat.pos_of_ne_zero hn))
+  have : Algebra.IsAlgebraic K[X] (_root_.RatFunc K) :=
+    (IsFractionRing.isAlgebraic_iff' K[X] K[X] (_root_.RatFunc K)).mp inferInstance
+  have hX : IsTranscendenceBasis K (fun _ : ι ↦ (_root_.RatFunc.X : _root_.RatFunc K)) := by
+    simpa [Function.comp_def] using
+      (IsTranscendenceBasis.polynomial ι K).algebraMap_comp (S := K[X]) (A := _root_.RatFunc K)
+  exact (algebraicIndependent_unique_type_iff.mpr htr)
+    |>.isTranscendenceBasis_of_lift_trdeg_le_of_finite hX.lift_cardinalMk_eq_trdeg.ge
 
 end TauCeti.RatFunc
 

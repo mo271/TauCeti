@@ -18,6 +18,9 @@ tower inequality `lift_trdeg_add_le` for towers of commutative rings.
 
 * `TauCeti.trdeg_eq_of_isAlgebraic_base`: an injective algebraic extension of the base ring
   preserves transcendence degree in any commutative algebra over the larger base.
+* `TauCeti.lift_trdeg_eq_of_isAlgebraic`, `TauCeti.trdeg_eq_of_isAlgebraic`: an injective algebraic
+  extension at the top of an injective tower into a domain preserves transcendence degree over the
+  base ring.
 * `TauCeti.isAlgebraic_of_trdeg_le`: if the top ring has finite transcendence degree over the
   middle ring, at least its transcendence degree over the bottom ring, then the middle ring is
   algebraic over the bottom ring; `TauCeti.isAlgebraic_of_trdeg_eq_one` is the case of
@@ -45,6 +48,21 @@ theorem trdeg_eq_of_isAlgebraic_base
     funext fun _ ↦ propext (Algebra.IsAlgebraic.algebraicIndependent_iff R S (A := A)).symm]
 
 variable [Nontrivial R] [FaithfulSMul R S] [FaithfulSMul S A]
+
+/-- In an injective tower `R → S → A` into a ring with no zero divisors, if `A` is algebraic over
+`S`, then `A` and `S` have the same transcendence degree over `R` (up to universe lift). -/
+theorem lift_trdeg_eq_of_isAlgebraic [NoZeroDivisors A] [Algebra.IsAlgebraic S A] :
+    Cardinal.lift.{v} (Algebra.trdeg R A) = Cardinal.lift.{w} (Algebra.trdeg R S) := by
+  have h0 : Algebra.trdeg S A = 0 := trdeg_eq_zero
+  simpa [h0] using (lift_trdeg_add_eq R S A).symm
+
+/-- Same-universe form of `TauCeti.lift_trdeg_eq_of_isAlgebraic`. -/
+theorem trdeg_eq_of_isAlgebraic {S' A' : Type v} [CommRing S'] [CommRing A'] [NoZeroDivisors A']
+    [Algebra R S'] [Algebra S' A'] [Algebra R A'] [IsScalarTower R S' A']
+    [FaithfulSMul R S'] [FaithfulSMul S' A'] [Algebra.IsAlgebraic S' A'] :
+    Algebra.trdeg R A' = Algebra.trdeg R S' := by
+  have h := lift_trdeg_eq_of_isAlgebraic (R := R) (S := S') (A := A')
+  rwa [Cardinal.lift_id, Cardinal.lift_id] at h
 
 /-- In an injective tower `R → S → A`, if `A` has finite transcendence degree over `S` that is
 at least its transcendence degree over `R`, then `S` is algebraic over `R`. Finiteness allows

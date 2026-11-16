@@ -5,6 +5,7 @@ Authors: The Tau Ceti contributors
 -/
 module
 
+public import Mathlib.Algebra.CharP.Lemmas
 public import Mathlib.Algebra.Squarefree.Basic
 public import Mathlib.RingTheory.Derivation.Basic
 import Mathlib.Data.Nat.Choose.Sum
@@ -33,6 +34,8 @@ unit, without factoring it.
 ## Main results
 
 * `Derivation.map_ofNat`: a derivation vanishes on numeric literals.
+* `Derivation.map_pow_char`, `Derivation.map_frobenius`: in characteristic `p`, a derivation
+  vanishes on `p`-th powers.
 * `Derivation.leibniz_prod`: the Leibniz rule for finite products.
 * `Derivation.apply_prod_pow_of_apply_eq`: a derivation dual to the `i`-th coordinate
   differentiates a monomial in the coordinates by lowering its `i`-th exponent.
@@ -54,6 +57,16 @@ variable {R A M : Type*} [CommSemiring R] [CommSemiring A] [AddCommMonoid M] [Al
 @[simp]
 theorem map_ofNat (n : ℕ) [n.AtLeastTwo] : D (no_index (OfNat.ofNat n : A)) = 0 := by
   rw [← Nat.cast_ofNat, map_natCast]
+
+/-- In characteristic `p`, every derivation vanishes on `p`-th powers. -/
+theorem map_pow_char (p : ℕ) [CharP A p] (a : A) : D (a ^ p) = 0 := by
+  rw [D.leibniz_pow, ← Nat.cast_smul_eq_nsmul A, CharP.cast_eq_zero, zero_smul]
+
+/-- In characteristic `p`, every derivation vanishes on images of Frobenius. -/
+@[simp]
+theorem map_frobenius (p : ℕ) [CharP A p] [ExpChar A p] (a : A) :
+    D (frobenius A p a) = 0 :=
+  D.map_pow_char p a
 
 /-- **Leibniz rule for finite products**: `D (∏ i ∈ s, f i)` is the sum over `j ∈ s` of
 `D (f j)` times the product of the other factors. -/
