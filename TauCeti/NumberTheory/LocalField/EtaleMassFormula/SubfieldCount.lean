@@ -33,6 +33,9 @@ then turns Serre's `∑ (q ^ f) ^ (-c) = e` into the formula above.
 
 ## Main results
 
+* `TauCeti.map_mem_totallyRamifiedOfDegree_iff`: over an unramified base `F`, an intermediate field
+  `E` of `SeparableClosure K / F` maps into `σ_F(e)` exactly when `E.restrictScalars K` has degree
+  `[F : K] * e` and residue degree `f(F / K)` over `K`.
 * `TauCeti.tsum_inertiaDegree_eq`: the subextensions of degree `f * e` and residue degree `f`
   satisfy `∑_L q ^ (-d(L)) = e · q ^ (-f(e - 1))`.
 
@@ -123,7 +126,7 @@ private theorem inertiaDegree_restrictScalars_and_discriminantExponent_restrictS
 
 /-- Over an unramified base `F`, the transported intermediate field lies in `σ_F(e)` exactly when
 `E.restrictScalars K` has degree `[F : K] * e` and residue degree `f(F / K)` over `K`. -/
-private theorem map_mem_totallyRamifiedOfDegree_iff (e : ℕ) :
+theorem map_mem_totallyRamifiedOfDegree_iff (e : ℕ) :
     E.map Φ.symm.toAlgHom ∈ totallyRamifiedOfDegree F e ↔
       Module.finrank K (E.restrictScalars K) = Module.finrank K F * e ∧
         (E.restrictScalars K).inertiaDegree = inertiaDegree K F := by
