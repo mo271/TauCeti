@@ -165,6 +165,65 @@ theorem integral_norm_truncatedCauchyKernel {R : ℝ} (hR : 0 ≤ R) :
   rw [heq, integral_indicator isClosed_closedBall.measurableSet]
   simpa only [sub_zero] using integral_norm_sub_inv_closedBall hR (0 : ℂ)
 
+/-- For `0 < q < 2` and `0 ≤ R`, the `L^q` norm of the truncated reciprocal kernel is
+`(2π R^(2 - q) / (2 - q))^(1/q)`. -/
+theorem eLpNorm_truncatedCauchyKernel {q : ENNReal} (hq0 : q ≠ 0) (hq : q < 2) {R : ℝ}
+    (hR : 0 ≤ R) :
+    eLpNorm (truncatedCauchyKernel R) q volume =
+      ENNReal.ofReal ((2 * Real.pi * (R ^ (2 - q.toReal) / (2 - q.toReal))) ^ q.toReal⁻¹) := by
+  have hqt : q ≠ ⊤ := ne_top_of_lt hq
+  have hqpos : 0 < q.toReal := ENNReal.toReal_pos hq0 hqt
+  have hq2 : q.toReal < 2 := by exact_mod_cast (ENNReal.toReal_lt_toReal hqt (by simp)).2 hq
+  rw [eLpNorm_eq_lintegral_rpow_eNorm_toReal hq0 hqt
+    (measurable_truncatedCauchyKernel R).aestronglyMeasurable]
+  have hind : (fun z : ℂ ↦ ‖truncatedCauchyKernel R z‖ₑ ^ q.toReal) =
+      (closedBall 0 R).indicator (fun z ↦ ‖z⁻¹‖ₑ ^ q.toReal) := by
+    ext z
+    by_cases hz : z ∈ closedBall (0 : ℂ) R
+    · simp [truncatedCauchyKernel_def, hz]
+    · simp [truncatedCauchyKernel_def, hz, ENNReal.zero_rpow_of_pos hqpos]
+  rw [hind, lintegral_indicator measurableSet_closedBall]
+  have hae : (∫⁻ z in closedBall (0 : ℂ) R, ‖z⁻¹‖ₑ ^ q.toReal) =
+      ∫⁻ z in closedBall (0 : ℂ) R, ‖(0 : ℂ) - z‖ₑ ^ (-q.toReal) := by
+    refine lintegral_congr_ae ?_
+    filter_upwards [ae_restrict_of_ae (compl_mem_ae_iff.mpr (measure_singleton (0 : ℂ)))] with z hz
+    have hzn : 0 < ‖z‖ := norm_pos_iff.mpr hz
+    rw [← ofReal_norm, norm_inv, ENNReal.ofReal_rpow_of_pos (inv_pos.mpr hzn),
+      Real.inv_rpow hzn.le, ← Real.rpow_neg hzn.le, ← ENNReal.ofReal_rpow_of_pos hzn, zero_sub,
+      eNorm_neg, ofReal_norm]
+  rw [hae, setLIntegral_closedBall_enorm_sub_rpow (by simpa using neg_lt_neg hq2) hR 0]
+  have hvol : (Module.finrank ℝ ℂ : ℝ) * (volume : Measure ℂ).real (ball (0 : ℂ) 1) =
+      2 * Real.pi := by
+    norm_num [Complex.finrank_real_complex, measureReal_def, Complex.volume_ball]
+  have h2q : 0 < (2 : ℝ) + -q.toReal := by linarith
+  rw [hvol, Complex.finrank_real_complex, Nat.cast_ofNat, one_div,
+    ENNReal.ofReal_rpow_of_nonneg (by positivity) (inv_nonneg.mpr hqpos.le)]
+  ring_nf
+
+/-- As the cutoff radius tends to `0`, the `L^q` norm of the truncated reciprocal kernel tends to
+`0` for every `0 < q < 2`. -/
+theorem tendsto_eLpNorm_truncatedCauchyKernel_nhds_zero {q : ENNReal} (hq0 : q ≠ 0) (hq : q < 2) :
+    Tendsto (fun R : ℝ ↦ eLpNorm (truncatedCauchyKernel R) q volume) (𝓝 0) (𝓝 0) := by
+  have hqt : q ≠ ⊤ := ne_top_of_lt hq
+  have hqpos : 0 < q.toReal := ENNReal.toReal_pos hq0 hqt
+  have hq2 : 0 < 2 - q.toReal :=
+    sub_pos.mpr (by exact_mod_cast (ENNReal.toReal_lt_toReal hqt (by simp)).2 hq)
+  have heq (R : ℝ) : eLpNorm (truncatedCauchyKernel R) q volume =
+      ENNReal.ofReal ((2 * Real.pi * ((max R 0) ^ (2 - q.toReal) / (2 - q.toReal))) ^
+        q.toReal⁻¹) := by
+    rcases le_or_gt 0 R with hR | hR
+    · rw [max_eq_left hR, eLpNorm_truncatedCauchyKernel hq0 hq hR]
+    · rw [max_eq_right hR.le, truncatedCauchyKernel_def, closedBall_eq_empty.mpr hR,
+        indicator_empty, eLpNorm_fun_zero, Real.zero_rpow hq2.ne', zero_div, mul_zero,
+        Real.zero_rpow (inv_pos.mpr hqpos).ne', ENNReal.ofReal_zero]
+  simp_rw [heq]
+  have hc : Continuous fun R : ℝ ↦ ENNReal.ofReal
+      ((2 * Real.pi * ((max R 0) ^ (2 - q.toReal) / (2 - q.toReal))) ^ q.toReal⁻¹) :=
+    ENNReal.continuous_ofReal.comp
+      (((continuous_const.mul (((continuous_id.max continuous_const).rpow_const fun _ ↦
+        Or.inr hq2.le).div_const _)).rpow_const fun _ ↦ Or.inr (inv_nonneg.mpr hqpos.le)))
+  simpa [Real.zero_rpow hq2.ne', Real.zero_rpow (inv_pos.mpr hqpos).ne'] using hc.tendsto 0
+
 /-- Moving the pole continuously gives local `L¹` convergence of the complex reciprocal kernel. -/
 theorem tendsto_integral_norm_sub_inv_sub_sub_inv_closedBall {ι : Type*} {l : Filter ι}
     {wn : ι → ℂ} {w : ℂ} (hw : Tendsto wn l (𝓝 w)) (c : ℂ) (R : ℝ) :
