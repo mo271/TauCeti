@@ -7,32 +7,31 @@ module
 
 public import Mathlib.Algebra.Category.ModuleCat.ChangeOfRings
 public import Mathlib.Algebra.Category.ModuleCat.Monoidal.Basic
-public import Mathlib.Algebra.Category.ModuleCat.ProjectiveDimension
+public import Mathlib.Algebra.Category.ModuleCat.Projective
+public import Mathlib.CategoryTheory.Abelian.Projective.Dimension
 public import Mathlib.CategoryTheory.Monoidal.Tor
-public import TauCeti.Algebra.Category.ModuleCat.ChangeOfRings
 
 import Mathlib.Algebra.Category.ModuleCat.ChangeOfRingsExact
+import Mathlib.CategoryTheory.Adjunction.FullyFaithful
 import Mathlib.CategoryTheory.Adjunction.Limits
-import TauCeti.Algebra.Category.ModuleCat.Monoidal.ChangeOfRings
-import TauCeti.CategoryTheory.Abelian.LeftDerived
+import TauCeti.Algebra.Category.ModuleCat.Monoidal.Tor
 import TauCeti.CategoryTheory.Abelian.Projective.Dimension
 
 /-!
 # Projective dimension under extension and surjective restriction of scalars
 
-Let `f : P →+* R` be a homomorphism of commutative rings. Restricting scalars of `R ⊗[P] X` back to
-`P` recovers the tensor product of `X` over `P` with `R`
-(`ModuleCat.extendScalarsCompRestrictScalarsIso`). Because restriction of scalars is exact and
-faithful, the `n`-th left derived functor of `ModuleCat.extendScalars f` at `X` vanishes if and
-only if `Tor_n^P(R, X)` vanishes (`ModuleCat.isZero_leftDerived_extendScalars_iff`).
+Let `f : P →+* R` be a homomorphism of commutative rings. Because the `n`-th left derived functor
+of `ModuleCat.extendScalars f` at `X` vanishes if and only if `Tor_n^P(R, X)` vanishes
+(`ModuleCat.isZero_leftDerived_extendScalars_iff`), and extension of scalars is right exact and
+preserves projective modules, vanishing of `Tor_{i+1}^P(R, X)` below degree `n` transports
+projective-dimension bounds `< n` from `X` to `R ⊗[P] X`
+(`ModuleCat.hasProjectiveDimensionLT_extendScalars_of_isZero_Tor`).
 
-Extension of scalars is right exact and preserves projective modules, so vanishing of
-`Tor_{i+1}^P(R, X)` below degree `n` transports projective-dimension bounds `< n` from `X` to
-`R ⊗[P] X` (`ModuleCat.hasProjectiveDimensionLT_extendScalars_of_isZero_Tor`). In particular, if
-`f : P →+* R` is flat then `Tor_{i+1}^P(R, X) = 0` for every `X`, while if `f` is surjective then
-restriction of scalars is full (`RingHom.full_restrictScalars`), so the counit `R ⊗[P] M ≅ M`
-transfers projective-dimension bounds from a `P`-restricted `R`-module `M` to `M` over `R` whenever
-`Tor_{i+1}^P(R, M) = 0` (`ModuleCat.hasProjectiveDimensionLT_of_surjective_of_isZero_Tor`).
+In particular, if `f : P →+* R` is flat then `Tor_{i+1}^P(R, X) = 0` for every `X`, while if `f` is
+surjective then restriction of scalars is full (`RingHom.full_restrictScalars`), so the counit
+`R ⊗[P] M ≅ M` transfers projective-dimension bounds from a `P`-restricted `R`-module `M` to `M`
+over `R` whenever `Tor_{i+1}^P(R, M) = 0`
+(`ModuleCat.hasProjectiveDimensionLT_of_surjective_of_isZero_Tor`).
 
 ## References
 
@@ -50,14 +49,6 @@ open CategoryTheory Limits
 universe u
 
 variable {P R : Type u} [CommRing P] [CommRing R] (f : P →+* R)
-
-/-- The `n`-th left derived functor of extension of scalars along `f : P →+* R` vanishes at a
-`P`-module `X` if and only if `Tor_n^P(R, X)` vanishes. -/
-theorem isZero_leftDerived_extendScalars_iff (X : ModuleCat.{u} P) (n : ℕ) :
-    IsZero (((extendScalars.{u, u, u} f).leftDerived n).obj X) ↔
-      IsZero (((Tor (ModuleCat.{u} P) n).obj ((restrictScalars f).obj (of R R))).obj X) := by
-  rw [← (extendScalars.{u, u, u} f).isZero_comp_leftDerived_iff (restrictScalars.{u} f), Tor_obj]
-  exact ((NatIso.leftDerived (extendScalarsCompRestrictScalarsIso f) n).app X).isZero_iff
 
 /-- **Projective dimension under extension of scalars.** If `X` is a `P`-module of projective
 dimension `< n` and `Tor_{i+1}^P(R, X) = 0` for every `i` with `i + 1 < n`, then `R ⊗[P] X` has

@@ -107,14 +107,18 @@ theorem extendScalarsCompRestrictScalarsIso_hom_app_tmul (X : ModuleCat.{u} A) (
         (restrictScalars f).obj (of P P) ⊗ X) → _)
         ((extendScalarsCompRestrictScalarsIso f).hom.app X) (s ⊗ₜ[A, f] x) =
       TensorProduct.tmul A (M := (restrictScalars f).obj (of P P)) (N := X) s x := by
-  dsimp only [extendScalarsCompRestrictScalarsIso, Iso.trans_hom, NatTrans.comp_app,
-    Functor.isoWhiskerLeft_hom, Functor.isoWhiskerRight_hom, Functor.whiskerLeft_app,
-    Functor.whiskerRight_app, Iso.symm_hom, leftUnitorNatIso_inv_app]
-  erw [comp_apply, MonoidalCategory.leftUnitor_inv_apply,
-    extendScalarsCompTensorLeftIso_hom_app_tmul]
-  -- Why `erw`: `RestrictScalars.map'` wraps the underlying linear map without a simp bridge to
-  -- `MonoidalCategory.leftUnitor_inv_apply`.
-  exact congrArg (TensorProduct.tmul A · x) (mul_one s)
+  have h : (extendScalarsCompRestrictScalarsIso f).hom.app X =
+      (restrictScalars f).map (λ_ ((extendScalars f).obj X)).inv ≫
+        (extendScalarsCompTensorLeftIso f (of P P)).hom.app X := by
+    simp [extendScalarsCompRestrictScalarsIso]
+  refine (congrArg (Hom.hom · (s ⊗ₜ[A, f] x)) h).trans ?_
+  refine (ModuleCat.comp_apply _ _ _).trans ?_
+  -- `𝟙_ (ModuleCat P)` in `leftUnitor_inv_apply` is definitionally `of P P`.
+  refine (congrArg ((extendScalarsCompTensorLeftIso f (of P P)).hom.app X).hom
+    ((restrictScalars.map_apply f _ _).trans (MonoidalCategory.leftUnitor_inv_apply _))).trans ?_
+  refine (extendScalarsCompTensorLeftIso_hom_app_tmul f (of P P) X (1 : P) s x).trans ?_
+  have hs : (s • (1 : of P P) : P) = s := by rw [smul_eq_mul, mul_one]
+  exact congrArg (TensorProduct.tmul A (M := (restrictScalars f).obj (of P P)) (N := X) · x) hs
 
 /-- The inverse of `extendScalarsCompRestrictScalarsIso` sends `s ⊗ x` to `s ⊗ x`. -/
 @[simp]
@@ -124,12 +128,18 @@ theorem extendScalarsCompRestrictScalarsIso_inv_app_tmul (X : ModuleCat.{u} A) (
         ((extendScalarsCompRestrictScalarsIso f).inv.app X)
         (TensorProduct.tmul A (M := (restrictScalars f).obj (of P P)) (N := X) s x) =
       s ⊗ₜ[A, f] x := by
-  dsimp only [extendScalarsCompRestrictScalarsIso, Iso.trans_inv, NatTrans.comp_app,
-    Functor.isoWhiskerLeft_inv, Functor.isoWhiskerRight_inv, Functor.whiskerLeft_app,
-    Functor.whiskerRight_app, Iso.symm_inv, leftUnitorNatIso_hom_app]
-  erw [comp_apply, extendScalarsCompTensorLeftIso_inv_app_tmul,
-    MonoidalCategory.leftUnitor_hom_apply]
-  -- Why `erw`: `RestrictScalars.map'` wraps `(λ_ _).hom` without a simp bridge on elements.
-  exact congrArg (· ⊗ₜ[A, f] x) (mul_one s)
+  have h : (extendScalarsCompRestrictScalarsIso f).inv.app X =
+      (extendScalarsCompTensorLeftIso f (of P P)).inv.app X ≫
+        (restrictScalars f).map (λ_ ((extendScalars f).obj X)).hom := by
+    simp [extendScalarsCompRestrictScalarsIso]
+  refine (congrArg (Hom.hom · _) h).trans ?_
+  refine (ModuleCat.comp_apply _ _ _).trans ?_
+  -- `of P P` is definitionally `𝟙_ (ModuleCat P)` in `leftUnitor_hom_apply`.
+  refine (congrArg ((restrictScalars f).map (λ_ ((extendScalars f).obj X)).hom).hom
+    (extendScalarsCompTensorLeftIso_inv_app_tmul f (of P P) X s x)).trans ?_
+  refine (restrictScalars.map_apply f _ _).trans ?_
+  refine (MonoidalCategory.leftUnitor_hom_apply (M := ↧((extendScalars f).obj X)) s
+    ((1 : P) ⊗ₜ[A, f] x)).trans ?_
+  exact (ExtendScalars.smul_tmul f s (1 : P) x).trans (congrArg (· ⊗ₜ[A, f] x) (mul_one s))
 
 end ModuleCat

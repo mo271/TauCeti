@@ -116,29 +116,31 @@ variable {C : Type*} [Category* C] [Abelian C] {S : ShortComplex C}
 /-- Given a short exact sequence `0 ⟶ X₁ ⟶ X₂ ⟶ X₃ ⟶ 0` with `X₂` projective and a projective
 resolution `P` of `X₁`, prepending `X₂` in degree zero gives a projective resolution of `X₃`. -/
 def augmentProjectiveResolution (hS : S.ShortExact) [Projective S.X₂]
-    (P : ProjectiveResolution S.X₁) : ProjectiveResolution S.X₃ :=
-  let π₀ := P.π.f 0 ≫ (HomologicalComplex.singleObjXSelf _ 0 S.X₁).hom
+    (P : ProjectiveResolution S.X₁) : ProjectiveResolution S.X₃ := by
+  let π₀ := P.π.f 0 ≫ (HomologicalComplex.singleObjXSelf (ComplexShape.down ℕ) 0 S.X₁).hom
   let p := π₀ ≫ S.f
   have hp : P.complex.d 1 0 ≫ p = 0 := by
     rw [← Category.assoc, ← Category.assoc, P.complex_d_comp_π_f_zero, zero_comp, zero_comp]
   let K := P.complex.augment p hp
-  have hg : K.d 1 0 ≫ S.g = 0 :=
-    (Category.assoc π₀ S.f S.g).trans ((congrArg (π₀ ≫ ·) S.zero).trans comp_zero)
-  @ChainComplex.toProjectiveResolution _ _ _ _ K S.g hg
+  have hg : K.d 1 0 ≫ S.g = 0 := by
+    simp [K]
+    simp [p]
+    rfl
+  let ε : K.X 0 ⟶ S.X₃ := S.g
+  have : Epi ε := hS.epi_g
+  exact K.toProjectiveResolution ε hg
     (fun
       | 0 => inferInstanceAs (Projective S.X₂)
       | n + 1 => P.projective n)
-    hS.epi_g
     (by
-      let φ : ShortComplex.mk (K.d 1 0) S.g hg ⟶ S :=
+      let φ : ShortComplex.mk (K.d 1 0) ε hg ⟶ S :=
         { τ₁ := π₀
           τ₂ := 𝟙 S.X₂
           τ₃ := 𝟙 S.X₃
-          comm₁₂ := (Category.comp_id _).symm
-          comm₂₃ := (Category.id_comp _).trans (Category.comp_id _).symm }
-      have : Epi φ.τ₁ :=
-        @epi_comp _ _ _ _ _ (P.π.f 0) (epi_of_isColimit_cofork P.isColimitCokernelCofork)
-          (HomologicalComplex.singleObjXSelf _ 0 S.X₁).hom inferInstance
+          comm₁₂ := by simp [K]; rfl
+          comm₂₃ := by simp [K, ε] }
+      have : Epi (P.π.f 0) := epi_of_isColimit_cofork P.isColimitCokernelCofork
+      have : Epi φ.τ₁ := epi_comp (P.π.f 0) (HomologicalComplex.singleObjXSelf _ 0 S.X₁).hom
       have : IsIso φ.τ₂ := inferInstanceAs (IsIso (𝟙 S.X₂))
       have : Mono φ.τ₃ := inferInstanceAs (Mono (𝟙 S.X₃))
       exact (ShortComplex.exact_iff_of_epi_of_isIso_of_mono φ).2 hS.exact)
@@ -146,20 +148,24 @@ def augmentProjectiveResolution (hS : S.ShortExact) [Projective S.X₂]
       rw [HomologicalComplex.exactAt_iff' K (n + 2) (n + 1) n (by simp) (by simp)]
       cases n with
       | zero =>
+        have : Mono S.f := hS.mono_f
         let φ : ShortComplex.mk (P.complex.d 1 0) (P.π.f 0) P.complex_d_comp_π_f_zero ⟶
             K.sc' 2 1 0 :=
           { τ₁ := 𝟙 (P.complex.X 1)
             τ₂ := 𝟙 (P.complex.X 0)
-            τ₃ := (HomologicalComplex.singleObjXSelf _ 0 S.X₁).hom ≫ S.f
-            comm₁₂ := (Category.id_comp _).trans (Category.comp_id _).symm
-            comm₂₃ := (Category.id_comp _).trans (Category.assoc _ _ _) }
+            τ₃ := (HomologicalComplex.singleObjXSelf (ComplexShape.down ℕ) 0 S.X₁).hom ≫ S.f
+            comm₁₂ := by simp [K]
+            comm₂₃ := by
+              simp [K]
+              simp [p, π₀] }
         have : Epi φ.τ₁ := inferInstanceAs (Epi (𝟙 (P.complex.X 1)))
         have : IsIso φ.τ₂ := inferInstanceAs (IsIso (𝟙 (P.complex.X 0)))
-        have : Mono φ.τ₃ :=
-          @mono_comp _ _ _ _ _ (HomologicalComplex.singleObjXSelf _ 0 S.X₁).hom inferInstance
-            S.f hS.mono_f
+        have : Mono φ.τ₃ := mono_comp (HomologicalComplex.singleObjXSelf _ 0 S.X₁).hom S.f
         exact (ShortComplex.exact_iff_of_epi_of_isIso_of_mono φ).1 P.exact₀
-      | succ n => exact P.exact_succ n)
+      | succ n =>
+        exact (ShortComplex.exact_iff_of_iso
+          (ShortComplex.isoMk (Iso.refl _) (Iso.refl _) (Iso.refl _)
+            (by simp [K]) (by simp [K]))).2 (P.exact_succ n))
 
 /-- The underlying chain complex of `augmentProjectiveResolution` is `P.complex` augmented by
 `S.X₂` along the resolution map followed by `S.f`. -/
@@ -171,5 +177,28 @@ theorem augmentProjectiveResolution_complex (hS : S.ShortExact) [Projective S.X�
         (by rw [← Category.assoc, ← Category.assoc, P.complex_d_comp_π_f_zero, zero_comp,
           zero_comp]) :=
   (rfl)
+
+/-- The augmentation of `augmentProjectiveResolution` is induced in degree zero by `S.g`. -/
+@[simp]
+theorem augmentProjectiveResolution_π (hS : S.ShortExact) [Projective S.X₂]
+    (P : ProjectiveResolution S.X₁) :
+    (hS.augmentProjectiveResolution P).π =
+      eqToHom (hS.augmentProjectiveResolution_complex P) ≫
+        (ChainComplex.toSingle₀Equiv _ _).symm
+          ⟨S.g, (Category.assoc (P.π.f 0 ≫ (HomologicalComplex.singleObjXSelf _ 0 S.X₁).hom)
+            S.f S.g).trans (by rw [S.zero, comp_zero]; rfl)⟩ :=
+  (Category.id_comp _).symm
+
+/-- In degree zero, the augmentation of `augmentProjectiveResolution` is `S.g` up to the
+identifications of the degree-zero objects with `S.X₂` and `S.X₃`. -/
+theorem augmentProjectiveResolution_π_f_zero (hS : S.ShortExact) [Projective S.X₂]
+    (P : ProjectiveResolution S.X₁) :
+    eqToHom ((ChainComplex.augment_X_zero _ _ _).symm.trans
+      (congrArg (·.X 0) (hS.augmentProjectiveResolution_complex P).symm)) ≫
+        (hS.augmentProjectiveResolution P).π.f 0 ≫
+          (HomologicalComplex.singleObjXSelf _ 0 S.X₃).hom = S.g :=
+  (Category.id_comp _).trans
+    ((congrArg (· ≫ _) (ChainComplex.toSingle₀Equiv_symm_apply_f_zero _ _)).trans
+      (Category.comp_id S.g))
 
 end CategoryTheory.ShortComplex.ShortExact

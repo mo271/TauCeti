@@ -7,6 +7,7 @@ module
 
 public import TauCeti.RingTheory.Ideal.TensorProduct
 public import TauCeti.RingTheory.Perfect.FrobeniusRootIdeal
+import TauCeti.RingTheory.Ideal.Operations
 
 /-!
 # Tensor products of perfect rings and `Tor₁` of radical quotients
@@ -135,27 +136,21 @@ theorem subtype_rTensor_injective_of_isRadical [ExpChar C p] [PerfectRing C p] {
   rw [← LinearMap.rTensor_comp_apply, Submodule.subtype_comp_inclusion] at hx
   rw [fg hN (hx.trans (map_zero _).symm), map_zero]
 
+end TauCeti
+
+namespace TauCeti
+
+variable {A : Type*} [CommSemiring A] {p : ℕ} [ExpChar A p] [PerfectRing A p] [Fact p.Prime]
+
 include p in
 /-- **Radical ideals in perfect rings annihilate tensor products with quotient modules.** For a
 radical ideal `I` of a perfect ring `A` of prime characteristic `p` and an `A`-module `M` killed
-by `I`, `I ⊗[A] M` is subsingleton: every `x ∈ I` factors as `y * y ^ (p - 1)` with
-`y = x ^ (1 / p) ∈ I` and `y ^ (p - 1) ∈ I`. -/
-theorem subsingleton_tensorProduct_of_isRadical {M : Type*} [AddCommGroup M] [Module A M]
+by `I`, `I ⊗[A] M` is subsingleton. -/
+theorem subsingleton_tensorProduct_of_isRadical {M : Type*} [AddCommMonoid M] [Module A M]
     {I : Ideal A} (hI : I.IsRadical) (hM : ∀ x ∈ I, ∀ m : M, x • m = 0) :
-    Subsingleton (I ⊗[A] M) := by
-  refine (subsingleton_iff_forall_eq 0).2 fun t ↦ ?_
-  induction t with
-  | tmul x m =>
-    have hy : (frobeniusEquiv A p).symm x ∈ I :=
-      (isRadical_iff_frobeniusEquiv_symm_mem p).1 hI x x.2
-    have hz : (frobeniusEquiv A p).symm x ^ (p - 1) ∈ I :=
-      I.pow_mem_of_mem hy (p - 1) (Nat.sub_pos_of_lt hp.out.one_lt)
-    have hx : x = (frobeniusEquiv A p).symm x • (⟨_, hz⟩ : I) :=
-      Subtype.ext <| by
-        rw [SetLike.val_smul, smul_eq_mul, ← pow_succ', Nat.sub_add_cancel hp.out.one_lt.le,
-          frobeniusEquiv_symm_pow_p]
-    rw [hx, smul_tmul, hM _ hy m, tmul_zero]
-  | add _ _ hx hy => rw [hx, hy, add_zero]
+    Subsingleton (I ⊗[A] M) :=
+  subsingleton_tensorProduct_of_isTorsionBySet_right
+    (Ideal.smul_top_eq_top_of_isIdempotentElem (hI.isIdempotentElem p)) fun m x ↦ hM x.1 x.2 m
 
 end TauCeti
 

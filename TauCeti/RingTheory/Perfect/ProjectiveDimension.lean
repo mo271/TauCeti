@@ -38,8 +38,8 @@ changes from these subrings, which have projective dimension at most `d`, and th
 sequence adds one (`ModuleCat.hasProjectiveDimensionLT_succ_of_iSup_eq_top`).
 
 When `p` is prime and `g : P →+* R` is a surjective homomorphism from a perfect ring `P` of
-characteristic `p` onto a perfect ring `R`, the kernel of `g` is radical, so
-`Tor_{n+1}^P(R, M) = 0` for every `R`-module `M`
+characteristic `p` onto a reduced ring `R` (for instance any perfect ring), the kernel of `g` is
+radical, so `Tor_{n+1}^P(R, M) = 0` for every `R`-module `M`
 (`TauCeti.isZero_Tor_succ_restrictScalars_of_surjective`). Because `R ⊗[P] M ≅ M`, extension of
 scalars transfers projective-dimension bounds from `P` to `R`
 (`TauCeti.hasProjectiveDimensionLT_of_surjective_of_perfectRing`). Combining both steps shows that
@@ -49,7 +49,8 @@ every surjective homomorphism `PerfectClosure P₀ p →+* R` onto a perfect rin
 (`TauCeti.hasProjectiveDimensionLE_succ_of_surjective_perfectClosure`). Prime characteristic is
 needed for the quotient step: in exponential characteristic `1`, every ring satisfies
 `PerfectRing _ 1`, while `ℚ[x] ↠ ℚ[x] ⧸ (x ^ 2)` has regular source of dimension `1` and infinite
-global dimension on the target.
+global dimension on the target (and even onto reduced targets, `ℚ[x, y] ↠ ℚ[x, y] ⧸ (x y)` has
+regular source of dimension `2` and infinite global dimension on the target).
 
 ## Main results
 
@@ -59,12 +60,16 @@ global dimension on the target.
 * `IsPerfectClosure.hasProjectiveDimensionLE_succ_of_isRegularRing`: over a perfect closure of a
   regular ring of Krull dimension at most `d`, every module has projective dimension at most
   `d + 1`.
-* `TauCeti.hasProjectiveDimensionLT_of_surjective_of_perfectRing`: a surjection of perfect rings
-  of prime characteristic transfers projective-dimension bounds from the source to the target.
+* `TauCeti.hasProjectiveDimensionLT_of_surjective_of_perfectRing`: a surjection from a perfect ring
+  of prime characteristic onto a reduced ring transfers projective-dimension bounds from the source
+  to the target.
 * `IsPerfectClosure.hasProjectiveDimensionLE_succ_of_isRegularRing_of_surjective` and
   `TauCeti.hasProjectiveDimensionLE_succ_of_surjective_perfectClosure`: every module over a
-  perfect quotient of a perfect closure of a regular `𝔽_p`-algebra of Krull dimension at most `d`
-  has projective dimension at most `d + 1`.
+  reduced (in particular, perfect) quotient of a perfect closure of a regular `𝔽_p`-algebra of
+  Krull dimension at most `d` has projective dimension at most `d + 1`.
+* `IsPerfectClosure.projectiveDimension_le_ringKrullDim_add_one_of_surjective` and
+  `TauCeti.projectiveDimension_le_ringKrullDim_add_one_of_surjective_perfectClosure`: the
+  corresponding bounds by `ringKrullDim + 1`.
 
 ## References
 
@@ -169,47 +174,34 @@ end IsPerfectClosure
 
 namespace TauCeti
 
-/-- A ring receiving a homomorphism from a ring of prime characteristic `p` and carrying a
-`PerfectRing R p` structure is reduced, including in the trivial case `R = 0`. -/
-private theorem isReduced_of_hom_of_perfectRing {P R : Type u} [CommRing P] [CommRing R] (p : ℕ)
-    [ExpChar P p] [hp : Fact p.Prime] (g : P →+* R) [PerfectRing R p] : IsReduced R := by
-  rcases subsingleton_or_nontrivial R with _ | _
-  · exact ⟨fun _ _ ↦ Subsingleton.elim _ _⟩
-  have : CharP P p := (expChar_prime_iff (R := P) hp.out).1 inferInstance
-  have : CharP R p := (CharP.charP_iff_prime_eq_zero hp.out).2 <| by
-    rw [← map_natCast g, CharP.cast_eq_zero, map_zero]
-  have : ExpChar R p := .prime hp.out
-  exact isReduced_of_perfectRing R p
-
-/-- **Projective dimension along a surjection of perfect rings.** Let `g : P →+* R` be a
-surjective homomorphism from a perfect ring `P` of prime characteristic `p` onto a perfect ring
-`R`. Every bound `< n` on the projective dimension of an `R`-module `M` over `P` transfers to `M`
-over `R`. -/
+/-- **Projective dimension along a surjection from a perfect ring.** Let `g : P →+* R` be a
+surjective homomorphism from a perfect ring `P` of prime characteristic `p` onto a reduced ring `R`
+(for instance any perfect ring). Every bound `< n` on the projective dimension of an `R`-module `M`
+over `P` transfers to `M` over `R`. -/
 theorem hasProjectiveDimensionLT_of_surjective_of_perfectRing {P R : Type u} [CommRing P]
-    [CommRing R] (p : ℕ) [ExpChar P p] [PerfectRing P p] [Fact p.Prime] [PerfectRing R p]
+    [CommRing R] (p : ℕ) [ExpChar P p] [PerfectRing P p] [Fact p.Prime] [IsReduced R]
     {g : P →+* R} (hg : Function.Surjective g) (M : ModuleCat.{u} R) (n : ℕ)
     [HasProjectiveDimensionLT ((ModuleCat.restrictScalars g).obj M) n] :
     HasProjectiveDimensionLT M n :=
-  have := isReduced_of_hom_of_perfectRing p g
   ModuleCat.hasProjectiveDimensionLT_of_surjective_of_isZero_Tor hg M n fun i _ ↦
     isZero_Tor_succ_restrictScalars_of_surjective (p := p) hg M i
 
 /-- Let `g : P →+* R` be a surjective homomorphism from a perfect ring `P` of prime characteristic
-`p` onto a perfect ring `R`. If an `R`-module `M` has projective dimension `≤ d` over `P`, then `M`
-has projective dimension `≤ d` over `R`. -/
+`p` onto a reduced ring `R` (for instance any perfect ring). If an `R`-module `M` has projective
+dimension `≤ d` over `P`, then `M` has projective dimension `≤ d` over `R`. -/
 theorem hasProjectiveDimensionLE_of_surjective_of_perfectRing {P R : Type u} [CommRing P]
-    [CommRing R] (p : ℕ) [ExpChar P p] [PerfectRing P p] [Fact p.Prime] [PerfectRing R p]
+    [CommRing R] (p : ℕ) [ExpChar P p] [PerfectRing P p] [Fact p.Prime] [IsReduced R]
     {g : P →+* R} (hg : Function.Surjective g) (M : ModuleCat.{u} R) (d : ℕ)
     [HasProjectiveDimensionLE ((ModuleCat.restrictScalars g).obj M) d] :
     HasProjectiveDimensionLE M d :=
   hasProjectiveDimensionLT_of_surjective_of_perfectRing p hg M (d + 1)
 
-/-- Along a surjective homomorphism `g : P →+* R` of perfect rings of prime characteristic `p`,
-the projective dimension of any `R`-module `M` over `R` is at most its projective dimension over
-`P`. -/
+/-- Along a surjective homomorphism `g : P →+* R` from a perfect ring `P` of prime characteristic
+`p` onto a reduced ring `R`, the projective dimension of any `R`-module `M` over `R` is at most its
+projective dimension over `P`. -/
 theorem projectiveDimension_le_restrictScalars_of_surjective_of_perfectRing {P R : Type u}
     [CommRing P] [CommRing R] (p : ℕ) [ExpChar P p] [PerfectRing P p] [Fact p.Prime]
-    [PerfectRing R p] {g : P →+* R} (hg : Function.Surjective g) (M : ModuleCat.{u} R) :
+    [IsReduced R] {g : P →+* R} (hg : Function.Surjective g) (M : ModuleCat.{u} R) :
     projectiveDimension M ≤ projectiveDimension ((ModuleCat.restrictScalars g).obj M) :=
   projectiveDimension_le_of_hasProjectiveDimensionLT fun n _ ↦
     hasProjectiveDimensionLT_of_surjective_of_perfectRing p hg M n
@@ -220,12 +212,13 @@ namespace IsPerfectClosure
 
 variable {K L R : Type u} [CommRing K] [CommRing L] [CommRing R] (i : K →+* L) (p : ℕ)
   [ExpChar K p] [ExpChar L p] [PerfectRing L p] [IsPerfectClosure i p] [Fact p.Prime]
-  [PerfectRing R p]
+  [IsReduced R]
 
 include i in
-/-- If the Frobenius endomorphism of `K` is flat and every `K`-module has projective dimension at
-most `d`, then for every surjective homomorphism `g : L →+* R` from a perfect closure of `K` onto
-a perfect ring `R`, every `R`-module has projective dimension at most `d + 1`. -/
+/-- If `K` has prime characteristic `p`, its Frobenius endomorphism is flat, and every `K`-module
+has projective dimension at most `d`, then for every surjective homomorphism `g : L →+* R` from a
+perfect closure of `K` onto a reduced ring `R`, every `R`-module has projective dimension at most
+`d + 1`. -/
 theorem hasProjectiveDimensionLE_succ_of_surjective (hF : (frobenius K p).Flat) {d : ℕ}
     (h : ∀ N : ModuleCat.{u} K, HasProjectiveDimensionLE N d) {g : L →+* R}
     (hg : Function.Surjective g) (M : ModuleCat.{u} R) :
@@ -234,13 +227,32 @@ theorem hasProjectiveDimensionLE_succ_of_surjective (hF : (frobenius K p).Flat) 
   exact TauCeti.hasProjectiveDimensionLE_of_surjective_of_perfectRing p hg M (d + 1)
 
 include i p in
-/-- Over a perfect quotient `R` of a perfect closure of a regular ring `K` of prime characteristic
+/-- Over a reduced quotient `R` of a perfect closure of a regular ring `K` of prime characteristic
 `p` and Krull dimension at most `d`, every `R`-module has projective dimension at most `d + 1`. -/
 theorem hasProjectiveDimensionLE_succ_of_isRegularRing_of_surjective [IsRegularRing K] {d : ℕ}
     (hd : ringKrullDim K ≤ d) {g : L →+* R} (hg : Function.Surjective g) (M : ModuleCat.{u} R) :
     HasProjectiveDimensionLE M (d + 1) :=
   hasProjectiveDimensionLE_succ_of_surjective i p (TauCeti.IsRegularRing.flat_frobenius p)
     (TauCeti.IsRegularRing.hasProjectiveDimensionLE hd) hg M
+
+include i p in
+/-- Over a reduced quotient `R` of a perfect closure `L` of a regular ring `K` of prime
+characteristic `p`, the projective dimension of every `R`-module is at most
+`ringKrullDim K + 1`. -/
+theorem projectiveDimension_le_ringKrullDim_add_one_of_surjective [IsRegularRing K] {g : L →+* R}
+    (hg : Function.Surjective g) (M : ModuleCat.{u} R) :
+    projectiveDimension M ≤ ringKrullDim K + 1 := by
+  have hp : p.Prime := Fact.out
+  have : CharP K p := (expChar_prime_iff (R := K) hp).1 inferInstance
+  have := CharP.nontrivial_of_char_ne_one (R := K) hp.ne_one
+  induction h : ringKrullDim K with
+  | bot => exact absurd (ringKrullDim_eq_bot_iff_subsingleton.mp h) (not_subsingleton K)
+  | coe d =>
+    induction d with
+    | top => exact le_top
+    | coe n =>
+      exact (projectiveDimension_le_iff M (n + 1)).mpr
+        (hasProjectiveDimensionLE_succ_of_isRegularRing_of_surjective i p (h ▸ le_rfl) hg M)
 
 end IsPerfectClosure
 
@@ -258,6 +270,7 @@ theorem hasProjectiveDimensionLE_succ_of_surjective_perfectClosure {P₀ R : Typ
   have : ExpChar P₀ p := .prime hp.out
   have : ExpChar (PerfectClosure P₀ p) p := .prime hp.out
   have : IsPerfectClosure (PerfectClosure.of P₀ p) p := PerfectClosure.isPRadical P₀ p
+  have := isReduced_of_perfectRing R p
   exact IsPerfectClosure.hasProjectiveDimensionLE_succ_of_isRegularRing_of_surjective
     (PerfectClosure.of P₀ p) p hd hsurj M
 
@@ -269,14 +282,11 @@ theorem projectiveDimension_le_ringKrullDim_add_one_of_surjective_perfectClosure
     [IsRegularRing P₀] [Algebra (PerfectClosure P₀ p) R]
     (hsurj : Function.Surjective (algebraMap (PerfectClosure P₀ p) R)) (M : ModuleCat.{u} R) :
     projectiveDimension M ≤ ringKrullDim P₀ + 1 := by
-  have := CharP.nontrivial_of_char_ne_one (R := P₀) hp.out.ne_one
-  induction h : ringKrullDim P₀ with
-  | bot => exact absurd (ringKrullDim_eq_bot_iff_subsingleton.mp h) (not_subsingleton P₀)
-  | coe d =>
-    induction d with
-    | top => exact le_top
-    | coe n =>
-      exact (projectiveDimension_le_iff M (n + 1)).mpr
-        (hasProjectiveDimensionLE_succ_of_surjective_perfectClosure p (h ▸ le_rfl) hsurj M)
+  have : ExpChar P₀ p := .prime hp.out
+  have : ExpChar (PerfectClosure P₀ p) p := .prime hp.out
+  have : IsPerfectClosure (PerfectClosure.of P₀ p) p := PerfectClosure.isPRadical P₀ p
+  have := isReduced_of_perfectRing R p
+  exact IsPerfectClosure.projectiveDimension_le_ringKrullDim_add_one_of_surjective
+    (PerfectClosure.of P₀ p) p hsurj M
 
 end TauCeti

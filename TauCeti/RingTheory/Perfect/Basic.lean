@@ -24,7 +24,7 @@ roots relate to each other, the fact that `R` is reduced when `p` is prime, and 
 * `TauCeti.iterateFrobeniusEquiv_symm_succ_pow`: the `p`-th power of the `p ^ (n + 1)`-th root
   of `x` is its `p ^ n`-th root.
 * `TauCeti.iterateFrobeniusEquiv_symm_dvd_of_le`: deeper roots of `x` divide shallower ones.
-* `TauCeti.isReduced_of_perfectRing`: a perfect ring of prime characteristic is reduced.
+* `TauCeti.isReduced_of_perfectRing`: a perfect ring for a prime exponent is reduced.
 * `TauCeti.mul_eq_zero_of_mul_pow_eq_zero_of_perfectRing`: `a * b ^ p = 0` implies `a * b = 0`.
 * `TauCeti.mul_iterateFrobeniusEquiv_symm_succ_eq_zero`: an element killing the `p ^ n`-th root
   of `x` also kills its `p ^ (n + 1)`-th root.
@@ -32,10 +32,11 @@ roots relate to each other, the fact that `R` is reduced when `p` is prime, and 
   along the `p`-th root of the scalars.
 * `TauCeti.isRadical_iff_frobeniusEquiv_symm_mem`: an ideal is radical exactly when it contains
   the `p`-th roots of its elements.
-* `Ideal.IsRadical.sup`, `Ideal.IsRadical.map`, `Ideal.IsRadical.map_inf`: sums of radical ideals
-  are radical, and extension along a homomorphism of perfect rings preserves radical ideals and
-  their intersections. The first fails for general rings: in `ℚ[x, y]` the sum of the radical
-  ideals `(x)` and `(x - y ^ 2)` is `(x, y ^ 2)`, which is not radical.
+* `Ideal.IsRadical.isIdempotentElem`, `Ideal.IsRadical.sup`, `Ideal.IsRadical.map`,
+  `Ideal.IsRadical.map_inf`: radical ideals are idempotent, sums of radical ideals are radical, and
+  extension along a homomorphism of perfect rings preserves radical ideals and their intersections.
+  The second fails for general rings: in `ℚ[x, y]` the sum of the radical ideals `(x)` and
+  `(x - y ^ 2)` is `(x, y ^ 2)`, which is not radical.
 -/
 
 public section
@@ -64,13 +65,14 @@ theorem iterateFrobeniusEquiv_symm_dvd_of_le (x : R) {m n : ℕ} (h : m ≤ n) :
   dvd_of_compatible_roots (r := fun n ↦ (iterateFrobeniusEquiv R p n).symm x)
     (iterateFrobeniusEquiv_symm_succ_pow x) h
 
+omit [ExpChar R p] in
 variable (R p) in
-/-- A perfect ring of prime characteristic `p` is reduced. -/
+/-- A perfect ring for a prime exponent `p` is reduced. -/
 theorem isReduced_of_perfectRing [hp : Fact p.Prime] : IsReduced R :=
-  -- If `x ^ n = 0`, then the `p ^ n`-th power of `x` vanishes, and Frobenius is injective.
-  ⟨fun x ⟨n, hn⟩ ↦ (iterateFrobeniusEquiv R p n).injective <| by
-    rw [map_zero, iterateFrobeniusEquiv_def,
-      pow_eq_zero_of_le (Nat.lt_pow_self hp.out.one_lt).le hn]⟩
+  -- If `x ^ n = 0`, then `x ^ p ^ n = 0 = 0 ^ p ^ n`, and `x ↦ x ^ p ^ n` is injective.
+  ⟨fun x ⟨n, hn⟩ ↦ (PerfectRing.pow R p n).bijective_frobenius.1 (show x ^ p ^ n = 0 ^ p ^ n by
+    rw [zero_pow (pow_ne_zero n hp.out.ne_zero),
+      pow_eq_zero_of_le (Nat.lt_pow_self hp.out.one_lt).le hn])⟩
 
 omit [ExpChar R p] in
 /-- In a perfect ring for the exponent `p`, if `a` kills `b ^ p` then `a` kills
@@ -128,6 +130,19 @@ namespace Ideal.IsRadical
 open TauCeti
 
 variable {R S F : Type*} [CommSemiring R] [CommSemiring S] {I J : Ideal R}
+
+/-- In a perfect ring of prime characteristic, every radical ideal is idempotent: `I * I = I`. -/
+theorem isIdempotentElem (p : ℕ) [hp : Fact p.Prime] [ExpChar R p] [PerfectRing R p]
+    (hI : I.IsRadical) : IsIdempotentElem I := by
+  -- Every `x ∈ I` factors as `y * y ^ (p - 1)` with `y = x ^ (1 / p) ∈ I` and `y ^ (p - 1) ∈ I`.
+  refine le_antisymm Ideal.mul_le_right fun x hx ↦ ?_
+  have hy : (frobeniusEquiv R p).symm x ∈ I :=
+    (isRadical_iff_frobeniusEquiv_symm_mem p).mp hI x hx
+  have hz : (frobeniusEquiv R p).symm x ^ (p - 1) ∈ I :=
+    I.pow_mem_of_mem hy (p - 1) (Nat.sub_pos_of_lt hp.out.one_lt)
+  have hmul : (frobeniusEquiv R p).symm x * (frobeniusEquiv R p).symm x ^ (p - 1) ∈ I * I :=
+    Ideal.mul_mem_mul hy hz
+  rwa [← pow_succ', Nat.sub_add_cancel hp.out.one_lt.le, frobeniusEquiv_symm_pow_p] at hmul
 
 /-- In a perfect ring of prime characteristic, the sum of two radical ideals is radical: taking
 `p`-th roots is additive. -/

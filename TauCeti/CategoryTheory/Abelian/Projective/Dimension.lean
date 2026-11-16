@@ -6,7 +6,6 @@ Authors: The Tau Ceti contributors
 module
 
 import Mathlib.CategoryTheory.Abelian.FunctorCategory
-import Mathlib.CategoryTheory.Adjunction.FullyFaithful
 import Mathlib.CategoryTheory.Adjunction.Limits
 import Mathlib.CategoryTheory.Functor.ReflectsIso.Exact
 import TauCeti.CategoryTheory.Abelian.LeftDerived
@@ -47,9 +46,9 @@ this also covers countable direct sums in a category of modules in any universe.
 A right exact additive functor `F` preserving projective objects preserves the bound
 `HasProjectiveDimensionLT X n` whenever its positive left derived functors below degree `n` vanish
 at `X` (`CategoryTheory.Functor.hasProjectiveDimensionLT_obj_of_isZero_leftDerived`). For an
-adjunction `L ⊣ R` whose right adjoint is fully faithful and preserves epimorphisms, the counit
-`L(R(Y)) ≅ Y` transfers projective-dimension bounds from `R(Y)` to `Y` whenever the corresponding
-left derived functors of `L` vanish at `R(Y)`
+adjunction `L ⊣ R` whose right adjoint preserves epimorphisms, if the counit `L(R(Y)) ⟶ Y` is an
+isomorphism at `Y` (for instance when `R` is fully faithful), it transfers projective-dimension
+bounds from `R(Y)` to `Y` whenever the corresponding left derived functors of `L` vanish at `R(Y)`
 (`CategoryTheory.Adjunction.hasProjectiveDimensionLT_of_isZero_leftDerived`).
 
 ## References
@@ -254,39 +253,39 @@ theorem Functor.projectiveDimension_obj_le_of_isZero_leftDerived (F : C ⥤ D) [
   projectiveDimension_le_of_hasProjectiveDimensionLT fun n _ ↦
     F.hasProjectiveDimensionLT_obj_of_isZero_leftDerived X n fun i _ ↦ h i
 
-/-- **Transport of projective dimension along a reflective adjunction.** Let `adj : L ⊣ R` be an
-adjunction between abelian categories with `L` additive and `R` fully faithful and preserving
-epimorphisms. If `R.obj Y` has projective dimension `< n` and `(L_{i+1}L)(R.obj Y) = 0` for every
-`i` with `i + 1 < n`, then `Y` has projective dimension `< n`. -/
+/-- **Transport of projective dimension along an adjunction.** Let `adj : L ⊣ R` be an adjunction
+between abelian categories with `L` additive and `R` preserving epimorphisms, and suppose
+`adj.counit.app Y` is an isomorphism (for instance when `R` is fully faithful). If `R.obj Y` has
+projective dimension `< n` and `(L_{i+1}L)(R.obj Y) = 0` for every `i` with `i + 1 < n`, then `Y`
+has projective dimension `< n`. -/
 theorem Adjunction.hasProjectiveDimensionLT_of_isZero_leftDerived {L : C ⥤ D} {R : D ⥤ C}
-    (adj : L ⊣ R) [L.Additive] [R.Full] [R.Faithful] [R.PreservesEpimorphisms] (Y : D) (n : ℕ)
-    [HasProjectiveDimensionLT (R.obj Y) n]
+    (adj : L ⊣ R) [L.Additive] [R.PreservesEpimorphisms] (Y : D) (n : ℕ)
+    [IsIso (adj.counit.app Y)] [HasProjectiveDimensionLT (R.obj Y) n]
     (h : ∀ i, i + 1 < n → IsZero ((L.leftDerived (i + 1)).obj (R.obj Y))) :
     HasProjectiveDimensionLT Y n := by
   have : PreservesColimitsOfSize.{0, 0} L := adj.leftAdjoint_preservesColimits
   have : PreservesFiniteColimits L := PreservesColimitsOfSize.preservesFiniteColimits L
   have := Functor.preservesProjectiveObjects_of_adjunction_of_preservesEpimorphisms adj
-  have := counit_isIso_of_R_fully_faithful adj
   have : HasProjectiveDimensionLT ((R ⋙ L).obj Y) n :=
     L.hasProjectiveDimensionLT_obj_of_isZero_leftDerived (R.obj Y) n h
   exact hasProjectiveDimensionLT_of_iso (asIso (adj.counit.app Y)) n
 
-/-- For `adj : L ⊣ R` with `L` additive and `R` fully faithful and preserving epimorphisms, if
-`R.obj Y` has projective dimension `≤ d` and `(L_{i+1}L)(R.obj Y) = 0` for every `i < d`, then
-`Y` has projective dimension `≤ d`. -/
+/-- For `adj : L ⊣ R` with `L` additive, `R` preserving epimorphisms, and `adj.counit.app Y` an
+isomorphism, if `R.obj Y` has projective dimension `≤ d` and `(L_{i+1}L)(R.obj Y) = 0` for every
+`i < d`, then `Y` has projective dimension `≤ d`. -/
 theorem Adjunction.hasProjectiveDimensionLE_of_isZero_leftDerived {L : C ⥤ D} {R : D ⥤ C}
-    (adj : L ⊣ R) [L.Additive] [R.Full] [R.Faithful] [R.PreservesEpimorphisms] (Y : D) (d : ℕ)
-    [HasProjectiveDimensionLE (R.obj Y) d]
+    (adj : L ⊣ R) [L.Additive] [R.PreservesEpimorphisms] (Y : D) (d : ℕ)
+    [IsIso (adj.counit.app Y)] [HasProjectiveDimensionLE (R.obj Y) d]
     (h : ∀ i < d, IsZero ((L.leftDerived (i + 1)).obj (R.obj Y))) :
     HasProjectiveDimensionLE Y d :=
   adj.hasProjectiveDimensionLT_of_isZero_leftDerived Y (d + 1) fun i hi ↦
     h i (Nat.lt_of_succ_lt_succ hi)
 
-/-- For `adj : L ⊣ R` with `L` additive and `R` fully faithful and preserving epimorphisms, if all
-positive left derived functors of `L` vanish at `R.obj Y`, then
+/-- For `adj : L ⊣ R` with `L` additive, `R` preserving epimorphisms, and `adj.counit.app Y` an
+isomorphism, if all positive left derived functors of `L` vanish at `R.obj Y`, then
 `projectiveDimension Y ≤ projectiveDimension (R.obj Y)`. -/
 theorem Adjunction.projectiveDimension_le_of_isZero_leftDerived {L : C ⥤ D} {R : D ⥤ C}
-    (adj : L ⊣ R) [L.Additive] [R.Full] [R.Faithful] [R.PreservesEpimorphisms] (Y : D)
+    (adj : L ⊣ R) [L.Additive] [R.PreservesEpimorphisms] (Y : D) [IsIso (adj.counit.app Y)]
     (h : ∀ i, IsZero ((L.leftDerived (i + 1)).obj (R.obj Y))) :
     projectiveDimension Y ≤ projectiveDimension (R.obj Y) :=
   projectiveDimension_le_of_hasProjectiveDimensionLT fun n _ ↦

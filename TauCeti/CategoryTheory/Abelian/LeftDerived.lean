@@ -8,10 +8,12 @@ module
 public import Mathlib.CategoryTheory.Abelian.LeftDerived
 public import TauCeti.Algebra.Homology.HomologicalComplex.Basic
 public import TauCeti.Algebra.Homology.ShortComplex.Resolution
+public import TauCeti.CategoryTheory.Abelian.Projective.Resolution
 public import TauCeti.CategoryTheory.ObjectProperty.Homology
 import Mathlib.Algebra.Homology.ShortComplex.ExactFunctor
 import Mathlib.CategoryTheory.Limits.Preserves.Shapes.Kernels
-import TauCeti.CategoryTheory.Abelian.Projective.Resolution
+import TauCeti.Algebra.Homology.HomotopyCategory.PreservesHomology
+import TauCeti.CategoryTheory.Limits.Shapes.ZeroMorphisms
 
 /-!
 # Left derived functors on short exact sequences and compositions
@@ -40,7 +42,7 @@ and universal coefficient theorems.
 More generally, when only `X₂` is projective in a short exact sequence `0 ⟶ X₁ ⟶ X₂ ⟶ X₃ ⟶ 0`,
 prepending `X₂` to a projective resolution of `X₁` gives a projective resolution of `X₃` and
 therefore shifts left derived functors in degrees at least two: `L_{n+2}F(X₃) ≅ L_{n+1}F(X₁)`
-(`CategoryTheory.ShortComplex.ShortExact.leftDerivedSuccSuccIso`). When `F` is right exact,
+(`CategoryTheory.ShortComplex.ShortExact.leftDerivedAddTwoIso`). When `F` is right exact,
 `L₁F(X₃)` vanishes precisely when `F(X₁) ⟶ F(X₂)` is a monomorphism, equivalently when `F` sends
 the short exact sequence to a short exact sequence
 (`CategoryTheory.ShortComplex.ShortExact.mono_map_f_iff_isZero_leftDerived_one`,
@@ -53,8 +55,8 @@ isomorphisms induce natural isomorphisms of left derived functors
 the comparison maps `L₀F ⟶ F` and `L₀G ⟶ G`
 (`CategoryTheory.NatTrans.leftDerived_zero_comp_fromLeftDerivedZero`). Postcomposing with an exact
 additive functor `G` commutes with left derived functors
-(`CategoryTheory.Functor.compLeftDerivedObjIso`), and when `G` is also faithful it preserves and
-reflects their vanishing (`CategoryTheory.Functor.isZero_comp_leftDerived_iff`). An exact additive
+(`CategoryTheory.Functor.leftDerivedCompIso`), and when `G` is also faithful it preserves and
+reflects their vanishing (`CategoryTheory.Functor.isZero_leftDerived_comp_iff`). An exact additive
 functor has no positive left derived functors (`CategoryTheory.Functor.isZero_leftDerived_succ`).
 If an additive functor sends projective objects into a class closed under subobjects and quotients,
 for instance a Serre class, all its left derived functors take values in that class
@@ -274,34 +276,273 @@ namespace ShortExact
 variable [HasProjectiveResolutions C] {D : Type*} [Category* D] [Abelian D]
   (hS : S.ShortExact) [Projective S.X₂] (F : C ⥤ D) [F.Additive]
 
-/-- **Dimension shifting along a projective cover.** Given a short exact sequence
-`0 ⟶ X₁ ⟶ X₂ ⟶ X₃ ⟶ 0` with `X₂` projective, prepending `X₂` to a projective resolution of `X₁`
-identifies `L_{n+2}F(X₃)` with `L_{n+1}F(X₁)` for every additive functor `F`. -/
-def leftDerivedSuccSuccIso (n : ℕ) :
-    (F.leftDerived (n + 2)).obj S.X₃ ≅ (F.leftDerived (n + 1)).obj S.X₁ :=
-  let P := CategoryTheory.projectiveResolution S.X₁
-  let Q := hS.augmentProjectiveResolution P
+omit [HasProjectiveResolutions C] in
+/-- For any projective resolution `P` of `S.X₁`, homology in degree `n + 2` of `F` on
+`hS.augmentProjectiveResolution P` is naturally isomorphic to homology in degree `n + 1` of `F` on
+`P`. -/
+private def augmentProjectiveResolutionHomologyIso (P : ProjectiveResolution S.X₁) (n : ℕ) :
+    (HomologicalComplex.homologyFunctor D (ComplexShape.down ℕ) (n + 2)).obj
+        ((F.mapHomologicalComplex (ComplexShape.down ℕ)).obj
+          (hS.augmentProjectiveResolution P).complex) ≅
+      (HomologicalComplex.homologyFunctor D (ComplexShape.down ℕ) (n + 1)).obj
+        ((F.mapHomologicalComplex (ComplexShape.down ℕ)).obj P.complex) :=
   let K := P.complex.augment ((P.π.f 0 ≫ (HomologicalComplex.singleObjXSelf _ 0 S.X₁).hom) ≫ S.f)
     (by simp only [← Category.assoc, P.complex_d_comp_π_f_zero, zero_comp])
-  Q.isoLeftDerivedObj F (n + 2) ≪≫
-    (HomologicalComplex.homologyFunctor D (ComplexShape.down ℕ) (n + 2)).mapIso
+  (HomologicalComplex.homologyFunctor D (ComplexShape.down ℕ) (n + 2)).mapIso
       ((F.mapHomologicalComplex (ComplexShape.down ℕ)).mapIso
         (eqToIso (hS.augmentProjectiveResolution_complex P))) ≪≫
     (HomologicalComplex.homologyFunctorIso' D (ComplexShape.down ℕ) (n + 3) (n + 2) (n + 1)
       (by simp) (by simp)).app ((F.mapHomologicalComplex _).obj K) ≪≫
     (ShortComplex.homologyFunctor D).mapIso
-      (ShortComplex.isoMk (Iso.refl _) (Iso.refl _) (Iso.refl _)
-        (by simp [K]) (by simp [K])) ≪≫
+      (ShortComplex.isoMk
+        (S₁ := (HomologicalComplex.shortComplexFunctor' D (ComplexShape.down ℕ)
+          (n + 3) (n + 2) (n + 1)).obj ((F.mapHomologicalComplex _).obj K))
+        (S₂ := (HomologicalComplex.shortComplexFunctor' D (ComplexShape.down ℕ)
+          (n + 2) (n + 1) n).obj ((F.mapHomologicalComplex _).obj P.complex))
+        (Iso.refl _) (Iso.refl _) (Iso.refl _)
+        ((Category.id_comp _).trans (Category.comp_id _).symm)
+        ((Category.id_comp _).trans (Category.comp_id _).symm)) ≪≫
     ((HomologicalComplex.homologyFunctorIso' D (ComplexShape.down ℕ) (n + 2) (n + 1) n
-      (by simp) (by simp)).app ((F.mapHomologicalComplex _).obj P.complex)).symm ≪≫
+      (by simp) (by simp)).app ((F.mapHomologicalComplex _).obj P.complex)).symm
+
+omit [HasProjectiveResolutions C] in
+private lemma map_comp_augmentProjectiveResolutionHomologyIso_hom
+    {G : C ⥤ D} [G.Additive] {P P' : ProjectiveResolution S.X₁}
+    (ψ : (F.mapHomologicalComplex (ComplexShape.down ℕ)).obj
+        (P.complex.augment ((P.π.f 0 ≫ (HomologicalComplex.singleObjXSelf _ 0 S.X₁).hom) ≫ S.f)
+          (by simp only [← Category.assoc, P.complex_d_comp_π_f_zero, zero_comp])) ⟶
+      (G.mapHomologicalComplex (ComplexShape.down ℕ)).obj
+        (P'.complex.augment ((P'.π.f 0 ≫ (HomologicalComplex.singleObjXSelf _ 0 S.X₁).hom) ≫ S.f)
+          (by simp only [← Category.assoc, P'.complex_d_comp_π_f_zero, zero_comp])))
+    (φ : (F.mapHomologicalComplex (ComplexShape.down ℕ)).obj P.complex ⟶
+      (G.mapHomologicalComplex (ComplexShape.down ℕ)).obj P'.complex)
+    (hψ : ∀ m, ψ.f (m + 1) = φ.f m) (n : ℕ) :
+    (HomologicalComplex.homologyFunctor D (ComplexShape.down ℕ) (n + 2)).map
+        ((F.mapHomologicalComplex (ComplexShape.down ℕ)).map
+            (eqToHom (hS.augmentProjectiveResolution_complex P)) ≫ ψ ≫
+          (G.mapHomologicalComplex (ComplexShape.down ℕ)).map
+            (eqToHom (hS.augmentProjectiveResolution_complex P').symm)) ≫
+      (hS.augmentProjectiveResolutionHomologyIso G P' n).hom =
+      (hS.augmentProjectiveResolutionHomologyIso F P n).hom ≫
+        (HomologicalComplex.homologyFunctor D (ComplexShape.down ℕ) (n + 1)).map φ := by
+  dsimp only [augmentProjectiveResolutionHomologyIso, Iso.trans_hom, Iso.symm_hom,
+    Functor.mapIso_hom, Iso.app_hom, Iso.app_inv]
+  simp only [eqToIso.hom, Functor.map_comp, eqToHom_map, eqToHom_trans_assoc, eqToHom_refl,
+    Category.id_comp, Category.assoc]
+  rw [(HomologicalComplex.homologyFunctorIso' D (ComplexShape.down ℕ) (n + 3) (n + 2) (n + 1)
+    (by simp) (by simp)).hom.naturality_assoc ψ]
+  simp only [Functor.comp_map]
+  have hsc : (HomologicalComplex.shortComplexFunctor' D (ComplexShape.down ℕ)
+        (n + 3) (n + 2) (n + 1)).map ψ ≫
+      (ShortComplex.isoMk
+        (S₁ := (HomologicalComplex.shortComplexFunctor' D (ComplexShape.down ℕ)
+          (n + 3) (n + 2) (n + 1)).obj ((G.mapHomologicalComplex _).obj _))
+        (S₂ := (HomologicalComplex.shortComplexFunctor' D (ComplexShape.down ℕ)
+          (n + 2) (n + 1) n).obj ((G.mapHomologicalComplex _).obj P'.complex))
+        (Iso.refl _) (Iso.refl _) (Iso.refl _)
+        ((Category.id_comp _).trans (Category.comp_id _).symm)
+        ((Category.id_comp _).trans (Category.comp_id _).symm)).hom =
+      (ShortComplex.isoMk
+        (S₁ := (HomologicalComplex.shortComplexFunctor' D (ComplexShape.down ℕ)
+          (n + 3) (n + 2) (n + 1)).obj ((F.mapHomologicalComplex _).obj _))
+        (S₂ := (HomologicalComplex.shortComplexFunctor' D (ComplexShape.down ℕ)
+          (n + 2) (n + 1) n).obj ((F.mapHomologicalComplex _).obj P.complex))
+        (Iso.refl _) (Iso.refl _) (Iso.refl _)
+        ((Category.id_comp _).trans (Category.comp_id _).symm)
+        ((Category.id_comp _).trans (Category.comp_id _).symm)).hom ≫
+        (HomologicalComplex.shortComplexFunctor' D (ComplexShape.down ℕ)
+          (n + 2) (n + 1) n).map φ :=
+    ShortComplex.hom_ext _ _
+      ((Category.comp_id _).trans ((hψ (n + 2)).trans (Category.id_comp _).symm))
+      ((Category.comp_id _).trans ((hψ (n + 1)).trans (Category.id_comp _).symm))
+      ((Category.comp_id _).trans ((hψ n).trans (Category.id_comp _).symm))
+  rw [← Functor.map_comp_assoc, hsc, Functor.map_comp_assoc]
+  refine congrArg _ (congrArg _ (congrArg _ ?_))
+  exact (HomologicalComplex.homologyFunctorIso' D (ComplexShape.down ℕ) (n + 2) (n + 1) n
+    (by simp) (by simp)).inv.naturality φ
+
+/-- **Dimension shifting along a projective presentation.** Given a short exact sequence
+`0 ⟶ X₁ ⟶ X₂ ⟶ X₃ ⟶ 0` with `X₂` projective, prepending `X₂` to a projective resolution of `X₁`
+identifies `L_{n+2}F(X₃)` with `L_{n+1}F(X₁)` for every additive functor `F`. -/
+def leftDerivedAddTwoIso (n : ℕ) :
+    (F.leftDerived (n + 2)).obj S.X₃ ≅ (F.leftDerived (n + 1)).obj S.X₁ :=
+  let P := CategoryTheory.projectiveResolution S.X₁
+  (hS.augmentProjectiveResolution P).isoLeftDerivedObj F (n + 2) ≪≫
+    hS.augmentProjectiveResolutionHomologyIso F P n ≪≫
     (P.isoLeftDerivedObj F (n + 1)).symm
+
+omit [HasProjectiveResolutions C] [Projective S.X₂] in
+private def augmentProjectiveResolutionComplexMap {P P' : ProjectiveResolution S.X₁}
+    (φ : P.complex ⟶ P'.complex) (hφ0 : φ.f 0 ≫ P'.π.f 0 = P.π.f 0) :
+    P.complex.augment ((P.π.f 0 ≫ (HomologicalComplex.singleObjXSelf _ 0 S.X₁).hom) ≫ S.f)
+        (by simp only [← Category.assoc, P.complex_d_comp_π_f_zero, zero_comp]) ⟶
+      P'.complex.augment ((P'.π.f 0 ≫ (HomologicalComplex.singleObjXSelf _ 0 S.X₁).hom) ≫ S.f)
+        (by simp only [← Category.assoc, P'.complex_d_comp_π_f_zero, zero_comp]) where
+  f
+    | 0 => eqToHom (ChainComplex.augment_X_zero _ _ _) ≫
+        eqToHom (ChainComplex.augment_X_zero _ _ _).symm
+    | m + 1 => φ.f m
+  comm' i j hij := by
+    cases j with
+    | zero =>
+      obtain rfl : 1 = i := hij
+      dsimp only [ChainComplex.augment_X_zero, ChainComplex.augment_X_succ]
+      simp only [ChainComplex.augment_d_one_zero, ← Category.assoc]
+      rw [hφ0]
+      exact ((Category.comp_id (_ ≫ 𝟙 S.X₂)).trans (Category.comp_id _)).symm
+    | succ m =>
+      obtain rfl : m + 1 + 1 = i := hij
+      dsimp only [ChainComplex.augment_X_succ]
+      rw [ChainComplex.augment_d_succ_succ, ChainComplex.augment_d_succ_succ]
+      exact φ.comm (m + 1) m
+
+/-- Computation of `leftDerivedAddTwoIso` on an arbitrary projective resolution `P` of `S.X₁`. -/
+theorem leftDerivedAddTwoIso_hom_eq (P : ProjectiveResolution S.X₁) (n : ℕ) :
+    (hS.leftDerivedAddTwoIso F n).hom =
+      ((hS.augmentProjectiveResolution P).isoLeftDerivedObj F (n + 2)).hom ≫
+        (HomologicalComplex.homologyFunctor D (ComplexShape.down ℕ) (n + 2)).map
+          ((F.mapHomologicalComplex (ComplexShape.down ℕ)).map
+            (eqToHom (hS.augmentProjectiveResolution_complex P))) ≫
+        (HomologicalComplex.homologyFunctorIso' D (ComplexShape.down ℕ) (n + 3) (n + 2) (n + 1)
+          (by simp) (by simp)).hom.app ((F.mapHomologicalComplex _).obj
+            (P.complex.augment
+              ((P.π.f 0 ≫ (HomologicalComplex.singleObjXSelf _ 0 S.X₁).hom) ≫ S.f)
+              (by simp only [← Category.assoc, P.complex_d_comp_π_f_zero, zero_comp]))) ≫
+        (ShortComplex.homologyFunctor D).map
+          (ShortComplex.isoMk
+            (S₁ := (HomologicalComplex.shortComplexFunctor' D (ComplexShape.down ℕ)
+              (n + 3) (n + 2) (n + 1)).obj ((F.mapHomologicalComplex _).obj
+                (P.complex.augment
+                  ((P.π.f 0 ≫ (HomologicalComplex.singleObjXSelf _ 0 S.X₁).hom) ≫ S.f)
+                  (by simp only [← Category.assoc, P.complex_d_comp_π_f_zero, zero_comp]))))
+            (S₂ := (HomologicalComplex.shortComplexFunctor' D (ComplexShape.down ℕ)
+              (n + 2) (n + 1) n).obj ((F.mapHomologicalComplex _).obj P.complex))
+            (Iso.refl _) (Iso.refl _) (Iso.refl _)
+            ((Category.id_comp _).trans (Category.comp_id _).symm)
+            ((Category.id_comp _).trans (Category.comp_id _).symm)).hom ≫
+        (HomologicalComplex.homologyFunctorIso' D (ComplexShape.down ℕ) (n + 2) (n + 1) n
+          (by simp) (by simp)).inv.app ((F.mapHomologicalComplex _).obj P.complex) ≫
+        (P.isoLeftDerivedObj F (n + 1)).inv := by
+  let P' := CategoryTheory.projectiveResolution S.X₁
+  let Q := hS.augmentProjectiveResolution P
+  let Q' := hS.augmentProjectiveResolution P'
+  let φ : P.complex ⟶ P'.complex := ProjectiveResolution.lift (𝟙 S.X₁) P P'
+  have hφ0 : φ.f 0 ≫ P'.π.f 0 = P.π.f 0 :=
+    (ProjectiveResolution.lift_commutes_zero (𝟙 S.X₁) P P').trans (Category.comp_id _)
+  let aug := augmentProjectiveResolutionComplexMap φ hφ0
+  let τ : Q.complex ⟶ Q'.complex :=
+    eqToHom (hS.augmentProjectiveResolution_complex P) ≫ aug ≫
+      eqToHom (hS.augmentProjectiveResolution_complex P').symm
+  have hτ0 : τ.f 0 ≫ Q'.π.f 0 = Q.π.f 0 ≫ 𝟙 S.X₃ := by
+    refine (?_ : τ.f 0 ≫ Q'.π.f 0 = Q.π.f 0).trans (Category.comp_id _).symm
+    have hP0 : S.X₂ = Q.complex.X 0 :=
+      (ChainComplex.augment_X_zero _ _ _).symm.trans
+        (congrArg (fun C ↦ C.X 0) (hS.augmentProjectiveResolution_complex P).symm)
+    rw [← cancel_epi (eqToHom hP0),
+      ← cancel_mono (HomologicalComplex.singleObjXSelf (ComplexShape.down ℕ) 0 S.X₃).hom]
+    have hQ0 := hS.augmentProjectiveResolution_π_f_zero P
+    have hQ'0 := hS.augmentProjectiveResolution_π_f_zero P'
+    dsimp only [τ, aug, augmentProjectiveResolutionComplexMap, Q, Q']
+    simp only [HomologicalComplex.comp_f, HomologicalComplex.eqToHom_f, Category.assoc,
+      eqToHom_trans_assoc]
+    exact hQ'0.trans hQ0.symm
+  have hQ : (Q'.isoLeftDerivedObj F (n + 2)).hom =
+      (Q.isoLeftDerivedObj F (n + 2)).hom ≫
+        (F.mapHomologicalComplex _ ⋙ HomologicalComplex.homologyFunctor D _ (n + 2)).map τ := by
+    simpa using ProjectiveResolution.isoLeftDerivedObj_hom_naturality (𝟙 S.X₃) Q Q' τ hτ0 F (n + 2)
+  have hP : (HomologicalComplex.homologyFunctor D (ComplexShape.down ℕ) (n + 1)).map
+        ((F.mapHomologicalComplex (ComplexShape.down ℕ)).map φ) ≫
+      (P'.isoLeftDerivedObj F (n + 1)).inv = (P.isoLeftDerivedObj F (n + 1)).inv := by
+    simpa [Functor.comp_map] using (ProjectiveResolution.isoLeftDerivedObj_inv_naturality (𝟙 S.X₁)
+      P P' φ (ProjectiveResolution.lift_commutes_zero (𝟙 S.X₁) P P') F (n + 1)).symm
+  have hdef : (hS.leftDerivedAddTwoIso F n).hom =
+      (Q'.isoLeftDerivedObj F (n + 2)).hom ≫
+        (hS.augmentProjectiveResolutionHomologyIso F P' n).hom ≫
+          (P'.isoLeftDerivedObj F (n + 1)).inv := rfl
+  rw [hdef, hQ, Category.assoc]
+  have hmid := hS.map_comp_augmentProjectiveResolutionHomologyIso_hom F
+    ((F.mapHomologicalComplex _).map aug) ((F.mapHomologicalComplex _).map φ)
+    (fun _ ↦ rfl) n
+  simp only [Functor.comp_map, ← Functor.map_comp] at hmid ⊢
+  rw [reassoc_of% hmid, hP]
+  dsimp only [Q, augmentProjectiveResolutionHomologyIso, Iso.trans_hom, Iso.symm_hom,
+    Functor.mapIso_hom, Iso.app_hom, Iso.app_inv]
+  simp only [eqToIso.hom, Category.assoc]
+
+/-- Computation of the inverse of `leftDerivedAddTwoIso` on an arbitrary projective resolution `P`
+of `S.X₁`. -/
+theorem leftDerivedAddTwoIso_inv_eq (P : ProjectiveResolution S.X₁) (n : ℕ) :
+    (hS.leftDerivedAddTwoIso F n).inv =
+      (P.isoLeftDerivedObj F (n + 1)).hom ≫
+        (HomologicalComplex.homologyFunctorIso' D (ComplexShape.down ℕ) (n + 2) (n + 1) n
+          (by simp) (by simp)).hom.app ((F.mapHomologicalComplex _).obj P.complex) ≫
+        (ShortComplex.homologyFunctor D).map
+          (ShortComplex.isoMk
+            (S₁ := (HomologicalComplex.shortComplexFunctor' D (ComplexShape.down ℕ)
+              (n + 3) (n + 2) (n + 1)).obj ((F.mapHomologicalComplex _).obj
+                (P.complex.augment
+                  ((P.π.f 0 ≫ (HomologicalComplex.singleObjXSelf _ 0 S.X₁).hom) ≫ S.f)
+                  (by simp only [← Category.assoc, P.complex_d_comp_π_f_zero, zero_comp]))))
+            (S₂ := (HomologicalComplex.shortComplexFunctor' D (ComplexShape.down ℕ)
+              (n + 2) (n + 1) n).obj ((F.mapHomologicalComplex _).obj P.complex))
+            (Iso.refl _) (Iso.refl _) (Iso.refl _)
+            ((Category.id_comp _).trans (Category.comp_id _).symm)
+            ((Category.id_comp _).trans (Category.comp_id _).symm)).inv ≫
+        (HomologicalComplex.homologyFunctorIso' D (ComplexShape.down ℕ) (n + 3) (n + 2) (n + 1)
+          (by simp) (by simp)).inv.app ((F.mapHomologicalComplex _).obj
+            (P.complex.augment
+              ((P.π.f 0 ≫ (HomologicalComplex.singleObjXSelf _ 0 S.X₁).hom) ≫ S.f)
+              (by simp only [← Category.assoc, P.complex_d_comp_π_f_zero, zero_comp]))) ≫
+        (HomologicalComplex.homologyFunctor D (ComplexShape.down ℕ) (n + 2)).map
+          ((F.mapHomologicalComplex (ComplexShape.down ℕ)).map
+            (eqToHom (hS.augmentProjectiveResolution_complex P).symm)) ≫
+        ((hS.augmentProjectiveResolution P).isoLeftDerivedObj F (n + 2)).inv := by
+  rw [← cancel_epi (hS.leftDerivedAddTwoIso F n).hom, Iso.hom_inv_id,
+    hS.leftDerivedAddTwoIso_hom_eq F P n]
+  dsimp only [Functor.comp_obj]
+  simp only [Category.assoc, Iso.inv_hom_id_assoc, Iso.inv_hom_id_app_assoc,
+    ← Functor.map_comp_assoc, Iso.hom_inv_id, Functor.map_id, Category.id_comp,
+    Iso.hom_inv_id_app_assoc, eqToHom_map, eqToHom_trans_assoc, eqToHom_refl]
+
+/-- Dimension shifting along a projective presentation is natural in the additive functor `F`. -/
+@[reassoc]
+theorem leftDerived_app_comp_leftDerivedAddTwoIso_hom {G : C ⥤ D} [G.Additive]
+    (α : F ⟶ G) (n : ℕ) :
+    (NatTrans.leftDerived α (n + 2)).app S.X₃ ≫ (hS.leftDerivedAddTwoIso G n).hom =
+      (hS.leftDerivedAddTwoIso F n).hom ≫ (NatTrans.leftDerived α (n + 1)).app S.X₁ := by
+  let P := CategoryTheory.projectiveResolution S.X₁
+  let Q := hS.augmentProjectiveResolution P
+  let K := P.complex.augment ((P.π.f 0 ≫ (HomologicalComplex.singleObjXSelf _ 0 S.X₁).hom) ≫ S.f)
+    (by simp only [← Category.assoc, P.complex_d_comp_π_f_zero, zero_comp])
+  have hdef : ∀ (H : C ⥤ D) [H.Additive], (hS.leftDerivedAddTwoIso H n).hom =
+      (Q.isoLeftDerivedObj H (n + 2)).hom ≫
+        (hS.augmentProjectiveResolutionHomologyIso H P n).hom ≫
+          (P.isoLeftDerivedObj H (n + 1)).inv := fun _ _ ↦ rfl
+  rw [hdef G, hdef F, Q.leftDerived_app_eq α (n + 2), P.leftDerived_app_eq α (n + 1)]
+  simp only [Category.assoc, Iso.inv_hom_id_assoc]
+  congr 1
+  have hnat : (NatTrans.mapHomologicalComplex α (ComplexShape.down ℕ)).app Q.complex =
+      (F.mapHomologicalComplex (ComplexShape.down ℕ)).map
+          (eqToHom (hS.augmentProjectiveResolution_complex P)) ≫
+        (NatTrans.mapHomologicalComplex α (ComplexShape.down ℕ)).app K ≫
+        (G.mapHomologicalComplex (ComplexShape.down ℕ)).map
+          (eqToHom (hS.augmentProjectiveResolution_complex P).symm) := by
+    rw [← cancel_mono ((G.mapHomologicalComplex (ComplexShape.down ℕ)).map
+      (eqToHom (hS.augmentProjectiveResolution_complex P)))]
+    simp only [Category.assoc, ← Functor.map_comp, eqToHom_trans, eqToHom_refl, Functor.map_id,
+      Category.comp_id]
+    exact ((NatTrans.mapHomologicalComplex α (ComplexShape.down ℕ)).naturality
+      (eqToHom (hS.augmentProjectiveResolution_complex P))).symm
+  rw [hnat, reassoc_of% (hS.map_comp_augmentProjectiveResolutionHomologyIso_hom F
+    ((NatTrans.mapHomologicalComplex α _).app K)
+    ((NatTrans.mapHomologicalComplex α _).app P.complex) (fun _ ↦ rfl) n)]
 
 include hS in
 /-- Along a short exact sequence `0 ⟶ X₁ ⟶ X₂ ⟶ X₃ ⟶ 0` with `X₂` projective, `L_{n+2}F(X₃)`
 vanishes if and only if `L_{n+1}F(X₁)` vanishes. -/
 theorem isZero_leftDerived_add_two_iff (n : ℕ) :
     IsZero ((F.leftDerived (n + 2)).obj S.X₃) ↔ IsZero ((F.leftDerived (n + 1)).obj S.X₁) :=
-  (hS.leftDerivedSuccSuccIso F n).isZero_iff
+  (hS.leftDerivedAddTwoIso F n).isZero_iff
 
 include hS in
 /-- For a right exact additive functor `F` and a short exact sequence `0 ⟶ X₁ ⟶ X₂ ⟶ X₃ ⟶ 0`
@@ -340,8 +581,7 @@ theorem mono_map_f_iff_isZero_leftDerived_one [PreservesFiniteColimits F] :
       WalkingParallelPair.one
   have hdesc : cokernel.desc S₁.f S₁.g S₁.zero = e.hom ≫ F.map S.f := by
     rw [← cancel_epi (cokernel.π S₁.f), cokernel.π_desc, ← Category.assoc, he]
-  rw [hS₁, S₁.exact_iff_mono_cokernel_desc, hdesc]
-  exact ⟨fun _ ↦ mono_comp _ _, fun _ ↦ by simpa using mono_comp e.inv (e.hom ≫ F.map S.f)⟩
+  rw [hS₁, S₁.exact_iff_mono_cokernel_desc, hdesc, mono_comp_iff_of_isIso]
 
 include hS in
 /-- A right exact additive functor sends a short exact sequence `0 ⟶ X₁ ⟶ X₂ ⟶ X₃ ⟶ 0` with
@@ -414,28 +654,113 @@ theorem NatTrans.leftDerived_zero_comp_fromLeftDerivedZero {F G : C ⥤ D} [F.Ad
   rfl
 
 /-- Postcomposing an additive functor with an exact additive functor commutes with left derived
-functors on objects: `Lₙ(G ∘ F)(X) ≅ G(LₙF(X))`. -/
-def Functor.compLeftDerivedObjIso {E : Type*} [Category* E] [Abelian E]
-    (F : C ⥤ D) [F.Additive] (G : D ⥤ E) [G.Additive] [G.PreservesHomology] (X : C) (n : ℕ) :
-    ((F ⋙ G).leftDerived n).obj X ≅ G.obj ((F.leftDerived n).obj X) :=
-  let P := projectiveResolution X
-  P.isoLeftDerivedObj (F ⋙ G) n ≪≫
-    (HomologicalComplex.homologyFunctor E (ComplexShape.down ℕ) n).mapIso
-      ((Functor.mapHomologicalComplexCompIso (Iso.refl (F ⋙ G)) (ComplexShape.down ℕ)).symm.app
-        P.complex) ≪≫
-    (G.mapHomologicalComplexCompHomologyFunctorIso (ComplexShape.down ℕ) n).app
-      ((F.mapHomologicalComplex (ComplexShape.down ℕ)).obj P.complex) ≪≫
-    G.mapIso (P.isoLeftDerivedObj F n).symm
+functors: `Lₙ(G ∘ F) ≅ G ∘ LₙF`. -/
+def Functor.leftDerivedCompIso {E : Type*} [Category* E] [Abelian E]
+    (F : C ⥤ D) [F.Additive] (G : D ⥤ E) [G.Additive] [G.PreservesHomology] (n : ℕ) :
+    (F ⋙ G).leftDerived n ≅ F.leftDerived n ⋙ G :=
+  Functor.associator _ _ _ ≪≫
+    isoWhiskerLeft (projectiveResolutions C)
+      (isoWhiskerRight
+          (Functor.mapHomotopyCategoryCompIso (Iso.refl (F ⋙ G)) (ComplexShape.down ℕ)).symm
+          (HomotopyCategory.homologyFunctor E (ComplexShape.down ℕ) n) ≪≫
+        Functor.associator _ _ _ ≪≫
+        isoWhiskerLeft (F.mapHomotopyCategory (ComplexShape.down ℕ))
+          (G.mapHomotopyCategoryCompHomologyFunctorIso (ComplexShape.down ℕ) n) ≪≫
+        (Functor.associator _ _ _).symm) ≪≫
+    (Functor.associator _ _ _).symm ≪≫
+    isoWhiskerRight (Functor.associator _ _ _).symm G
+
+omit [HasProjectiveResolutions C] in
+private lemma mapHomotopyCategoryCompIso_refl_inv_app_quotient {E : Type*} [Category* E]
+    [Abelian E] (F : C ⥤ D) [F.Additive] (G : D ⥤ E) [G.Additive]
+    (K : ChainComplex C ℕ) :
+    (Functor.mapHomotopyCategoryCompIso (Iso.refl (F ⋙ G)) (ComplexShape.down ℕ)).inv.app
+      ((HomotopyCategory.quotient C (ComplexShape.down ℕ)).obj K) =
+      ((F ⋙ G).mapHomotopyCategoryFactors (ComplexShape.down ℕ)).hom.app K ≫
+        (HomotopyCategory.quotient E (ComplexShape.down ℕ)).map
+          ((Functor.mapHomologicalComplexCompIso (Iso.refl (F ⋙ G))
+            (ComplexShape.down ℕ)).inv.app K) ≫
+        (G.mapHomotopyCategory (ComplexShape.down ℕ)).map
+          ((F.mapHomotopyCategoryFactors (ComplexShape.down ℕ)).inv.app K) := by
+  let m := (HomotopyCategory.quotient E (ComplexShape.down ℕ)).map
+    ((Functor.mapHomologicalComplexCompIso (Iso.refl (F ⋙ G)) (ComplexShape.down ℕ)).inv.app K)
+  exact (Quotient.natTransLift_app _ _ _ _ K).trans
+    ((Category.id_comp m).symm.trans
+      (whisker_eq _ ((Category.comp_id m).symm.trans
+        (whisker_eq m ((G.mapHomotopyCategory (ComplexShape.down ℕ)).map_id _).symm))))
+
+/-- On any projective resolution `P` of `X`, `Functor.leftDerivedCompIso` is the complex-level
+homology comparison `(G.mapHomologicalComplexCompHomologyFunctorIso _ n).hom.app (F(P))`. -/
+theorem Functor.leftDerivedCompIso_hom_app {E : Type*} [Category* E] [Abelian E]
+    (F : C ⥤ D) [F.Additive] (G : D ⥤ E) [G.Additive] [G.PreservesHomology] (n : ℕ)
+    {X : C} (P : ProjectiveResolution X) :
+    (F.leftDerivedCompIso G n).hom.app X =
+      (P.isoLeftDerivedObj (F ⋙ G) n).hom ≫
+        (HomologicalComplex.homologyFunctor E (ComplexShape.down ℕ) n).map
+          ((Functor.mapHomologicalComplexCompIso (Iso.refl (F ⋙ G))
+            (ComplexShape.down ℕ)).inv.app P.complex) ≫
+        (G.mapHomologicalComplexCompHomologyFunctorIso (ComplexShape.down ℕ) n).hom.app
+          ((F.mapHomologicalComplex (ComplexShape.down ℕ)).obj P.complex) ≫
+        G.map (P.isoLeftDerivedObj F n).inv := by
+  let c := ComplexShape.down ℕ
+  let β : (F ⋙ G).mapHomotopyCategory c ⋙ HomotopyCategory.homologyFunctor E c n ≅
+      (F.mapHomotopyCategory c ⋙ HomotopyCategory.homologyFunctor D c n) ⋙ G :=
+    isoWhiskerRight (Functor.mapHomotopyCategoryCompIso (Iso.refl (F ⋙ G)) c).symm
+        (HomotopyCategory.homologyFunctor E c n) ≪≫
+      Functor.associator _ _ _ ≪≫
+      isoWhiskerLeft (F.mapHomotopyCategory c)
+        (G.mapHomotopyCategoryCompHomologyFunctorIso c n) ≪≫
+      (Functor.associator _ _ _).symm
+  rw [← cancel_mono (G.map (P.isoLeftDerivedObj F n).hom)]
+  simp only [Category.assoc, ← G.map_comp, Iso.inv_hom_id, Functor.map_id]
+  dsimp only [Functor.leftDerived, Functor.leftDerivedToHomotopyCategory,
+    ProjectiveResolution.isoLeftDerivedObj,
+    ProjectiveResolution.isoLeftDerivedToHomotopyCategoryObj, Functor.leftDerivedCompIso, β, c,
+    Iso.trans_hom, Iso.symm_hom, isoWhiskerRight_hom, isoWhiskerLeft_hom, NatTrans.comp_app,
+    Functor.whiskerRight_app, Functor.whiskerLeft_app, Functor.associator_hom_app,
+    Functor.associator_inv_app, Functor.mapIso_hom, Functor.comp_obj]
+  simp only [Functor.map_id, Functor.map_comp, Category.id_comp, Category.comp_id, Category.assoc,
+    Iso.app_hom]
+  have hnat := β.hom.naturality P.iso.hom
+  dsimp only [β, c, Iso.trans_hom, Iso.symm_hom, isoWhiskerRight_hom, isoWhiskerLeft_hom,
+    NatTrans.comp_app, Functor.whiskerRight_app, Functor.whiskerLeft_app,
+    Functor.associator_hom_app, Functor.associator_inv_app, Functor.comp_obj,
+    Functor.comp_map] at hnat
+  simp only [Category.id_comp, Category.comp_id, Category.assoc] at hnat
+  have hGnat := (G.mapHomotopyCategoryCompHomologyFunctorIso c n).hom.naturality
+    ((F.mapHomotopyCategoryFactors c).inv.app P.complex)
+  dsimp only [c, Functor.comp_obj, Functor.comp_map] at hGnat
+  have hEnat := (HomotopyCategory.homologyFunctorFactors E c n).hom.naturality
+    ((Functor.mapHomologicalComplexCompIso (Iso.refl (F ⋙ G)) c).inv.app P.complex)
+  dsimp only [c, Functor.comp_obj, Functor.comp_map] at hEnat
+  have hcancelF : G.map ((HomotopyCategory.homologyFunctor D c n).map
+        ((F.mapHomotopyCategoryFactors c).inv.app P.complex)) ≫
+      G.map ((HomotopyCategory.homologyFunctor D c n).map
+        ((F.mapHomotopyCategoryFactors c).hom.app P.complex)) =
+      𝟙 (G.obj ((HomotopyCategory.homologyFunctor D c n).obj
+        ((HomotopyCategory.quotient D c).obj ((F.mapHomologicalComplex c).obj P.complex)))) := by
+    rw [← G.map_comp, ← Functor.map_comp, Iso.inv_hom_id_app, Functor.map_id, G.map_id]
+    rfl
+  have hcancelD : G.map ((HomotopyCategory.homologyFunctorFactors D c n).inv.app
+        ((F.mapHomologicalComplex c).obj P.complex)) ≫
+      G.map ((HomotopyCategory.homologyFunctorFactors D c n).hom.app
+        ((F.mapHomologicalComplex c).obj P.complex)) = 𝟙 _ := by
+    rw [← G.map_comp, Iso.inv_hom_id_app, G.map_id]
+  rw [← reassoc_of% hnat]
+  simp only [mapHomotopyCategoryCompIso_refl_inv_app_quotient F G P.complex, Functor.map_comp,
+    Category.assoc]
+  rw [reassoc_of% hGnat, G.mapHomotopyCategoryCompHomologyFunctorIso_hom_app]
+  dsimp only [Functor.comp_obj]
+  simp only [Category.assoc]
+  rw [reassoc_of% hcancelF, hcancelD, Category.comp_id, reassoc_of% hEnat]
 
 /-- When `G` is exact, additive and faithful, `(Lₙ(G ∘ F))(X)` vanishes if and only if
 `(LₙF)(X)` vanishes. -/
-theorem Functor.isZero_comp_leftDerived_iff {E : Type*} [Category* E] [Abelian E]
+theorem Functor.isZero_leftDerived_comp_iff {E : Type*} [Category* E] [Abelian E]
     (F : C ⥤ D) [F.Additive] (G : D ⥤ E) [G.Additive] [G.PreservesHomology] [G.Faithful]
     (X : C) (n : ℕ) :
     IsZero (((F ⋙ G).leftDerived n).obj X) ↔ IsZero ((F.leftDerived n).obj X) :=
-  (F.compLeftDerivedObjIso G X n).isZero_iff.trans
-    ⟨fun h ↦ (IsZero.iff_id_eq_zero _).2 <| G.map_injective <| by
-      rw [G.map_id, G.map_zero]; exact h.eq_of_src _ _, G.map_isZero⟩
+  ((F.leftDerivedCompIso G n).app X).isZero_iff.trans ⟨G.isZero_of_isZero_obj, G.map_isZero⟩
 
 /-- An exact additive functor has no positive left derived functors. -/
 theorem Functor.isZero_leftDerived_succ (F : C ⥤ D) [F.Additive] [F.PreservesHomology]

@@ -7,22 +7,24 @@ module
 
 public import Mathlib.Algebra.Category.ModuleCat.ChangeOfRings
 public import Mathlib.Algebra.Category.ModuleCat.Monoidal.Basic
+public import Mathlib.Algebra.Category.ModuleCat.Projective
 public import Mathlib.CategoryTheory.Monoidal.Tor
 public import Mathlib.RingTheory.Flat.Basic
 public import Mathlib.RingTheory.RingHom.Flat
-public import TauCeti.Algebra.Category.ModuleCat.Projective.QuotientResolution
+public import TauCeti.Algebra.Category.ModuleCat.ChangeOfRings
+public import TauCeti.Algebra.Homology.ModuleCat.Basic
+public import TauCeti.LinearAlgebra.End.TensorProduct
 
 import Mathlib.Algebra.Category.ModuleCat.Descent
 import Mathlib.Algebra.Homology.HomologicalComplexAbelian
 import Mathlib.Algebra.Homology.HomologySequence
+import Mathlib.CategoryTheory.Monoidal.Closed.Braided
 import Mathlib.RingTheory.Flat.CategoryTheory
 import Mathlib.RingTheory.Flat.Tensor
-import TauCeti.Algebra.Category.ModuleCat.ChangeOfRings
 import TauCeti.Algebra.Category.ModuleCat.Monoidal.ChangeOfRings
+import TauCeti.Algebra.Category.ModuleCat.Quotient
 import TauCeti.CategoryTheory.Abelian.LeftDerived
 import TauCeti.LinearAlgebra.TensorProduct.Basic
-public import TauCeti.Algebra.Homology.ModuleCat.Basic
-public import TauCeti.LinearAlgebra.End.TensorProduct
 
 /-!
 # `Tor` of modules: flatness, short exact sequences and locally nilpotent endomorphisms
@@ -44,9 +46,9 @@ divided-difference operators on a polynomial ring. This is how the divided-diffe
 for the invariants of a reflection group reaches `Tor'` without a grading on `Tor'` itself.
 
 The vanishing of `Tor'₁^A(N, M)` for all `N` implies that `M` is flat
-(`ModuleCat.flat_of_isZero_Tor'_one`). It suffices to apply this vanishing to `N = A ⧸ I`:
-a projective resolution of `I`, augmented by its inclusion into `A`, computes this `Tor'₁`
-and detects injectivity of `I ⊗ M → A ⊗ M`.
+(`ModuleCat.flat_of_isZero_Tor'_one`). It suffices to apply this vanishing to `N = A ⧸ I`, where
+`0 → I → A → A ⧸ I → 0` has projective middle term and `Tor'₁^A(A ⧸ I, M) = 0` detects injectivity
+of `I ⊗ M → A ⊗ M` (`CategoryTheory.ShortComplex.ShortExact.mono_map_f_iff_isZero_leftDerived_one`).
 
 Mathlib's `Tor`, which derives the second variable, is computed by `X ⊗ P` for a projective
 resolution `P` of `M`. The terms of `P` are flat, so a short exact sequence
@@ -63,10 +65,13 @@ union of submodules `Nᵢ` with `Torₙ₊₁(X ⧸ Nᵢ, M) = 0`
 (`ModuleCat.isZero_Tor_succ_quotient_iSup`), since an element of `N ⊗ P` already comes from a
 finitely generated submodule of `N`.
 
-`Tor` vanishing is invariant under flat base change: for a flat ring homomorphism `f : A →+* B`,
-a `B`-module `M` and an `A`-module `N`, `Torₙ^A(M, N)` vanishes exactly when
-`Torₙ^B(M, B ⊗[A] N)` does (`ModuleCat.isZero_Tor_restrictScalars_iff`). Extension of scalars
-along `f` carries a projective resolution of `N` to one of `B ⊗[A] N`, and
+For a ring homomorphism `f : A →+* B`, restricting scalars of `B ⊗[A] X` back to `A` recovers
+`B ⊗[A] X` (`ModuleCat.extendScalarsCompRestrictScalarsIso`), so the `n`-th left derived functor of
+`ModuleCat.extendScalars f` vanishes at `X` if and only if `Torₙ^A(B, X)` vanishes
+(`ModuleCat.isZero_leftDerived_extendScalars_iff`). When `f` is flat, `Tor` vanishing is invariant
+under base change: for a `B`-module `M` and an `A`-module `N`, `Torₙ^A(M, N)` vanishes exactly when
+`Torₙ^B(M, B ⊗[A] N)` does (`ModuleCat.isZero_Tor_restrictScalars_iff`), since extension of scalars
+carries a projective resolution of `N` to one of `B ⊗[A] N` and
 `M ⊗[B] (B ⊗[A] -) ≅ M ⊗[A] -` (`ModuleCat.extendScalarsCompTensorLeftIso`).
 
 ## References
@@ -133,39 +138,9 @@ theorem flat_of_isZero_Tor'_one (M : ModuleCat.{u} A)
     Module.Flat A M := by
   rw [Module.Flat.iff_rTensor_injective']
   intro I
-  let P := projectiveResolution (ModuleCat.of A I)
-  let p : P.complex.X 0 ⟶ ModuleCat.of A I :=
-    P.π.f 0 ≫ (HomologicalComplex.singleObjXSelf _ 0 _).hom
-  let Q := I.quotientProjectiveResolution
-  let F := tensorRight M
-  have hzero : IsZero (((F.mapHomologicalComplex _).obj Q.complex).homology 1) :=
-    (h (ModuleCat.of A (A ⧸ I))).of_iso (Q.isoLeftDerivedObj F 1).symm
-  have hex := (HomologicalComplex.exactAt_iff_isZero_homology _ _).2 hzero
-  rw [HomologicalComplex.exactAt_iff' _ 2 1 0 (by simp) (by simp),
-    ShortComplex.moduleCat_exact_iff] at hex
-  -- Identify the local resolution `Q` through its public characteristic equation.
-  rw [show Q.complex = _ from I.quotientProjectiveResolution_complex] at hex
-  -- The augmented complex starts with the chosen resolution of `I` followed by `A`.
-  -- Tensoring these two differentials is `LinearMap.rTensor`.
-  change ∀ y : (P.complex.X 0) ⊗[A] M,
-    ((I.subtype.comp p.hom).rTensor M) y = 0 →
-    ∃ z : (P.complex.X 1) ⊗[A] M,
-      ((P.complex.d 1 0).hom.rTensor M) z = y at hex
-  have hp : Function.Surjective (p.hom.rTensor M) :=
-    LinearMap.rTensor_surjective M ((ModuleCat.epi_iff_surjective p).1 inferInstance)
-  have hdp' : P.complex.d 1 0 ≫ p = 0 := by
-    simp only [p, ← Category.assoc, P.complex_d_comp_π_f_zero, zero_comp]
-  have hdp : p.hom.comp (P.complex.d 1 0).hom = 0 :=
-    congrArg ModuleCat.Hom.hom hdp'
-  apply LinearMap.ker_eq_bot.1
-  apply (Submodule.eq_bot_iff _).2
-  intro x hx
-  obtain ⟨y, rfl⟩ := hp x
-  obtain ⟨z, hz⟩ := hex y (by
-    rw [LinearMap.rTensor_comp_apply]
-    exact hx)
-  rw [← hz, ← LinearMap.rTensor_comp_apply, hdp]
-  simp
+  have hm := (I.shortExact_quotientShortComplex.mono_map_f_iff_isZero_leftDerived_one
+    (tensorRight M)).mpr (h _)
+  simpa [ModuleCat.mono_iff_injective, ModuleCat.hom_whiskerRight] using hm
 
 end ModuleCat
 
@@ -358,7 +333,7 @@ theorem isZero_Tor_prod {X Y : ModuleCat.{u} A} (M : ModuleCat.{u} A) {n : ℕ}
 
 end ModuleCat
 
-/-! ### Flat base change -/
+/-! ### Change of rings and flat base change -/
 
 namespace ModuleCat
 
@@ -367,6 +342,14 @@ open CategoryTheory Limits MonoidalCategory
 universe u
 
 variable {A B : Type u} [CommRing A] [CommRing B] (f : A →+* B)
+
+/-- The `n`-th left derived functor of extension of scalars along `f : A →+* B` vanishes at an
+`A`-module `X` if and only if `Torₙ^A(B, X)` vanishes. -/
+theorem isZero_leftDerived_extendScalars_iff (X : ModuleCat.{u} A) (n : ℕ) :
+    IsZero (((extendScalars.{u, u, u} f).leftDerived n).obj X) ↔
+      IsZero (((Tor (ModuleCat.{u} A) n).obj ((restrictScalars f).obj (of B B))).obj X) := by
+  rw [← (extendScalars.{u, u, u} f).isZero_leftDerived_comp_iff (restrictScalars.{u} f), Tor_obj]
+  exact ((NatIso.leftDerived (extendScalarsCompRestrictScalarsIso f) n).app X).isZero_iff
 
 /-- **Flat base change for the vanishing of `Tor`.** For a flat ring homomorphism `f : A →+* B`, a
 `B`-module `M` and an `A`-module `N`, `Torₙ^A(M, N)` vanishes exactly when `Torₙ^B(M, B ⊗[A] N)`
