@@ -33,6 +33,8 @@ from the mean, and appending a point `y` to a family of `n` points moves the mea
 * `TauCeti.sum_eq_card_smul_finiteMean`: `∑ i, z i = card ι • m`.
 * `TauCeti.sum_sub_finiteMean`: `∑ i, (z i - m) = 0`.
 * `TauCeti.finiteMean_sub_const`: the mean of the deviations `zᵢ - c` is `m - c`.
+* `TauCeti.sum_sub_mul_sub_eq_sum_sub_finiteMean_mul`: the bilinear König–Huygens decomposition
+  of `∑ i, (x i - cx) * (y i - cy)` around `finiteMean`.
 * `TauCeti.finiteMean_snoc`: the mean after appending a point.
 -/
 
@@ -78,6 +80,25 @@ theorem finiteMean_sub_const [Nonempty ι] (z : ι → E) (c : E) :
     finiteMean R (fun i ↦ z i - c) = finiteMean R z - c := by
   simp [finiteMean_eq_inv_smul_sum, sum_sub_distrib, smul_sub, ← Nat.cast_smul_eq_nsmul R,
     smul_smul]
+
+/-- **Bilinear König–Huygens identity.** For two finite scalar families `x` and `y` over a field of
+characteristic zero and arbitrary reference values `cx` and `cy`, the sum of
+`(x i - cx) * (y i - cy)` splits into the centered cross-product sum plus `card ι` times the
+product of the mean displacements. -/
+theorem sum_sub_mul_sub_eq_sum_sub_finiteMean_mul (x y : ι → R) (cx cy : R) :
+    ∑ i, (x i - cx) * (y i - cy) =
+      ∑ i, (x i - finiteMean R x) * (y i - finiteMean R y) +
+        (Fintype.card ι : R) * ((finiteMean R x - cx) * (finiteMean R y - cy)) := by
+  set mx := finiteMean R x
+  set my := finiteMean R y
+  have hsumx : ∑ i, (x i - mx) = 0 := sum_sub_finiteMean x
+  have hsumy : ∑ i, (y i - my) = 0 := sum_sub_finiteMean y
+  have hcross : ∀ i, (x i - cx) * (y i - cy) =
+      (x i - mx) * (y i - my) + ((x i - mx) * (my - cy) +
+        ((mx - cx) * (y i - my) + (mx - cx) * (my - cy))) := fun i ↦ by ring
+  simp_rw [hcross, sum_add_distrib, ← sum_mul, ← mul_sum, hsumx, hsumy]
+  simp [nsmul_eq_mul]
+  ring
 
 /-- **Appending a point.** Appending `y` to a family `z` of `n` points with mean `m` moves the
 mean by `(n + 1)⁻¹ • (y - m)`. For `n = 0` this says that the mean of the single point `y` is

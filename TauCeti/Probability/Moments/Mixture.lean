@@ -10,13 +10,16 @@ public import TauCeti.MeasureTheory.Function.Lp.Iterated
 public import Mathlib.MeasureTheory.Measure.ProbabilityMeasure
 public import Mathlib.Probability.Moments.Covariance
 public import Mathlib.Probability.Moments.Variance
+import TauCeti.Probability.Kernel.Integral
 
 /-!
 # Means and covariances of probability mixtures
 
 A mixture's expectation is the expectation of its component means. Its covariance is the
 expected component covariance plus the covariance of the component means; taking the same
-observable twice gives the law of total variance.
+observable twice gives the law of total variance. For any kernel `κ` and measurable `f`, the
+slice variances `a ↦ evariance f (κ a)` and `a ↦ variance f (κ a)` are measurable without
+finiteness or s-finiteness hypotheses on `κ`.
 
 The mixing measure is a probability measure and the components need be probability measures
 only almost everywhere. Finite second moments of the mixture imply the required integrability
@@ -185,3 +188,96 @@ theorem variance_comp (κ : Kernel α β) [IsMarkovKernel κ]
     (Filter.Eventually.of_forall fun _ ↦ inferInstance) hX
 
 end ProbabilityTheory.Kernel
+
+section MeasurableVariance
+
+open scoped ENNReal
+
+/-- On an infinite-measure space, any real function with nonzero Bochner integral has infinite
+extended variance. -/
+theorem ProbabilityTheory.evariance_eq_top_of_measure_univ_eq_top {Ω : Type*} [MeasurableSpace Ω]
+    {μ : Measure Ω} {f : Ω → ℝ} (hμ : μ Set.univ = ∞) (hm : μ[f] ≠ 0) :
+    evariance f μ = ∞ := by
+  have hfi : Integrable f μ := by
+    by_contra hni
+    exact hm (integral_undef hni)
+  set g : Ω → ℝ := hfi.1.mk f
+  have hfg : f =ᵐ[μ] g := hfi.1.ae_eq_mk
+  have hg : Measurable g := hfi.1.stronglyMeasurable_mk.measurable
+  have hgi : Integrable g μ := hfi.congr hfg
+  have hmg : μ[g] = μ[f] := integral_congr_ae hfg.symm
+  rw [evariance_congr hfg]
+  set c : ℝ := |μ[g]| / 2
+  have hc : 0 < c := half_pos (abs_pos.2 (hmg ▸ hm))
+  have hr0 : ENNReal.ofReal c ≠ 0 := (ENNReal.ofReal_pos.2 hc).ne'
+  set A : Set Ω := {ω | ENNReal.ofReal c ≤ ‖g ω‖ₑ}
+  set B : Set Ω := {ω | ‖g ω‖ₑ < ENNReal.ofReal c}
+  have hB_meas : MeasurableSet B := measurableSet_lt hg.stronglyMeasurable.eNorm measurable_const
+  have hmarkov : ENNReal.ofReal c * μ A ≤ ∫⁻ ω, ‖g ω‖ₑ ∂μ :=
+    mul_meas_ge_le_lintegral₀ hg.stronglyMeasurable.eNorm.aemeasurable _
+  have hA_ne_top : μ A ≠ ∞ := by
+    intro htop
+    exact hgi.2.ne (top_unique <| (ENNReal.mul_top hr0) ▸ htop ▸ hmarkov)
+  have hB_top : μ B = ∞ := by
+    have huniv : ∞ ≤ μ A + μ B := by
+      calc ∞ = μ Set.univ := hμ.symm
+        _ ≤ μ (A ∪ B) := measure_mono fun ω _ ↦ le_or_gt (ENNReal.ofReal c) ‖g ω‖ₑ
+        _ ≤ μ A + μ B := measure_union_le A B
+    rcases eq_or_ne (μ B) ∞ with hB | hB
+    · exact hB
+    · exact absurd (top_unique huniv) (ENNReal.add_ne_top.2 ⟨hA_ne_top, hB⟩)
+  refine top_unique ?_
+  calc ∞ = ENNReal.ofReal c ^ 2 * μ B := by rw [hB_top, ENNReal.mul_top (pow_ne_zero 2 hr0)]
+    _ = ∫⁻ _ in B, ENNReal.ofReal c ^ 2 ∂μ := by simp
+    _ ≤ ∫⁻ ω in B, ‖g ω - μ[g]‖ₑ ^ 2 ∂μ := by
+      refine setLIntegral_mono' hB_meas fun ω hω ↦ ?_
+      have hlt : |g ω| < c := by
+        rwa [← ENNReal.ofReal_lt_ofReal_iff hc, ← Real.eNorm_eq_ofReal_abs]
+      have hge : c ≤ |g ω - μ[g]| := by
+        have := abs_sub_abs_le_abs_sub (μ[g]) (g ω)
+        rw [abs_sub_comm] at this
+        linarith [show c = |μ[g]| / 2 from rfl]
+      gcongr
+      rw [Real.eNorm_eq_ofReal_abs]
+      exact ENNReal.ofReal_le_ofReal hge
+    _ ≤ evariance g μ := lintegral_mono' Measure.restrict_le_self le_rfl
+
+/-- For any kernel `κ` and measurable real function `f`, `a ↦ evariance f (κ a)` is measurable. -/
+@[fun_prop]
+theorem Measurable.evariance_kernel {α β : Type*} [MeasurableSpace α] [MeasurableSpace β]
+    {κ : Kernel α β} {f : β → ℝ} (hf : Measurable f) :
+    Measurable fun a ↦ evariance f (κ a) := by
+  classical
+  set m : α → ℝ := fun a ↦ ∫ b, f b ∂κ a
+  have hm : Measurable m := hf.stronglyMeasurable.integral_kernel.measurable
+  have hS : MeasurableSet {a | κ a Set.univ = ∞} :=
+    measurableSet_eq_fun (κ.measurable_coe .univ) measurable_const
+  have hZ : MeasurableSet {a | m a = 0} := measurableSet_eq_fun hm measurable_const
+  have hfin : Measurable fun a ↦
+      (1 + κ a Set.univ) * ∫⁻ b, ‖f b - m a‖ₑ ^ 2 ∂κ.normalize a := by
+    refine (measurable_const.add (κ.measurable_coe .univ)).mul ?_
+    exact ((((hf.comp measurable_snd).sub
+      (hm.comp measurable_fst)).stronglyMeasurable.eNorm).pow_const 2).lintegral_kernel_prod_right'
+  have hzero : Measurable fun a ↦ ∫⁻ b, ‖f b‖ₑ ^ 2 ∂κ a :=
+    (hf.stronglyMeasurable.eNorm.pow_const 2).lintegral_kernel
+  have hpiece : Measurable (Set.piecewise {a | κ a Set.univ = ∞}
+      (Set.piecewise {a | m a = 0} (fun a ↦ ∫⁻ b, ‖f b‖ₑ ^ 2 ∂κ a) fun _ ↦ ∞)
+      (fun a ↦ (1 + κ a Set.univ) * ∫⁻ b, ‖f b - m a‖ₑ ^ 2 ∂κ.normalize a)) :=
+    Measurable.piecewise hS (Measurable.piecewise hZ hzero measurable_const) hfin
+  convert hpiece using 1
+  ext a
+  by_cases ha : κ a Set.univ = ∞
+  · by_cases hma : m a = 0
+    · simp [Set.piecewise, ha, hma, evariance, m]
+    · simp [Set.piecewise, ha, hma, evariance_eq_top_of_measure_univ_eq_top ha hma]
+  · simp only [Set.piecewise, Set.mem_ofPred_eq, ha, ↓reduceIte]
+    exact κ.lintegral_eq_mul_normalize ha _
+
+/-- For any kernel `κ` and measurable real function `f`, `a ↦ variance f (κ a)` is measurable. -/
+@[fun_prop]
+theorem Measurable.variance_kernel {α β : Type*} [MeasurableSpace α] [MeasurableSpace β]
+    {κ : Kernel α β} {f : β → ℝ} (hf : Measurable f) :
+    Measurable fun a ↦ variance f (κ a) :=
+  (hf.evariance_kernel (κ := κ)).ennreal_toReal
+
+end MeasurableVariance
