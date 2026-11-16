@@ -8,7 +8,9 @@ module
 public import TauCeti.RingTheory.Huber.Restricted.GaussNorm
 public import TauCeti.RingTheory.Huber.WeightedEval.UniversalProperty
 
+import TauCeti.RingTheory.Huber.OpenIdeal
 import TauCeti.RingTheory.Huber.WeightedRestrictedSeries.PowerBounded
+import TauCeti.Topology.Algebra.Nonarchimedean.LinearTopology
 
 /-!
 # The universal property of Gauss-normed Tate algebras at power-bounded arguments
@@ -27,6 +29,13 @@ the Gauss-normed model, which is continuous in both directions. Unlike
 is `TauCeti.Huber.IsPowerBounded` for the topology of `S`: for a normed `S` the powers of `bᵢ`
 stay bounded, while `bᵢ` itself may have norm larger than one.
 
+When the target is a complete Hausdorff linearly topologised `R`-algebra with continuous structure
+map, every element is power-bounded so arbitrary tuples `b : Fin k → B` extend uniquely. Conversely,
+when `R` is a Tate ring (such as a nontrivially normed ultrametric field) and the target is a
+complete Hausdorff Huber ring, power-boundedness of every `bᵢ` is both necessary and sufficient for
+a continuous extension; for power-multiplicative ultrametric normed targets (including complete
+ultrametric normed fields) this reduces to `∀ i, ‖bᵢ‖ ≤ 1`.
+
 ## Main definitions
 
 * `TauCeti.MvPowerSeries.restrictedLift`: the continuous ring homomorphism
@@ -43,6 +52,14 @@ stay bounded, while `bᵢ` itself may have norm larger than one.
   extension.
 * `TauCeti.MvPowerSeries.existsUnique_continuous_ringHom_isRestricted_subring`: the universal
   property.
+* `TauCeti.MvPowerSeries.existsUnique_continuous_algHom_isRestricted_subring_of_isLinearTopology`:
+  the unrestricted `R`-algebra universal property into complete Hausdorff linearly topologised
+  targets.
+* `TauCeti.MvPowerSeries.exists_continuous_ringHom_isRestricted_subring_iff`,
+  `exists_continuous_ringHom_isRestricted_subring_iff_norm_le_one_of_isPowMul`, and
+  `TauCeti.MvPowerSeries.exists_continuous_ringHom_isRestricted_subring_iff_norm_le_one`:
+  iff characterizations of continuous extensions out of `R⟨X₁, …, Xₖ⟩` over an ultrametric normed
+  Tate ring `R`.
 * `TauCeti.MvPowerSeries.restrictedRename_id`, `TauCeti.MvPowerSeries.restrictedRename_comp`:
   renaming along the identity is the identity, and successive renamings compose.
 
@@ -134,6 +151,82 @@ theorem existsUnique_continuous_ringHom_isRestricted_subring :
         ∀ i, ψ ⟨X i, isRestricted_X _ i⟩ = b i :=
   ⟨restrictedLift hφ hb, ⟨continuous_restrictedLift hφ hb, restrictedLift_algebraMap hφ hb,
     restrictedLift_X hφ hb⟩, fun _ ⟨hψ, hC, hX⟩ ↦ restrictedLift_unique hφ hb hψ hC hX⟩
+
+section LinearAndTateTargets
+
+/-- **The universal property of `R⟨X₁, …, Xₖ⟩` into linearly topologised `R`-algebras.** For a
+complete Hausdorff linearly topologised `R`-algebra `B` with continuous `algebraMap R B`, every
+tuple `b : Fin k → B` extends to a unique continuous `R`-algebra homomorphism
+`R⟨X₁, …, Xₖ⟩ →ₐ[R] B` sending each `Xᵢ` to `bᵢ`. -/
+theorem existsUnique_continuous_algHom_isRestricted_subring_of_isLinearTopology
+    {B : Type*} [CommRing B] [Algebra R B] [UniformSpace B] [IsUniformAddGroup B]
+    [IsLinearTopology B B] [CompleteSpace B] [T2Space B]
+    (hR : Continuous (algebraMap R B)) (b : Fin k → B) :
+    ∃! ψ : IsRestricted.subring (R := R) (fun _ : Fin k ↦ 1) →ₐ[R] B,
+      Continuous ψ ∧ ∀ i, ψ ⟨X i, isRestricted_X _ i⟩ = b i := by
+  have := IsLinearTopology.isTopologicalRing (R := B)
+  have := IsLinearTopology.nonarchimedeanRing B
+  have hb : ∀ i, IsPowerBounded (b i) := fun i ↦
+    mem_powerBoundedSubring.mp (powerBoundedSubring_eq_top (A := B) ▸ Subring.mem_top (b i))
+  let ψ₀ : IsRestricted.subring (R := R) (fun _ : Fin k ↦ 1) →ₐ[R] B :=
+    { restrictedLift hR hb with commutes' := restrictedLift_algebraMap hR hb }
+  refine ⟨ψ₀, ⟨continuous_restrictedLift hR hb, restrictedLift_X hR hb⟩, fun ψ ⟨hψ, hX⟩ ↦ ?_⟩
+  exact AlgHom.toRingHom_injective (restrictedLift_unique hR hb hψ ψ.commutes hX)
+
+/-- **Exact criterion for continuous extensions out of `R⟨X₁, …, Xₖ⟩` into a Huber ring.** For an
+ultrametric normed commutative Tate ring `R`, a complete Hausdorff Huber ring `B`, and a continuous
+ring homomorphism `θ : R →+* B`, a continuous ring homomorphism `R⟨X₁, …, Xₖ⟩ →+* B` agreeing with
+`θ` on constants and sending each `Xᵢ` to `bᵢ` exists if and only if every `bᵢ` is power-bounded.
+-/
+theorem exists_continuous_ringHom_isRestricted_subring_iff [IsTateRing R]
+    {B : Type*} [CommRing B] [UniformSpace B] [IsUniformAddGroup B] [IsTopologicalRing B]
+    [IsHuberRing B] [CompleteSpace B] [T2Space B] {θ : R →+* B} (hθ : Continuous θ)
+    (b : Fin k → B) :
+    (∃ ψ : IsRestricted.subring (R := R) (fun _ : Fin k ↦ 1) →+* B,
+      Continuous ψ ∧ (∀ r, ψ (algebraMap R _ r) = θ r) ∧
+        ∀ i, ψ ⟨X i, isRestricted_X _ i⟩ = b i) ↔
+      ∀ i, IsPowerBounded (b i) := by
+  refine ⟨fun ⟨ψ, hψ, _, hX⟩ i ↦ ?_, fun hb ↦
+    ⟨restrictedLift hθ hb, continuous_restrictedLift hθ hb,
+      restrictedLift_algebraMap hθ hb, restrictedLift_X hθ hb⟩⟩
+  rw [← hX i]
+  exact (isPowerBounded_X i).map_of_isTateRing hψ.continuousAt
+
+/-- **Exact norm criterion for continuous extensions out of `R⟨X₁, …, Xₖ⟩` into a
+power-multiplicative normed ring.** For an ultrametric normed commutative Tate ring `R`, a complete
+ultrametric normed commutative ring `S` with power-multiplicative norm, and a continuous
+`θ : R →+* S`, a continuous ring homomorphism `R⟨X₁, …, Xₖ⟩ →+* S` agreeing with `θ` on constants
+and sending each `Xᵢ` to `bᵢ` exists if and only if `∀ i, ‖bᵢ‖ ≤ 1`. -/
+theorem exists_continuous_ringHom_isRestricted_subring_iff_norm_le_one_of_isPowMul [IsTateRing R]
+    {S : Type*} [NormedCommRing S] [IsUltrametricDist S] [CompleteSpace S]
+    (hS : IsPowMul (‖·‖ : S → ℝ)) {θ : R →+* S} (hθ : Continuous θ) (b : Fin k → S) :
+    (∃ ψ : IsRestricted.subring (R := R) (fun _ : Fin k ↦ 1) →+* S,
+      Continuous ψ ∧ (∀ r, ψ (algebraMap R _ r) = θ r) ∧
+        ∀ i, ψ ⟨X i, isRestricted_X _ i⟩ = b i) ↔
+      ∀ i, ‖b i‖ ≤ 1 := by
+  obtain ⟨ϖ, hϖ⟩ := IsTateRing.exists_isPseudoUniformizer (A := R)
+  have hϖS : IsPseudoUniformizer (θ ϖ) := hϖ.map hθ
+  obtain ⟨S₀, hopen, hbdd⟩ := exists_isOpen_isBounded_subring S
+  have : IsHuberRing S := (IsTateRing.of_isOpen_isBounded S₀ hopen hbdd hϖS).toIsHuberRing
+  simp_rw [exists_continuous_ringHom_isRestricted_subring_iff hθ b,
+    hϖS.isPowerBounded_iff_norm_le_one hS]
+
+/-- **Exact norm criterion for field-valued continuous extensions out of `R⟨X₁, …, Xₖ⟩`.** For an
+ultrametric normed commutative Tate ring `R` (such as a nontrivially normed ultrametric field), a
+complete ultrametric normed field `L`, and a continuous `θ : R →+* L`, a continuous ring
+homomorphism `R⟨X₁, …, Xₖ⟩ →+* L` agreeing with `θ` on constants and sending each `Xᵢ` to `bᵢ`
+exists if and only if `∀ i, ‖bᵢ‖ ≤ 1`. -/
+theorem exists_continuous_ringHom_isRestricted_subring_iff_norm_le_one [IsTateRing R]
+    {L : Type*} [NormedField L] [IsUltrametricDist L] [CompleteSpace L]
+    {θ : R →+* L} (hθ : Continuous θ) (b : Fin k → L) :
+    (∃ ψ : IsRestricted.subring (R := R) (fun _ : Fin k ↦ 1) →+* L,
+      Continuous ψ ∧ (∀ r, ψ (algebraMap R _ r) = θ r) ∧
+        ∀ i, ψ ⟨X i, isRestricted_X _ i⟩ = b i) ↔
+      ∀ i, ‖b i‖ ≤ 1 :=
+  exists_continuous_ringHom_isRestricted_subring_iff_norm_le_one_of_isPowMul
+    (fun x _ _ ↦ norm_pow x _) hθ b
+
+end LinearAndTateTargets
 
 section Rename
 

@@ -80,6 +80,10 @@ needs, in addition, an `I`-adically complete ring of definition.
   within a neighbourhood of zero, by the image of a finite set that spans an open ideal.
 * `TauCeti.Huber.IsTateRing.isOpen_iff_eq_top`: an ideal of a Tate ring is open exactly when it is
   the whole ring.
+* `TauCeti.Huber.IsTateRing.isLinearTopology_iff_indiscreteTopology` and
+  `TauCeti.Huber.IsTateRing.not_isLinearTopology`: a Tate ring carries a linear topology if and
+  only if its topology is indiscrete, so no Tate ring with a nontrivial topology is linearly
+  topologised.
 * `TauCeti.Huber.IsTateRing.isOpen_map_of_isOpen`: every ring homomorphism from a Tate ring maps
   open ideals to open ideals.
 * `TauCeti.Huber.IsBounded.image_of_map_extendedIdealOfDefinition_mem_nhds` and
@@ -648,6 +652,30 @@ theorem IsTateRing.subsingleton_of_forall_isMaximal_isOpen [IsTateRing A]
   intro _
   obtain ⟨𝔪, h𝔪⟩ := Ideal.exists_maximal A
   exact IsTateRing.not_isOpen_of_isMaximal h𝔪 (hmax 𝔪 h𝔪)
+
+/-- A Tate ring carries a linear topology if and only if its topology is indiscrete. -/
+theorem IsTateRing.isLinearTopology_iff_indiscreteTopology [IsTateRing A] :
+    IsLinearTopology A A ↔ IndiscreteTopology A := by
+  refine ⟨fun hlin ↦ ?_, fun _ ↦ ?_⟩
+  · refine IndiscreteTopology.of_forall_inseparable fun x y ↦ ?_
+    have htop (z : A) : nhds z = ⊤ :=
+      top_unique fun U hU ↦ Filter.mem_top.mpr <| Set.eq_univ_of_forall fun a ↦ by
+        have h0 : (· + z) ⁻¹' U ∈ nhds (0 : A) :=
+          (continuous_add_const z).continuousAt.preimage_mem_nhds (by simpa using hU)
+        obtain ⟨J, hJ0, hJU⟩ := (IsLinearTopology.hasBasis_ideal (R := A)).mem_iff.mp h0
+        have hJtop : J = ⊤ := IsTateRing.eq_top_of_isOpen (J.toAddSubgroup.isOpen_of_mem_nhds hJ0)
+        simpa using hJU (a := a - z) (hJtop ▸ Submodule.mem_top)
+    exact (htop x).trans (htop y).symm
+  · refine IsLinearTopology.mk_of_hasBasis A (p := fun _ : Unit ↦ True)
+      (s := fun _ ↦ (⊤ : Ideal A)) ?_
+    rw [IndiscreteTopology.nhds_eq]
+    exact ⟨fun U ↦ by simp⟩
+
+/-- No Tate ring with a nontrivial topology carries a linear topology. -/
+theorem IsTateRing.not_isLinearTopology [IsTateRing A] [NontrivialTopology A] :
+    ¬ IsLinearTopology A A :=
+  mt IsTateRing.isLinearTopology_iff_indiscreteTopology.mp
+    (TopologicalSpace.not_indiscrete_iff.mpr ‹_›)
 
 end Tate
 

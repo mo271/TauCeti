@@ -18,11 +18,13 @@ structure, continuous `A`-algebra homomorphisms out of `A⟨X⟩_T` or its separ
 determined by the images of the coordinate variables alone.
 
 When `B` carries a linear topology — a neighbourhood basis of `0` consisting of open ideals, as on
-any adic ring — every subset of `B` is bounded (`TauCeti.Huber.isBounded_of_isLinearTopology`), so
-every element of `B` is power-bounded (`powerBoundedSubring B = ⊤`). Consequently arbitrary choices
-of `b₁, …, bₖ ∈ B` define a unique continuous `A`-algebra homomorphism out of `A⟨X⟩_T` and out of
-`TauCeti.Huber.restrictedMvPowerSeriesCompletion k A`, in contrast with general nonarchimedean
-targets where the variable images must be power-bounded.
+any adic ring — every subset of `B` is bounded (`TauCeti.Huber.isBounded_of_isLinearTopology`),
+which discharges `TauCeti.Huber.IsWeightBounded` directly
+(`TauCeti.Huber.isWeightBounded_of_isLinearTopology`). Consequently, into a complete Hausdorff
+linearly topologised `A`-algebra `B` with structure map continuous at `0`, arbitrary choices of
+`b₁, …, bₖ ∈ B` define a unique continuous `A`-algebra homomorphism out of `A⟨X⟩_T` and out of its
+separated completion, in contrast with general nonarchimedean targets where `b` must satisfy
+`IsWeightBounded` (reducing to power-boundedness of each `bᵢ` at unit weights `Tᵢ = {1}`).
 
 ## Main definitions
 
@@ -39,9 +41,9 @@ targets where the variable images must be power-bounded.
   `TauCeti.Huber.existsUnique_continuous_algHom_completion_weightedRestrictedSubring`: the
   universal properties as `A`-algebras under `IsWeightBounded`.
 * `TauCeti.Huber.existsUnique_continuous_algHom_weightedRestrictedSubring_of_isLinearTopology` and
-  `existsUnique_continuous_algHom_restrictedMvPowerSeriesCompletion_of_isLinearTopology`:
-  the universal properties into a complete Hausdorff linearly topologised `A`-algebra, for
-  arbitrary variable values `b : Fin k → B`.
+  `existsUnique_continuous_algHom_completion_weightedRestrictedSubring_of_isLinearTopology`:
+  the universal properties into a complete Hausdorff linearly topologised `A`-algebra whose
+  structure map is continuous at `0`, for arbitrary variable values `b : Fin k → B`.
 
 ## References
 
@@ -204,10 +206,10 @@ section LinearTopology
 variable {B : Type*} [CommRing B] [Algebra A B] [UniformSpace B] [IsUniformAddGroup B]
   [IsLinearTopology B B] [CompleteSpace B] [T2Space B]
 
-/-- **The `A`-algebra universal property of `A⟨X⟩_T` for linearly topologised targets.** Because
-open ideals form a neighbourhood basis of `0` in `B`, every element of `B` is power-bounded, so
-arbitrary values `b : Fin k → B` define a unique continuous `A`-algebra homomorphism
-`A⟨X⟩_T →ₐ[A] B`. -/
+/-- **The `A`-algebra universal property of `A⟨X⟩_T` for linearly topologised targets.** For a
+complete Hausdorff linearly topologised commutative `A`-algebra `B` whose structure map is
+continuous at `0`, arbitrary variable values `b : Fin k → B` define a unique continuous `A`-algebra
+homomorphism `A⟨X⟩_T →ₐ[A] B` sending each `Xᵢ` to `b i`. -/
 theorem existsUnique_continuous_algHom_weightedRestrictedSubring_of_isLinearTopology
     (hT : IsWeightFamily T) (hA : ContinuousAt (algebraMap A B) 0) (b : Fin k → B) :
     ∃! ψ : weightedRestrictedSubring T hT →ₐ[A] B,
@@ -217,22 +219,20 @@ theorem existsUnique_continuous_algHom_weightedRestrictedSubring_of_isLinearTopo
   exact existsUnique_continuous_algHom_weightedRestrictedSubring hT hA
     (isWeightBounded_of_isLinearTopology (algebraMap A B) T b)
 
-/-- **The `A`-algebra universal property of `A⟨X₁, …, Xₖ⟩` for linearly topologised targets**
-(EGA I, Ch. 0, §7.5.3). For a complete separated linearly topologised commutative `A`-algebra `B`
-whose structure map is continuous at `0` (for instance when `[ContinuousSMul A B]`), arbitrary
-choices `b : Fin k → B` of the variables define a unique continuous `A`-algebra homomorphism out of
-`restrictedMvPowerSeriesCompletion k A`. -/
-theorem existsUnique_continuous_algHom_restrictedMvPowerSeriesCompletion_of_isLinearTopology
-    (hA : ContinuousAt (algebraMap A B) 0) (b : Fin k → B) :
-    ∃! ψ : restrictedMvPowerSeriesCompletion k A →ₐ[A] B,
-      Continuous ψ ∧ ∀ i, ψ ((weightedX _ isWeightFamily_one_weight i :
-        weightedRestrictedSubring (fun _ : Fin k ↦ ({1} : Set A)) isWeightFamily_one_weight) :
-          restrictedMvPowerSeriesCompletion k A) = b i := by
+/-- **The `A`-algebra universal property of the completion of `A⟨X⟩_T` for linearly topologised
+targets** (EGA I, Ch. 0, §7.5.3 at unit weights). For a complete Hausdorff linearly topologised
+commutative `A`-algebra `B` whose structure map is continuous at `0` (for instance when
+`[ContinuousSMul A B]`), arbitrary choices `b : Fin k → B` define a unique continuous `A`-algebra
+homomorphism `Completion A⟨X⟩_T →ₐ[A] B` sending each `Xᵢ` to `b i`. -/
+theorem existsUnique_continuous_algHom_completion_weightedRestrictedSubring_of_isLinearTopology
+    (hT : IsWeightFamily T) (hA : ContinuousAt (algebraMap A B) 0) (b : Fin k → B) :
+    ∃! ψ : Completion (weightedRestrictedSubring T hT) →ₐ[A] B,
+      Continuous ψ ∧ ∀ i, ψ ((weightedX T hT i : weightedRestrictedSubring T hT) :
+        Completion (weightedRestrictedSubring T hT)) = b i := by
   have := IsLinearTopology.isTopologicalRing (R := B)
   have := IsLinearTopology.nonarchimedeanRing B
-  exact existsUnique_continuous_algHom_completion_weightedRestrictedSubring
-    isWeightFamily_one_weight hA
-    (isWeightBounded_of_isLinearTopology (algebraMap A B) _ b)
+  exact existsUnique_continuous_algHom_completion_weightedRestrictedSubring hT hA
+    (isWeightBounded_of_isLinearTopology (algebraMap A B) T b)
 
 end LinearTopology
 

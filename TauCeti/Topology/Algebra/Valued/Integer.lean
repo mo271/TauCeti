@@ -34,6 +34,7 @@ are the coefficient maps along which reductions modulo the maximal ideal are fun
 
 * `Valued.instIsLinearTopologyInteger`: the integer ring of a valued ring has a linear topology.
 * `Valued.instCompleteSpaceInteger`: the integer ring of a complete valued ring is complete.
+* `Valued.integer.isOpen_maximalIdeal`: the maximal ideal of `𝒪[K]` is open for any valued field.
 * `Valued.integer.mem_maximalIdeal_iff`: the maximal ideal of `𝒪[K]` is the open unit ball.
 * `Valued.integer.residue_eq_residue_iff_norm_sub_lt_one`: elements of `𝒪[K]` have the same
   residue exactly when their difference has norm less than `1`.
@@ -88,6 +89,16 @@ instance instCompleteSpaceInteger [CompleteSpace K] :
   (isClosed_integer K).completeSpace_coe
 
 end Valued
+
+/-- The maximal ideal of the valuation ring `𝒪[K]` of a valued field is open for the induced
+valuation topology. -/
+theorem Valued.integer.isOpen_maximalIdeal {K Γ₀ : Type*} [Field K]
+    [LinearOrderedCommGroupWithZero Γ₀] [Valued K Γ₀] :
+    IsOpen (IsLocalRing.maximalIdeal (Valued.integer K) : Set (Valued.integer K)) := by
+  convert (Valued.isOpen_ball K 1).preimage continuous_subtype_val using 1
+  ext x
+  simp [mem_maximalIdeal, mem_nonunits_iff, Valuation.Integer.not_isUnit_iff_valuation_lt_one,
+    Valuation.restrict_lt_one_iff]
 
 section Integer
 

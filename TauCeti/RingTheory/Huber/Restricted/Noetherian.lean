@@ -11,6 +11,8 @@ public import TauCeti.RingTheory.Huber.StronglyNoetherian
 public import TauCeti.RingTheory.MvPowerSeries.TateAlgebra.Groebner
 public import TauCeti.RingTheory.PowerSeries.Weierstrass.Ideal
 
+import TauCeti.RingTheory.Huber.Restricted.Adic
+
 /-!
 # Noetherianity of the completed Tate algebras
 
@@ -26,7 +28,10 @@ Mathlib's univariate restricted-series ring along
 Conversely, over a complete nonarchimedean field, strong noetherianness of the completed
 Huber algebras transfers back to the Gauss-normed ring `K⟨X₁, …, Xₙ⟩`, which is therefore a
 complete strongly noetherian ring. When the norm of `K` is nontrivial it is moreover a Tate ring
-(`TauCeti.Huber.IsTateRing.isRestricted_subring`); for instance `ℚ_p⟨T₁, …, Tₙ⟩`.
+(`TauCeti.Huber.IsTateRing.isRestricted_subring`); for instance `ℚ_p⟨T₁, …, Tₙ⟩`. Likewise, over
+any complete ultrametric normed noetherian ring whose topology is adic for an ideal `I` (such as
+`ℤ_p`), adic noetherianity and strong noetherianity of the completed Huber algebra transfer to
+`R⟨X₁, …, Xₖ⟩`.
 
 ## Main results
 
@@ -38,6 +43,10 @@ complete strongly noetherian ring. When the norm of `K` is nontrivial it is more
   strongly noetherian.
 * `TauCeti.Huber.IsStronglyNoetherian.isRestricted_subring`: the Gauss-normed Tate algebra
   `K⟨X₁, …, Xₙ⟩` over a complete normed field with an ultrametric norm is strongly noetherian.
+* `TauCeti.Huber.isNoetherianRing_isRestricted_subring_of_isAdic` and
+  `TauCeti.Huber.IsStronglyNoetherian.isRestricted_subring_of_isAdic`: over a complete ultrametric
+  normed noetherian `I`-adic ring `R`, the Gauss-normed ring `R⟨X₁, …, Xₖ⟩` is noetherian and
+  strongly noetherian.
 
 ## References
 
@@ -84,14 +93,32 @@ Over a complete normed field `K` with an ultrametric norm, every restricted powe
 over the Banach algebra `K⟨X₁, …, Xₙ⟩` of unit-radius restricted series with its Gauss norm is
 noetherian. -/
 instance IsStronglyNoetherian.isRestricted_subring (n : ℕ) :
-    IsStronglyNoetherian (MvPowerSeries.IsRestricted.subring (R := K) fun _ : Fin n ↦ (1 : ℝ)) := by
-  -- `K` is Huber: discrete if its norm is trivial, and Tate if it is nontrivially normed
-  have : IsHuberRing K := by
-    rcases NormedField.discreteTopology_or_nontriviallyNormedField K with _ | ⟨_, rfl⟩
-    · infer_instance
-    · exact (IsTateRing.of_nontriviallyNormedField K).toIsHuberRing
+    IsStronglyNoetherian (MvPowerSeries.IsRestricted.subring (R := K) fun _ : Fin n ↦ (1 : ℝ)) :=
   -- `K⟨X₁, …, Xₙ⟩` is the completed Huber algebra `restrictedMvPowerSeriesCompletion n K`, up to
   -- an isomorphism continuous in both directions, and that algebra is strongly noetherian
+  (isStronglyNoetherian_congr restrictedMvPowerSeriesCompletionGaussEquiv
+    continuous_restrictedMvPowerSeriesCompletionGaussEquiv
+    continuous_restrictedMvPowerSeriesCompletionGaussEquiv_symm).mp inferInstance
+
+variable {k : ℕ} {R : Type*} [NormedCommRing R] [IsUltrametricDist R] [CompleteSpace R]
+  [IsNoetherianRing R] {I : Ideal R}
+
+/-- **Noetherianity of Gauss-normed restricted series over a complete adic noetherian ring.** Over a
+complete ultrametric normed commutative noetherian ring `R` whose topology is `I`-adic, the
+Gauss-normed ring `R⟨X₁, …, Xₖ⟩` of unit-radius restricted power series is noetherian. -/
+theorem isNoetherianRing_isRestricted_subring_of_isAdic (hI : IsAdic I) :
+    IsNoetherianRing (MvPowerSeries.IsRestricted.subring (R := R) (fun _ : Fin k ↦ 1)) := by
+  have := isNoetherianRing_restrictedMvPowerSeriesCompletion_of_isAdic k hI
+  exact isNoetherianRing_of_ringEquiv _
+    (restrictedMvPowerSeriesCompletionGaussEquiv (n := k) (R := R))
+
+/-- **Strong noetherianity of Gauss-normed restricted series over a complete adic noetherian ring.**
+Over a complete ultrametric normed commutative noetherian ring `R` whose topology is `I`-adic, the
+Gauss-normed ring `R⟨X₁, …, Xₖ⟩` of unit-radius restricted power series is strongly noetherian. -/
+theorem IsStronglyNoetherian.isRestricted_subring_of_isAdic (hI : IsAdic I) :
+    IsStronglyNoetherian (MvPowerSeries.IsRestricted.subring (R := R) (fun _ : Fin k ↦ 1)) := by
+  have : IsAdicRing R := ⟨I, IsNoetherian.noetherian I, hI,
+    hI.isAdicComplete_iff.mpr ⟨inferInstance, inferInstance⟩⟩
   exact (isStronglyNoetherian_congr restrictedMvPowerSeriesCompletionGaussEquiv
     continuous_restrictedMvPowerSeriesCompletionGaussEquiv
     continuous_restrictedMvPowerSeriesCompletionGaussEquiv_symm).mp inferInstance

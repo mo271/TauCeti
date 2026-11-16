@@ -8,9 +8,11 @@ module
 import Mathlib.RingTheory.AdicCompletion.Noetherian
 import TauCeti.NumberTheory.Padics.RingHoms
 import TauCeti.RingTheory.Huber.Completion.Noetherian
-import TauCeti.RingTheory.Huber.Padic.Field
+import TauCeti.RingTheory.Huber.OpenIdeal
+import TauCeti.RingTheory.Huber.Padic.Basic
 import TauCeti.RingTheory.Huber.Restricted.Comparison
-import TauCeti.RingTheory.Huber.Restricted.Limit
+import TauCeti.RingTheory.Huber.Restricted.Noetherian
+import TauCeti.RingTheory.Huber.WeightedEval.AlgHom
 
 /-!
 # Examples and boundary checks for restricted power series over adic and normed bases
@@ -21,7 +23,8 @@ This file checks the main comparisons and boundary hypotheses for restricted pow
   algebra `restrictedMvPowerSeriesCompletion k A` collapse to `MvPolynomial (Fin k) A`.
 * Over the `(p)`-adic noetherian ring `ℤ_[p]`, the Gauss-norm unit-radius restricted power series
   subring `ℤ_[p]⟨X₁, …, Xₖ⟩` is noetherian, `(p)`-adically complete, and its quotient modulo
-  `(p · ℤ_[p]⟨X₁, …, Xₖ⟩) ^ m` (`m ≠ 0`) is isomorphic to `MvPolynomial (Fin k) (ZMod (p ^ m))`.
+  `(p · ℤ_[p]⟨X₁, …, Xₖ⟩) ^ m` is isomorphic to `MvPolynomial (Fin k) (ZMod (p ^ m))` for every
+  `m : ℕ`.
 * The geometric series `∑_{n ≥ 0} X₀ⁿ` in `MvPowerSeries (Fin 1) ℤ_[p]` inverts `1 - X₀` formally
   but is not restricted, since its constant coefficients `1` do not tend to `0` along `cofinite`.
 * At `k = 0`, `restrictedMvPowerSeriesCompletion 0 A ≃+* A` holds for complete Hausdorff
@@ -34,7 +37,7 @@ This file checks the main comparisons and boundary hypotheses for restricted pow
 
 namespace TauCeti.Examples
 
-open Filter Polynomial Topology UniformSpace TauCeti.Huber
+open Filter Polynomial Topology UniformSpace TauCeti.Huber TauCeti.MvPowerSeries
 
 /-! ### Discrete coefficient rings -/
 
@@ -78,8 +81,8 @@ example :
     isAdicComplete_map_algebraMap_isRestricted_subring (k := k) hadic
       (Submodule.fg_span_singleton _)⟩
 
--- Modulo `(p · ℤ_[p]⟨X₁, …, Xₖ⟩) ^ m` (`m ≠ 0`), `ℤ_[p]⟨X₁, …, Xₖ⟩` is `(ℤ / p^m ℤ)[X₁, …, Xₖ]`.
-noncomputable example {m : ℕ} (hm : m ≠ 0) :
+-- Modulo `(p · ℤ_[p]⟨X₁, …, Xₖ⟩) ^ m`, `ℤ_[p]⟨X₁, …, Xₖ⟩` is `(ℤ / p^m ℤ)[X₁, …, Xₖ]` for all `m`.
+noncomputable example (m : ℕ) :
     (MvPowerSeries.IsRestricted.subring (R := ℤ_[p]) (fun _ : Fin k ↦ 1) ⧸
         (((Ideal.span {(p : ℤ_[p])}).map
           (algebraMap ℤ_[p]
@@ -88,7 +91,7 @@ noncomputable example {m : ℕ} (hm : m ≠ 0) :
   have hadic : IsAdic (Ideal.span {(p : ℤ_[p])}) :=
     _root_.PadicInt.maximalIdeal_eq_span_p (p := p) ▸ PadicInt.isAdic_maximalIdeal
   exact (quotientIsRestrictedSubringPowEquivMvPolynomialQuotient (k := k) hadic
-    (Submodule.fg_span_singleton _) hm).toRingEquiv.trans
+    (Submodule.fg_span_singleton _) m).toRingEquiv.trans
     (MvPolynomial.mapEquiv (Fin k)
       ((Ideal.quotEquivOfEq (Ideal.span_singleton_pow (p : ℤ_[p]) m)).trans
         (_root_.PadicInt.quotientSpanPowEquivZMod m)))
@@ -148,9 +151,7 @@ example :
       IsEmpty (restrictedMvPowerSeriesCompletion 0 ℤ[X] ≃+* ℤ[X]) := by
   let _ : WithIdeal ℤ[X] := ⟨⊤⟩
   have hI : IsAdic (⊤ : Ideal ℤ[X]) := rfl
-  have hcomp : CompleteSpace ℤ[X] :=
-    hI.isPrecomplete_iff.mp ⟨fun _ _ ↦ ⟨0, fun _ ↦
-      SModEq.zero.mpr (by rw [smul_eq_mul, Ideal.mul_top, Ideal.top_pow]; exact Submodule.mem_top)⟩⟩
+  have hcomp : CompleteSpace ℤ[X] := hI.isPrecomplete_iff.mp inferInstance
   have hnotT0 : ¬ T0Space ℤ[X] := by
     intro _
     exact not_subsingleton ℤ[X] (hI.isHausdorff_iff.mpr inferInstance).subsingleton
@@ -160,11 +161,7 @@ example :
         IsAdicComplete ((⊤ : Ideal ℤ[X]).map (Completion.coeRingHom : ℤ[X] →+* Completion ℤ[X]))
           (Completion ℤ[X]) :=
       hI.isAdicComplete_map_coeRingHom ⟨{1}, by simp⟩
-    have htop : (⊤ : Ideal ℤ[X]).map (Completion.coeRingHom : ℤ[X] →+* Completion ℤ[X]) = ⊤ := by
-      refine Ideal.eq_top_of_isUnit_mem _ ?_ isUnit_one
-      have h1 := Ideal.mem_map_of_mem (Completion.coeRingHom : ℤ[X] →+* Completion ℤ[X])
-        (Submodule.mem_top : (1 : ℤ[X]) ∈ ⊤)
-      rwa [map_one] at h1
+    have htop := Ideal.map_top (Completion.coeRingHom : ℤ[X] →+* Completion ℤ[X])
     have : Subsingleton (Completion ℤ[X]) := (htop ▸ hadicC.toIsHausdorff).subsingleton
     have : Subsingleton (restrictedMvPowerSeriesCompletion 0 ℤ[X]) :=
       (restrictedMvPowerSeriesCompletionFinZeroEquiv (A := ℤ[X])).toEquiv.subsingleton
@@ -250,7 +247,7 @@ example :
           (∀ c, ψ (algebraMap ℚ_[p] _ c) = RingHom.id ℚ_[p] c) ∧
           ∀ i, ψ ⟨MvPowerSeries.X i, MvPowerSeries.isRestricted_X (fun _ : Fin 1 ↦ 1) i⟩ =
             (p : ℚ_[p])⁻¹ := by
-  refine ⟨not_isLinearTopology_of_nontriviallyNormedField ℚ_[p], ?_⟩
+  refine ⟨IsTateRing.not_isLinearTopology, ?_⟩
   rw [exists_continuous_ringHom_isRestricted_subring_iff_norm_le_one (θ := RingHom.id ℚ_[p])
     continuous_id (fun _ : Fin 1 ↦ (p : ℚ_[p])⁻¹)]
   intro h

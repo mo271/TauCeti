@@ -34,8 +34,9 @@ More generally, let each weight set be a single multiplicative unit `uᵢ`
 Gauss-normed ring at the radii `c`, again with the same topology. Radii that are not inverse
 norms of multiplicative units of `R` are not reached by such singleton weights.
 
-Over a nontrivially normed field the Gauss-normed algebra is itself a Tate ring, at any positive
-polyradii: a constant of norm strictly between `0` and `1` is a pseudouniformiser. At unit radius
+Over an ultrametric normed Tate ring (in particular, a nontrivially normed ultrametric field) the
+Gauss-normed algebra is itself a Tate ring, at any positive polyradii: the constant-series image of
+a pseudouniformiser remains a pseudouniformiser. Over a nontrivially normed field at unit radius
 its Gauss unit ball is its power-bounded subring, so transporting across the topological ring
 comparison identifies the power-bounded subring of `K⟨X₁, …, Xₙ⟩` with `K°⟨X₁, …, Xₙ⟩`.
 For an ultrametric normed algebra `A` over such a field, the structure map `A → A⟨X⟩ ⧸ I` to a
@@ -60,8 +61,8 @@ type or norm is introduced here.
 * `TauCeti.Huber.weightedRestrictedGaussAlgEquiv`: the identity algebra equivalence between the
   Huber ring with these weights and the Gauss-normed ring at the radii `c`, continuous in both
   directions.
-* `TauCeti.Huber.IsTateRing.isRestricted_subring`: over a nontrivially normed field with an
-  ultrametric norm, the Gauss-normed algebra of restricted series is a Tate ring.
+* `TauCeti.Huber.IsTateRing.isRestricted_subring`: over an ultrametric normed commutative Tate
+  ring, the Gauss-normed algebra of restricted series at positive polyradii is a Tate ring.
 * `TauCeti.Huber.weightedSubring_powerBoundedSubring_eq`: over a nontrivially normed ultrametric
   field `K`, the power-bounded subring of `K⟨X₁, …, Xₙ⟩` is `K°⟨X₁, …, Xₙ⟩`.
 * `TauCeti.MvPowerSeries.isAdicHom_algebraMap_isRestrictedSubring_quotient`: for an ultrametric
@@ -255,6 +256,13 @@ theorem restrictedMvPowerSeriesCompletionGaussEquiv_coe
         (f : restrictedMvPowerSeriesCompletion n R) = restrictedMvPowerSeriesGaussEquiv f := by
   simp [restrictedMvPowerSeriesCompletionGaussEquiv]
 
+/-- On every completion element, `restrictedMvPowerSeriesCompletionGaussEquiv` factors through
+`restrictedMvPowerSeriesCompletionEquiv` followed by `restrictedMvPowerSeriesGaussEquiv`. -/
+theorem restrictedMvPowerSeriesCompletionGaussEquiv_apply
+    (x : restrictedMvPowerSeriesCompletion n R) :
+    restrictedMvPowerSeriesCompletionGaussEquiv x =
+      restrictedMvPowerSeriesGaussEquiv (restrictedMvPowerSeriesCompletionEquiv n R x) := (rfl)
+
 /-- The inverse completed comparison takes a Gauss-normed restricted series to its canonical
 image in the Huber completion. -/
 @[simp]
@@ -413,24 +421,23 @@ end UnitWeight
 
 section Tate
 
-variable {σ K : Type*} [NontriviallyNormedField K] [IsUltrametricDist K] {c : σ → ℝ}
-  [∀ i, Fact (0 < c i)]
-
-/-- **The Gauss-normed Tate algebra over a nontrivially normed field is a Tate ring.** Over a
-field `K` with a nontrivial ultrametric norm, the ring `K⟨X/c⟩` of restricted power series with
-its Gauss norm at positive polyradii `c` is a Tate ring; every constant `ϖ` with `0 < ‖ϖ‖ < 1` is
-a pseudouniformiser. -/
-instance IsTateRing.isRestricted_subring :
-    IsTateRing (MvPowerSeries.IsRestricted.subring (R := K) c) := by
-  -- a constant keeps its norm and stays a unit
-  obtain ⟨ϖ, h0, h1⟩ := NormedField.exists_norm_lt_one K
-  refine IsTateRing.of_isUnit_norm_lt_one
-    ((isUnit_iff_ne_zero.mpr (norm_pos_iff.mp h0)).map (algebraMap K _)) ?_
-  rwa [norm_algebraMap']
+/-- **The Gauss-normed Tate algebra over an ultrametric normed Tate ring is a Tate ring.** Over an
+ultrametric normed commutative Tate ring `R`, the ring `R⟨X/c⟩` of restricted power series with its
+Gauss norm at positive polyradii `c` is a Tate ring; the constant-series image of any
+pseudouniformiser of `R` is a pseudouniformiser of `R⟨X/c⟩`. -/
+instance IsTateRing.isRestricted_subring {σ R : Type*} [NormedCommRing R] [IsUltrametricDist R]
+    [IsTateRing R] {c : σ → ℝ} [∀ i, Fact (0 < c i)] :
+    IsTateRing (MvPowerSeries.IsRestricted.subring (R := R) c) := by
+  obtain ⟨S₀, hopen, hbdd⟩ :=
+    exists_isOpen_isBounded_subring (MvPowerSeries.IsRestricted.subring (R := R) c)
+  obtain ⟨ϖ, hϖ⟩ := IsTateRing.exists_isPseudoUniformizer (A := R)
+  exact IsTateRing.of_isOpen_isBounded S₀ hopen hbdd
+    (hϖ.map MvPowerSeries.isometry_algebraMap_isRestrictedSubring.continuous)
 
 /-- Over a nontrivially normed ultrametric field `K`, the power-bounded subring of `K⟨X₁, …, Xₙ⟩`
 is the subring `K°⟨X₁, …, Xₙ⟩` of series with power-bounded coefficients. -/
-theorem weightedSubring_powerBoundedSubring_eq (n : ℕ) :
+theorem weightedSubring_powerBoundedSubring_eq {K : Type*} [NontriviallyNormedField K]
+    [IsUltrametricDist K] (n : ℕ) :
     weightedSubring (fun _ : Fin n ↦ ({1} : Set K)) isWeightFamily_one_weight
         (powerBoundedSubring K) =
       powerBoundedSubring
