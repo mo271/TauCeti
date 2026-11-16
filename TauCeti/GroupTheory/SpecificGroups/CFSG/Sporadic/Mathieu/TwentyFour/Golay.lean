@@ -5,7 +5,7 @@ Authors: The Tau Ceti contributors
 -/
 module
 
-public import TauCeti.GroupTheory.SpecificGroups.CFSG.Sporadic.Mathieu.TwentyFour.Order
+public import TauCeti.GroupTheory.SpecificGroups.CFSG.Sporadic.Mathieu.TwentyFour.Simple
 public import TauCeti.InformationTheory.Coding.Binary.Golay.Automorphism
 
 /-!
@@ -57,6 +57,11 @@ of the Golay permutation automorphism groups.
   `M24 ≃* TauCeti.permutationAut M24.golayCode` compatible with `M24`'s natural action on `Fin 24`.
 * `TauCeti.BinaryGolay.natCard_permutationAut_code_toAddSubgroup`,
   `TauCeti.BinaryGolay.natCard_permutationAut_code`: the exact order `244823040`.
+* `TauCeti.Sporadic.M24.isSimpleGroup_permutationAut_golayCode_toAddSubgroup`,
+  `TauCeti.Sporadic.M24.isSimpleGroup_permutationAut_golayCode`,
+  `TauCeti.BinaryGolay.isSimpleGroup_permutationAut_code_toAddSubgroup`,
+  `TauCeti.BinaryGolay.isSimpleGroup_permutationAut_code`: simplicity of the Golay permutation
+  automorphism groups.
 
 ## References
 
@@ -280,13 +285,23 @@ theorem golayCodePermutationAutEquiv_apply_smul (g : M24) (x : Fin 24 → ZMod 2
   rw [coe_golayCodePermutationAutEquiv_apply, LinearEquiv.funCongrLeft_apply,
     LinearMap.funLeft_apply, Subgroup.smul_def, Equiv.Perm.smul_def, Equiv.symm_apply_apply]
 
+/-- The coordinate permutation automorphism group of `M24.golayCode` is simple. -/
+instance isSimpleGroup_permutationAut_golayCode_toAddSubgroup :
+    IsSimpleGroup (TauCeti.AdditiveCode.permutationAut golayCode.toAddSubgroup) :=
+  eq_permutationAut_golayCode ▸ isSimpleGroup_M24
+
+/-- The linear permutation automorphism group of `M24.golayCode` is simple. -/
+instance isSimpleGroup_permutationAut_golayCode :
+    IsSimpleGroup (TauCeti.permutationAut golayCode) :=
+  golayCodePermutationAutEquiv.symm.isSimpleGroup
+
 end M24
 
 end TauCeti.Sporadic
 
 namespace TauCeti.BinaryGolay
 
-/-! ### Exact group orders -/
+/-! ### Exact group orders and simplicity -/
 
 /-- **The coordinate permutation automorphism group of `BinaryGolay.code` has order `244823040`.**
 -/
@@ -302,5 +317,15 @@ theorem natCard_permutationAut_code :
     Nat.card (TauCeti.permutationAut code) = 244823040 := by
   rw [← AdditiveCode.natCard_permutationAut_toAddSubgroup,
     natCard_permutationAut_code_toAddSubgroup]
+
+/-- **The coordinate permutation automorphism group of `BinaryGolay.code` is simple.** -/
+instance isSimpleGroup_permutationAut_code_toAddSubgroup :
+    IsSimpleGroup (AdditiveCode.permutationAut code.toAddSubgroup) :=
+  Sporadic.M24.golayAdditivePermutationAutEquiv.symm.isSimpleGroup
+
+/-- **The linear permutation automorphism group of `BinaryGolay.code` is simple.** -/
+instance isSimpleGroup_permutationAut_code :
+    IsSimpleGroup (TauCeti.permutationAut code) :=
+  Sporadic.M24.golayPermutationAutEquiv.symm.isSimpleGroup
 
 end TauCeti.BinaryGolay
