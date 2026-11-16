@@ -42,11 +42,13 @@ construction commutes with base change. It is therefore a morphism of moduli pro
   `[Γ₀(N)]`-structure along an arrow of `Ell/B` is the inverse image of its ideal sheaf.
 * `TauCeti.AlgebraicGeometry.ModuliProblem.gammaZeroEquiv_gammaOneToGammaZero_app`: the image of
   a `[Γ₁(N)]`-structure `P` in `[Γ₀(N)]` is the divisor `[P] + ⋯ + [NP]`.
+* `TauCeti.AlgebraicGeometry.ModuliProblem.gammaOneAction_hom_comp_gammaOneToGammaZero`: the
+  morphism `[Γ₁(N)] ⟶ [Γ₀(N)]` is invariant under the diamond action of `(ZMod N)ˣ`.
 
 ## References
 
 * N. M. Katz and B. Mazur, *Arithmetic Moduli of Elliptic Curves*, §3.4 (the moduli problem
-  `[Γ₀(N)]`) and Chapter 4.
+  `[Γ₀(N)]`), Chapter 4, and §7.4 (invariance of `[Γ₁(N)] ⟶ [Γ₀(N)]` under `(ℤ/Nℤ)ˣ`).
 -/
 
 public section
@@ -120,6 +122,25 @@ theorem gammaZeroEquiv_gammaOneToGammaZero_app (X : EllObj B) (P : (gammaOne B N
     (gammaZeroEquiv X ((gammaOneToGammaZero B N).app (op X) P)).1 =
       X.curve.multiplesDivisor (gammaOneEquiv X P).1 N :=
   (rfl)
+
+variable (B N) in
+/-- **The morphism `[Γ₁(N)] ⟶ [Γ₀(N)]` is invariant under the diamond action of `(ℤ/Nℤ)ˣ`**
+(Katz–Mazur, 7.4.2): for every `u : (ZMod N)ˣ`, a point `P` of exact order `N` and its multiple
+`uP` generate the same cyclic subgroup `[P] + ⋯ + [NP]`. -/
+@[reassoc (attr := simp)]
+theorem gammaOneAction_hom_comp_gammaOneToGammaZero (u : (ZMod N)ˣ) :
+    (gammaOneAction B N u).asIso.hom ≫ gammaOneToGammaZero B N = gammaOneToGammaZero B N := by
+  ext ⟨X⟩ P
+  exact (gammaZeroEquiv X).injective <| Subtype.ext <| by
+    simp [(gammaOneEquiv X P).2.multiplesDivisor_zpow_unit u]
+
+variable (B N) in
+/-- The inverse diamond automorphism for `u : (ZMod N)ˣ` also leaves `[Γ₁(N)] ⟶ [Γ₀(N)]`
+invariant. -/
+@[reassoc (attr := simp)]
+theorem gammaOneAction_inv_comp_gammaOneToGammaZero (u : (ZMod N)ˣ) :
+    (gammaOneAction B N u).asIso.inv ≫ gammaOneToGammaZero B N = gammaOneToGammaZero B N :=
+  (Iso.inv_comp_eq _).mpr (gammaOneAction_hom_comp_gammaOneToGammaZero B N u).symm
 
 end ModuliProblem
 

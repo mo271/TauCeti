@@ -63,6 +63,8 @@ compatible with the group laws (`EllObj.Hom.addition_total` and `EllObj.Hom.neg_
   `X` with the base change of `Y` along `g.base`.
 * `TauCeti.AlgebraicGeometry.EllObj.baseChangePointsEquiv X T`: the `T`-points of the base change
   of `X = (S, E)` to `T` are the points of `E` with values in `T`.
+* `TauCeti.AlgebraicGeometry.EllObj.neg X` and `TauCeti.AlgebraicGeometry.EllObj.negAut X`: the
+  negation arrow and automorphism `[-1]` of `X = (S, E)` over the identity of `S`.
 * `TauCeti.AlgebraicGeometry.EllObj.prodCurve B C`: an elliptic curve `C` over a scheme `M`, pulled
   back to `B × M`, as an object of `Ell/B`; `prodCurvePoint B R` is the pullback of a point `R`
   of `C`.
@@ -528,6 +530,67 @@ theorem baseChangePointsEquiv_pointsPullback {X : EllObj B} {T' T : Over X.base}
   -- the two sides differ only in the objects through which `k.left` is typed, `T'.left` and the
   -- base `(X.baseChangeFunctor.obj T').base`, which is `T'.left` by definition
   rfl
+
+/-! ### The negation automorphism -/
+
+/-- **The negation arrow `[-1]` of an object of `Ell/B`**: the endomorphism of `X = (S, E)` lying
+over the identity of `S` whose morphism of total spaces is the negation morphism `E.neg`. -/
+noncomputable def neg (X : EllObj B) : X ⟶ X where
+  base := 𝟙 X.base
+  base_structureMap := Category.id_comp _
+  total := X.curve.neg
+  isPullback := IsPullback.of_horiz_isIso ⟨by simp⟩
+  zero_total := by simp
+
+@[simp]
+theorem neg_base (X : EllObj B) : X.neg.base = 𝟙 X.base :=
+  (rfl)
+
+@[simp]
+theorem neg_total (X : EllObj B) : X.neg.total = X.curve.neg :=
+  (rfl)
+
+/-- The negation arrow `[-1]` of `X` is an involution. -/
+@[reassoc (attr := simp)]
+theorem neg_neg (X : EllObj B) : X.neg ≫ X.neg = 𝟙 X :=
+  hom_ext (by simp)
+
+/-- Every arrow of `Ell/B` commutes with the negation arrows `[-1]` of its source and target. -/
+@[reassoc]
+theorem neg_comp (f : X ⟶ Y) : X.neg ≫ f = f ≫ Y.neg :=
+  hom_ext f.neg_total
+
+/-- The negation arrow `[-1]` of `X` is an isomorphism in `Ell/B`. -/
+instance isIso_neg (X : EllObj B) : IsIso X.neg :=
+  ⟨X.neg, X.neg_neg, X.neg_neg⟩
+
+@[simp]
+theorem inv_neg (X : EllObj B) : inv X.neg = X.neg :=
+  IsIso.inv_eq_of_hom_inv_id X.neg_neg
+
+/-- **The negation automorphism `[-1]` of an object of `Ell/B`**, bundled in `Aut X`. -/
+noncomputable def negAut (X : EllObj B) : Aut X :=
+  Aut.of
+    { hom := X.neg
+      inv := X.neg
+      hom_inv_id := X.neg_neg
+      inv_hom_id := X.neg_neg }
+
+@[simp]
+theorem negAut_hom (X : EllObj B) : X.negAut.asIso.hom = X.neg :=
+  (rfl)
+
+@[simp]
+theorem negAut_inv (X : EllObj B) : X.negAut.asIso.inv = X.neg :=
+  (rfl)
+
+/-- Pulling a point `P` of `X` back along the negation arrow `[-1]` negates `P` (`P⁻¹` in
+multiplicative notation). -/
+@[simp]
+theorem pointsPullback_neg (X : EllObj B)
+    (P : 𝟙_ (Over X.base) ⟶ Over.mk X.curve.structureMap) :
+    EllipticCurveGeom.pointsPullback X.neg.isPullback X.neg.zero_total P = P⁻¹ :=
+  ((EllipticCurveGeom.eq_pointsPullback_iff _ _).mpr (by simp)).symm
 
 /-! ### Elliptic curves over a product with `B` -/
 

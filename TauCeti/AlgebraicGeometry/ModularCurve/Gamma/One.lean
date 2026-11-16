@@ -5,8 +5,10 @@ Authors: The Tau Ceti contributors
 -/
 module
 
-public import TauCeti.AlgebraicGeometry.EllipticCurve.Scheme.Geom.ExactOrder.Scheme
+public import TauCeti.AlgebraicGeometry.EllipticCurve.Scheme.Geom.ExactOrder.Diamond
 public import TauCeti.AlgebraicGeometry.ModularCurve.ModuliProblem
+import TauCeti.AlgebraicGeometry.ResidueField
+import TauCeti.Data.ZMod.Pow
 
 /-!
 # The moduli problem `[Γ₁(N)]`
@@ -31,6 +33,13 @@ morphisms from `T` to the exact-order scheme `E.exactOrderScheme N` over `S`
 has exact order `N`. It lies in `E[N]`, so for `N ≠ 0` the problem `[Γ₁(N)]` is finite over `Ell/B`
 (`ModuliProblem.hasProperty_isFinite_gammaOneRelRepData`). No hypothesis is placed on `B`.
 
+The unit group `(ZMod N)ˣ` acts on `[Γ₁(N)]` by the **diamond action** `P ↦ uP`
+(`ModuliProblem.gammaOneAction`), compatible with the diamond action on `E.exactOrderScheme N`
+(`ModuliProblem.gammaOneBaseChangeEquiv_gammaOneAction_hom_app`), sending `-1` to pullback along
+the negation arrow `[-1]` of `Ell/B` (`ModuliProblem.gammaOneAction_neg_one_hom_app`), and acting
+freely over any nonempty test base on whose residue fields `N` is nonzero
+(`ModuliProblem.eq_one_of_gammaOneAction_hom_app_eq_self`).
+
 ## Main definitions
 
 * `TauCeti.AlgebraicGeometry.ModuliProblem.gammaOne B N`: the moduli problem `[Γ₁(N)]` over
@@ -41,6 +50,8 @@ has exact order `N`. It lies in `E[N]`, so for `N ≠ 0` the problem `[Γ₁(N)]
   the base change `E_T` are the morphisms from `T` to the exact-order scheme of `E`.
 * `TauCeti.AlgebraicGeometry.ModuliProblem.gammaOneRelRepData`: `[Γ₁(N)]` is relatively
   representable, by the exact-order scheme.
+* `TauCeti.AlgebraicGeometry.ModuliProblem.gammaOneAction B N`: the diamond action
+  `(ZMod N)ˣ →* Aut (gammaOne B N)`.
 
 ## Main results
 
@@ -52,12 +63,15 @@ has exact order `N`. It lies in `E[N]`, so for `N ≠ 0` the problem `[Γ₁(N)]
   morphisms to the exact-order scheme is natural in `T`.
 * `TauCeti.AlgebraicGeometry.ModuliProblem.hasProperty_isFinite_gammaOneRelRepData`: for `N ≠ 0`,
   `[Γ₁(N)]` is finite over `Ell/B`.
+* `TauCeti.AlgebraicGeometry.ModuliProblem.gammaOneEquiv_gammaOneAction_hom_app` and
+  `TauCeti.AlgebraicGeometry.ModuliProblem.eq_one_of_gammaOneAction_hom_app_eq_self`: the diamond
+  action sends `P` to `uP`, and is free over nonempty test bases where `N` is invertible.
 
 ## References
 
 * N. M. Katz and B. Mazur, *Arithmetic Moduli of Elliptic Curves*, §1.4 (points of exact order
   `N`), §3.2 (the moduli problem `[Γ₁(N)]`), 3.6.0 (its relative representability by a finite
-  scheme) and Chapter 4.
+  scheme), Chapter 4, and §7.4 (the `(ℤ/Nℤ)ˣ`-action on `[Γ₁(N)]`).
 -/
 
 public section
@@ -220,6 +234,157 @@ theorem hasProperty_isFinite_gammaOneRelRepData [NeZero N] :
     EllipticCurveGeom.isFinite_exactOrderScheme_hom X.curve N
 
 end RelRep
+
+/-! ### The diamond action on `[Γ₁(N)]` -/
+
+section Diamond
+
+/-- Two morphisms of moduli problems into `[Γ₁(N)]` agree once they assign the same point to every
+structure. -/
+@[ext]
+theorem gammaOne_hom_ext {P : ModuliProblem B} {f g : P ⟶ gammaOne B N}
+    (h : ∀ (X : EllObj B) (α : P.obj (op X)),
+      (gammaOneEquiv X (f.app (op X) α)).1 = (gammaOneEquiv X (g.app (op X) α)).1) :
+    f = g := by
+  ext X α
+  exact (gammaOneEquiv X.unop).injective (Subtype.ext (h X.unop α))
+
+/-- The endomorphism of `[Γ₁(N)]` sending a point `P` of exact order `N` to
+`P ^ ((u : ZMod N).cast : ℤ)`. -/
+private noncomputable def gammaOneEnd (B : Scheme.{u}) (N : ℕ) (u : (ZMod N)ˣ) :
+    gammaOne B N ⟶ gammaOne B N where
+  app X := TypeCat.ofHom fun α ↦ (gammaOneEquiv X.unop).symm
+    ⟨(gammaOneEquiv X.unop α).1 ^ ((u : ZMod N).cast : ℤ), (gammaOneEquiv X.unop α).2.zpow_unit u⟩
+  naturality X Y φ := by
+    ext α
+    apply (gammaOneEquiv _).injective
+    apply Subtype.ext
+    simp only [op_unop, TypeCat.Fun.toFun_apply, comp_apply, TypeCat.hom_ofHom, TypeCat.Fun.coe_mk,
+      Equiv.apply_symm_apply]
+    rw [← Quiver.Hom.op_unop φ, gammaOneEquiv_map, gammaOneEquiv_map, Equiv.apply_symm_apply,
+      map_zpow]
+
+@[simp]
+private theorem gammaOneEquiv_gammaOneEnd_app (u : (ZMod N)ˣ) (X : EllObj B)
+    (α : (gammaOne B N).obj (op X)) :
+    (gammaOneEquiv X ((gammaOneEnd B N u).app (op X) α)).1 =
+      (gammaOneEquiv X α).1 ^ ((u : ZMod N).cast : ℤ) := by
+  simp [gammaOneEnd]
+
+variable (B N) in
+/-- **The diamond action of `(ℤ/Nℤ)ˣ` on `[Γ₁(N)]`** (Katz–Mazur, §7.4). A unit `u : (ZMod N)ˣ`
+sends a `[Γ₁(N)]`-structure `P` on `(E/S)` to `uP = P ^ ((u : ZMod N).cast : ℤ)`
+(`gammaOneEquiv_gammaOneAction_hom_app`), over an arbitrary base scheme `B` and for all `N : ℕ`. -/
+noncomputable def gammaOneAction : (ZMod N)ˣ →* Aut (gammaOne B N) where
+  toFun u := Aut.of
+    { hom := gammaOneEnd B N u
+      inv := gammaOneEnd B N u⁻¹
+      hom_inv_id := gammaOne_hom_ext fun X α ↦ by
+        simp [zpow_zmod_cast_mul_inv (gammaOneEquiv X α).2.pow_eq_one u]
+      inv_hom_id := gammaOne_hom_ext fun X α ↦ by
+        simpa using zpow_zmod_cast_mul_inv (gammaOneEquiv X α).2.pow_eq_one u⁻¹ }
+  map_one' := by
+    apply Aut.ext
+    rw [Aut.one_asIso]
+    apply Iso.ext
+    exact gammaOne_hom_ext fun X α ↦ by
+      simp [zpow_zmod_cast_one (gammaOneEquiv X α).2.pow_eq_one]
+  map_mul' u v := by
+    apply Aut.ext
+    rw [Aut.mul_asIso]
+    apply Iso.ext
+    exact gammaOne_hom_ext fun X α ↦ by
+      simp [← zpow_zmod_cast_mul (gammaOneEquiv X α).2.pow_eq_one, mul_comm (v : ZMod N)]
+
+/-- A unit `u : (ZMod N)ˣ` sends a `[Γ₁(N)]`-structure `P` to `P ^ ((u : ZMod N).cast : ℤ)`. -/
+@[simp]
+theorem gammaOneEquiv_gammaOneAction_hom_app (u : (ZMod N)ˣ) (X : EllObj B)
+    (α : (gammaOne B N).obj (op X)) :
+    (gammaOneEquiv X ((gammaOneAction B N u).asIso.hom.app (op X) α)).1 =
+      (gammaOneEquiv X α).1 ^ ((u : ZMod N).cast : ℤ) :=
+  gammaOneEquiv_gammaOneEnd_app u X α
+
+/-- The inverse of the diamond automorphism for `u : (ZMod N)ˣ` sends `P` to
+`P ^ ((↑u⁻¹ : ZMod N).cast : ℤ)`. -/
+@[simp]
+theorem gammaOneEquiv_gammaOneAction_inv_app (u : (ZMod N)ˣ) (X : EllObj B)
+    (α : (gammaOne B N).obj (op X)) :
+    (gammaOneEquiv X ((gammaOneAction B N u).asIso.inv.app (op X) α)).1 =
+      (gammaOneEquiv X α).1 ^ ((↑u⁻¹ : ZMod N).cast : ℤ) :=
+  gammaOneEquiv_gammaOneEnd_app u⁻¹ X α
+
+/-- For `N ≠ 0`, `u : (ZMod N)ˣ` sends a `[Γ₁(N)]`-structure `P` to `P ^ (u : ZMod N).val`. -/
+theorem gammaOneEquiv_gammaOneAction_hom_app_eq_pow_val [NeZero N] (u : (ZMod N)ˣ)
+    (X : EllObj B) (α : (gammaOne B N).obj (op X)) :
+    (gammaOneEquiv X ((gammaOneAction B N u).asIso.hom.app (op X) α)).1 =
+      (gammaOneEquiv X α).1 ^ (u : ZMod N).val := by
+  rw [gammaOneEquiv_gammaOneAction_hom_app, zpow_zmod_cast_eq_pow_val]
+
+/-- The unit `-1 : (ZMod N)ˣ` negates the point of a `[Γ₁(N)]`-structure. -/
+theorem gammaOneEquiv_gammaOneAction_neg_one_hom_app (X : EllObj B)
+    (α : (gammaOne B N).obj (op X)) :
+    (gammaOneEquiv X ((gammaOneAction B N (-1)).asIso.hom.app (op X) α)).1 =
+      (gammaOneEquiv X α).1⁻¹ := by
+  rw [gammaOneEquiv_gammaOneAction_hom_app, Units.val_neg, Units.val_one,
+    zpow_zmod_cast_neg_one (gammaOneEquiv X α).2.pow_eq_one]
+
+/-- **The diamond action of `-1` is pullback along `[-1]`**: on any object `X` of `Ell/B`, the unit
+`-1 : (ZMod N)ˣ` acts on `[Γ₁(N)](X)` as pullback along the negation arrow `X.neg`. -/
+theorem gammaOneAction_neg_one_hom_app (X : EllObj B) (α : (gammaOne B N).obj (op X)) :
+    (gammaOneAction B N (-1)).asIso.hom.app (op X) α = (gammaOne B N).map X.neg.op α := by
+  apply (gammaOneEquiv X).injective
+  apply Subtype.ext
+  rw [gammaOneEquiv_gammaOneAction_neg_one_hom_app, gammaOneEquiv_map, X.pointsPullback_neg]
+
+/-- **Compatibility of `gammaOneBaseChangeEquiv` with the diamond action.** Under the
+identification of `[Γ₁(N)]`-structures on `E_T` with morphisms `T ⟶ E.exactOrderScheme N`, the
+diamond action of `u : (ZMod N)ˣ` postcomposes with `(E.exactOrderSchemeAction N u).asIso.hom`. -/
+@[simp]
+theorem gammaOneBaseChangeEquiv_gammaOneAction_hom_app (X : EllObj B) (T : Over X.base)
+    (u : (ZMod N)ˣ) (α : (gammaOne B N).obj (op (X.baseChangeFunctor.obj T))) :
+    gammaOneBaseChangeEquiv X T ((gammaOneAction B N u).asIso.hom.app _ α) =
+      gammaOneBaseChangeEquiv X T α ≫ (X.curve.exactOrderSchemeAction N u).asIso.hom := by
+  refine (cancel_mono (X.curve.exactOrderSchemeι N)).mp ?_
+  have hy : gammaOneBaseChangeEquiv X T α ≫ X.curve.exactOrderSchemeι N =
+      X.baseChangePointsEquiv T (gammaOneEquiv _ α).1 :=
+    Over.OverMorphism.ext <| by simp [EllipticCurveGeom.exactOrderSchemeι_left]; rfl
+  rw [Category.assoc, EllipticCurveGeom.exactOrderSchemeAction_hom_comp_exactOrderSchemeι,
+    EllipticCurveGeom.comp_zpow, hy]
+  exact Over.OverMorphism.ext <| by
+    simp [EllipticCurveGeom.exactOrderSchemeι_left, gammaOneEquiv_gammaOneAction_hom_app,
+      ← map_zpow]
+    rfl
+
+/-- Postcomposing `a : T ⟶ E.exactOrderScheme N` with `(E.exactOrderSchemeAction N u).asIso.hom`
+applies the diamond action of `u` to the classified `[Γ₁(N)]`-structure on `E_T`. -/
+@[simp]
+theorem gammaOneBaseChangeEquiv_symm_comp_exactOrderSchemeAction_hom (X : EllObj B)
+    (T : Over X.base) (u : (ZMod N)ˣ) (a : T ⟶ X.curve.exactOrderScheme N) :
+    (gammaOneBaseChangeEquiv X T).symm (a ≫ (X.curve.exactOrderSchemeAction N u).asIso.hom) =
+      (gammaOneAction B N u).asIso.hom.app _ ((gammaOneBaseChangeEquiv X T).symm a) := by
+  rw [Equiv.symm_apply_eq, gammaOneBaseChangeEquiv_gammaOneAction_hom_app, Equiv.apply_symm_apply]
+
+/-- **The diamond action on `[Γ₁(N)]` is free over nonempty bases where `N` is invertible.** If
+`X` has nonempty base `X.base` on whose residue fields `N` is nonzero, and `u : (ZMod N)ˣ` fixes a
+`[Γ₁(N)]`-structure `α` on `X`, then `u = 1`. Note that `N` need not be invertible on `B` itself
+(for instance `B = Spec ℤ` and `X.base` lies over `D(N)`). -/
+theorem eq_one_of_gammaOneAction_hom_app_eq_self {X : EllObj B} [Nonempty X.base]
+    (hN : ∀ s : X.base, (N : X.base.residueField s) ≠ 0) {u : (ZMod N)ˣ}
+    {α : (gammaOne B N).obj (op X)}
+    (h : (gammaOneAction B N u).asIso.hom.app (op X) α = α) : u = 1 :=
+  EllipticCurveGeom.eq_one_of_isOfExactOrder_zpow_unit_eq_self hN (gammaOneEquiv X α).2 <| by
+    simpa using congrArg (fun β ↦ (gammaOneEquiv X β).1) h
+
+/-- Over a base scheme `B` on whose residue fields `N` is nonzero, `(ZMod N)ˣ` acts freely on
+`[Γ₁(N)](X)` for every object `X` of `Ell/B` with nonempty base. -/
+theorem eq_one_of_gammaOneAction_hom_app_eq_self_of_base {X : EllObj B} [Nonempty X.base]
+    (hN : ∀ b : B, (N : B.residueField b) ≠ 0) {u : (ZMod N)ˣ}
+    {α : (gammaOne B N).obj (op X)}
+    (h : (gammaOneAction B N u).asIso.hom.app (op X) α = α) : u = 1 :=
+  eq_one_of_gammaOneAction_hom_app_eq_self
+    (fun _ ↦ X.structureMap.natCast_residueField_ne_zero (hN _)) h
+
+end Diamond
 
 end ModuliProblem
 
