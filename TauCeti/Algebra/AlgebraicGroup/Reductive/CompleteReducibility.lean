@@ -10,6 +10,7 @@ public import TauCeti.Algebra.AlgebraicGroup.Reductive.LinearlyReductive
 public import TauCeti.Algebra.AlgebraicGroup.Reductive.Lie
 public import TauCeti.Algebra.AlgebraicGroup.Reductive.Differential
 public import TauCeti.Algebra.AlgebraicGroup.Representation.LieStable
+public import TauCeti.Algebra.AlgebraicGroup.LinearlyReductive.IdentityComponent
 import TauCeti.Algebra.Lie.Reductive.CompleteReducibility
 
 /-!
@@ -24,8 +25,9 @@ representation. Connectedness identifies Lie-stable subspaces with subrepresenta
 complements are rational subrepresentations. Linear reductivity descends from the algebraic
 closure to the original field. Together with the converse for smooth geometrically connected
 groups, this gives the equivalence between reductivity and linear reductivity in characteristic
-zero. Every rational representation, including an infinite-dimensional one, is therefore
-completely reducible.
+zero; combining with the identity-component reduction yields Milne's Corollary 22.43 for arbitrary
+finite-type affine groups. Every rational representation, including an infinite-dimensional one, is
+therefore completely reducible.
 
 The Lie-algebra inputs are `reductiveCommHopfAlgProperty.hasCentralRadical_lieAlgebra` and
 `reductiveCommHopfAlgProperty.isSemisimple_differential_of_mem_center`. The passage back to
@@ -34,7 +36,7 @@ Lie action is assembled as in `TauCeti.Algebra.AlgebraicGroup.Representation.Com
 
 ## References
 
-* J. S. Milne, *Algebraic Groups* (2017), Chapter 22.
+* J. S. Milne, *Algebraic Groups* (2017), Chapter 22, including Corollary 22.43.
 * J. E. Humphreys, *Linear Algebraic Groups*, §13.
 * `TauCeti.Algebra.Lie.Reductive.CompleteReducibility`, for complete reducibility with
   semisimple central action.
@@ -123,6 +125,19 @@ theorem reductiveCommHopfAlgProperty_iff_linearlyReductive
   exact of_smooth_of_geometricallyConnected_of_baseChange_linearlyReductive
     ((smoothCommHopfAlgProperty_iff _).mp (smoothCommHopfAlgProperty_of_charZero k H.obj))
     hconnected (hH.baseChange (AlgebraicClosure k))
+
+/-- **Milne, *Algebraic Groups*, Corollary 22.43.** Over a field `k` of characteristic zero, an
+affine group of finite type (not necessarily connected) is linearly reductive if and only if its
+geometric identity component over `AlgebraicClosure k` is reductive. -/
+theorem linearlyReductiveCommHopfAlgProperty_iff_reductive_identityComponent
+    (H : FiniteTypeCommHopfAlgCat.{u, u} k) :
+    linearlyReductiveCommHopfAlgProperty k H.obj ↔
+      reductiveCommHopfAlgProperty (AlgebraicClosure k)
+        (FiniteTypeCommHopfAlgCat.identityComponent
+          ((FiniteTypeCommHopfAlgCat.baseChangeFunctor (K := AlgebraicClosure k)).obj H)) :=
+  (linearlyReductiveCommHopfAlgProperty_iff_identityComponent_of_charZero H).trans
+    (reductiveCommHopfAlgProperty_iff_linearlyReductive _
+      (FiniteTypeCommHopfAlgCat.geometricallyConnected_identityComponent _)).symm
 
 end ArbitraryField
 

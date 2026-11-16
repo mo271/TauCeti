@@ -726,6 +726,16 @@ lemma quotientBotIso_inv (H : FiniteTypeCommHopfAlgCat.{u, v} R) :
   apply ObjectProperty.hom_ext
   exact CommHopfAlgCat.quotientBotIso_inv H.obj
 
+/-- The finite-type quotient morphism sends an element to its quotient class. -/
+lemma mkQuotient_apply (H : FiniteTypeCommHopfAlgCat.{u, v} R) (I : HopfIdeal R H) (h : H) :
+    toBialgHom (mkQuotient H I) h = Ideal.Quotient.mkₐ R I.toIdeal h :=
+  CommHopfAlgCat.mkQuotient_apply H.obj I h
+
+/-- The linear map underlying the finite-type quotient morphism is the ideal quotient map. -/
+lemma mkQuotient_toLinearMap (H : FiniteTypeCommHopfAlgCat.{u, v} R) (I : HopfIdeal R H) :
+    (toBialgHom (mkQuotient H I)).toLinearMap = (Ideal.Quotient.mkₐ R I.toIdeal).toLinearMap :=
+  CommHopfAlgCat.mkQuotient_toLinearMap H.obj I
+
 /-- The kernel of the finite-type quotient morphism is the Hopf ideal being quotiented by. -/
 lemma mkQuotient_ker (H : FiniteTypeCommHopfAlgCat.{u, v} R) (I : HopfIdeal R H) :
     RingHom.ker (toBialgHom (mkQuotient H I)).toAlgHom.toRingHom = I.toIdeal :=
@@ -736,6 +746,11 @@ ideal. -/
 lemma mkQuotient_eq_zero_iff (H : FiniteTypeCommHopfAlgCat.{u, v} R)
     (I : HopfIdeal R H) (h : H) : toBialgHom (mkQuotient H I) h = 0 ↔ h ∈ I :=
   CommHopfAlgCat.mkQuotient_eq_zero_iff H.obj I h
+
+/-- The finite-type quotient morphism is surjective. -/
+lemma mkQuotient_surjective (H : FiniteTypeCommHopfAlgCat.{u, v} R) (I : HopfIdeal R H) :
+    Function.Surjective ⇑(toBialgHom (mkQuotient H I)) :=
+  CommHopfAlgCat.mkQuotient_surjective H.obj I
 
 variable {H K : FiniteTypeCommHopfAlgCat.{u, v} R}
 

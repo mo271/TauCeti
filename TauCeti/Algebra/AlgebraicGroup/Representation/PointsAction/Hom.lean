@@ -6,6 +6,7 @@ Authors: The Tau Ceti contributors
 module
 
 public import TauCeti.Algebra.AlgebraicGroup.Representation.PointsAction.Basic
+public import TauCeti.Algebra.Coalgebra.Comodule.Fixed
 public import TauCeti.Algebra.Coalgebra.Subcomodule.Induced
 
 /-!
@@ -14,9 +15,12 @@ public import TauCeti.Algebra.Coalgebra.Subcomodule.Induced
 Morphisms of right `H`-comodules intertwine the action `TauCeti.Comodule.basePointsRepresentation`
 of base-valued points (`TauCeti.Comodule.Hom.comp_basePointsRepresentation` and
 `TauCeti.Comodule.Hom.map_basePointsRepresentation`), as well as the scalar-extended automorphism
-action `TauCeti.Comodule.pointsAction` (`TauCeti.Comodule.Hom.baseChange_pointsAction`). Applied
-to the inclusion of a subcomodule over a flat Hopf algebra, the induced base-point action on the
-subcomodule agrees with the ambient action (`TauCeti.Subcomodule.coe_basePointsRepresentation`).
+action `TauCeti.Comodule.pointsAction` (`TauCeti.Comodule.Hom.baseChange_pointsAction`). In
+particular, a comodule morphism sends any normalized sum of base-point translates of a preimage of a
+fixed vector to that fixed vector
+(`TauCeti.Comodule.Hom.map_inv_natCard_smul_sum_basePointsRepresentation_of_mem_fixedSubcomodule`).
+Applied to the inclusion of a subcomodule over a flat Hopf algebra, the induced base-point action on
+the subcomodule agrees with the ambient action (`TauCeti.Subcomodule.coe_basePointsRepresentation`).
 
 ## References
 
@@ -34,6 +38,8 @@ namespace TauCeti
 universe u v w x y
 
 namespace Comodule.Hom
+
+section Semiring
 
 variable {R : Type u} {H : Type v} {M : Type w} {N : Type x} {A : Type y}
 variable [CommSemiring R] [Semiring H] [HopfAlgebra R H]
@@ -64,6 +70,40 @@ theorem comp_basePointsRepresentation (f : Hom R H M N) (g : WithConv (H →ₐ[
 theorem map_basePointsRepresentation (f : Hom R H M N) (g : WithConv (H →ₐ[R] R)) (m : M) :
     f (basePointsRepresentation (H := H) M g m) = basePointsRepresentation (H := H) N g (f m) :=
   LinearMap.congr_fun (f.comp_basePointsRepresentation g) m
+
+/-- A comodule morphism sends any finite sum of base-point translates of a preimage of a fixed
+vector to the corresponding natural-number multiple of that fixed vector. -/
+theorem map_sum_basePointsRepresentation_of_mem_fixedSubcomodule {ι : Type*} (s : Finset ι)
+    (g : ι → WithConv (H →ₐ[R] R)) (f : Hom R H M N) {m₀ : M} {n : N}
+    (hm₀ : f m₀ = n) (hn : n ∈ Comodule.fixedSubcomodule R H N) :
+    f (∑ i ∈ s, basePointsRepresentation (H := H) M (g i) m₀) = s.card • n := by
+  have hterm (i : ι) : f (basePointsRepresentation (H := H) M (g i) m₀) = n := by
+    rw [f.map_basePointsRepresentation, hm₀]
+    exact basePointsRepresentation_eq_of_coact_eq_tmul_one n
+      (Comodule.mem_fixedSubcomodule.mp hn) (g i)
+  rw [← f.coe_toLinearMap, map_sum]
+  simp [hterm]
+
+end Semiring
+
+section Field
+
+/-- Over a field in which `Nat.card ι` is nonzero, a comodule morphism sends the normalized average
+of base-point translates of a preimage of a fixed vector to that fixed vector. -/
+theorem map_inv_natCard_smul_sum_basePointsRepresentation_of_mem_fixedSubcomodule
+    {k : Type u} [Field k] {H : Type v} [Semiring H] [HopfAlgebra k H]
+    {M : Type w} {N : Type x} [AddCommMonoid M] [Module k M] [Comodule k H M]
+    [AddCommMonoid N] [Module k N] [Comodule k H N]
+    {ι : Type*} [Fintype ι] (hcard : (Nat.card ι : k) ≠ 0)
+    (g : ι → WithConv (H →ₐ[k] k)) (f : Hom k H M N) {m₀ : M} {n : N}
+    (hm₀ : f m₀ = n) (hn : n ∈ Comodule.fixedSubcomodule k H N) :
+    f ((Nat.card ι : k)⁻¹ • ∑ i : ι, basePointsRepresentation (H := H) M (g i) m₀) = n := by
+  rw [← f.coe_toLinearMap, map_smul, f.coe_toLinearMap,
+    f.map_sum_basePointsRepresentation_of_mem_fixedSubcomodule Finset.univ g hm₀ hn,
+    Finset.card_univ, Fintype.card_eq_nat_card, ← Nat.cast_smul_eq_nsmul k,
+    inv_smul_smul₀ hcard]
+
+end Field
 
 end Comodule.Hom
 

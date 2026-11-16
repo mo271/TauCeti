@@ -192,6 +192,21 @@ theorem rationalComponentMap_surjective (H : FiniteTypeCommHopfAlgCat.{u, u} k) 
   (componentGroupPointsMulEquivConnectedComponents H).surjective.comp <|
     componentGroupPointsMk_surjective H
 
+/-- A chosen rational point in a given connected component of the spectrum. -/
+noncomputable def componentRepresentative
+    (H : FiniteTypeCommHopfAlgCat.{u, u} k)
+    (C : ConnectedComponents (PrimeSpectrum H)) :
+    HopfAlgebra.points (R := k) (H := H) (CommAlgCat.of k k) :=
+  Classical.choose (rationalComponentMap_surjective H C)
+
+/-- The chosen representative of `C` maps to `C` under `rationalComponentMap`. -/
+@[simp]
+theorem rationalComponentMap_componentRepresentative
+    (H : FiniteTypeCommHopfAlgCat.{u, u} k)
+    (C : ConnectedComponents (PrimeSpectrum H)) :
+    rationalComponentMap H (componentRepresentative H C) = C :=
+  Classical.choose_spec (rationalComponentMap_surjective H C)
+
 /-- A rational point maps to the identity component exactly when it belongs to the rational
 points of `H⁰`. -/
 @[simp]

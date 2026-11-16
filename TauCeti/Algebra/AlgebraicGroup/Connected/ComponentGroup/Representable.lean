@@ -65,20 +65,6 @@ private noncomputable instance (H : FiniteTypeCommHopfAlgCat.{u, u} k) :
     DecidableEq (ConnectedComponents (PrimeSpectrum H)) :=
   Classical.decEq _
 
-/-- A chosen rational point in each connected component of the spectrum. -/
-private noncomputable def componentRepresentative
-    (H : FiniteTypeCommHopfAlgCat.{u, u} k)
-    (C : ConnectedComponents (PrimeSpectrum H)) :
-    HopfAlgebra.points (R := k) (H := H) (CommAlgCat.of k k) :=
-  Classical.choose (rationalComponentMap_surjective H C)
-
-@[simp]
-private theorem rationalComponentMap_componentRepresentative
-    (H : FiniteTypeCommHopfAlgCat.{u, u} k)
-    (C : ConnectedComponents (PrimeSpectrum H)) :
-    rationalComponentMap H (componentRepresentative H C) = C :=
-  Classical.choose_spec (rationalComponentMap_surjective H C)
-
 /-- The algebra map obtained by gluing the chosen component representatives along the
 orthogonal idempotents of a constant-group point. -/
 private noncomputable def componentPointLiftAlgHom

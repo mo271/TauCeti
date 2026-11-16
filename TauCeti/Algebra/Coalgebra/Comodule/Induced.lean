@@ -10,6 +10,7 @@ public import TauCeti.Algebra.Coalgebra.Comodule.Corestrict
 public import TauCeti.Algebra.Coalgebra.Comodule.Preadditive
 public import TauCeti.Algebra.Coalgebra.Subcomodule.Comap
 public import TauCeti.Algebra.Coalgebra.Subcomodule.Induced
+import TauCeti.LinearAlgebra.TensorProduct.Basic
 
 /-!
 # Induced comodules and Frobenius reciprocity
@@ -49,6 +50,8 @@ the equalizer condition is vacuous.
 * `TauCeti.Comodule.induced`: the induced comodule `Ind_f M`, as a subcomodule of the cofree
   comodule `M ⊗[R] C`.
 * `TauCeti.Comodule.mem_induced_iff`: its defining cotensor equalizer.
+* `TauCeti.Comodule.lTensor_coact_mem_induced`: pushing a `D`-coaction along a left-colinear linear
+  map `D →ₗ[R] C` lands in `Ind_f M`.
 * `TauCeti.Comodule.inducedEval`: evaluation `Ind_f M → M` by the counit of `C`, a morphism of
   `D`-comodules after corestriction.
 * `TauCeti.Comodule.inducedLift`: the morphism `N → Ind_f M` attached to a morphism of
@@ -123,6 +126,40 @@ theorem mem_induced_iff {t : M ⊗[R] C} :
         (TensorProduct.assoc R M D C).symm
           (((f : C →ₗ[R] D).rTensor C ∘ₗ Coalgebra.comul).lTensor M t) := by
   rw [mem_induced_iff_cofreeLift, Hom.cofreeLift_lTensor_apply]
+
+variable {f} in
+/-- Pushing the coaction of a vector in a right `D`-comodule along an `R`-linear map
+`σ : D →ₗ[R] C` satisfying `(f ⊗ id) ∘ Δ_C ∘ σ = (id ⊗ σ) ∘ Δ_D` produces an element of the
+induced `C`-comodule `Ind_f M`. -/
+theorem lTensor_coact_mem_induced {σ : D →ₗ[R] C}
+    (hσ : ∀ x : D,
+      ((f : C →ₗ[R] D).rTensor C) (Coalgebra.comul (R := R) (σ x)) =
+        σ.lTensor D (Coalgebra.comul (R := R) x))
+    (m : M) :
+    σ.lTensor M (coact (R := R) (C := D) m) ∈ induced f M := by
+  rw [mem_induced_iff f, ← LinearMap.lTensor_rTensor_comm]
+  have hcoassoc :
+      (coact (R := R) (C := D) (M := M)).rTensor D (coact (R := R) (C := D) m) =
+        (TensorProduct.assoc R M D D).symm
+          ((Coalgebra.comul (R := R) (A := D)).lTensor M (coact (R := R) (C := D) m)) :=
+    (TensorProduct.assoc R M D D).eq_symm_apply.mpr
+      (LinearMap.congr_fun (coact_coassoc (R := R) (C := D) (M := M)) m)
+  rw [hcoassoc]
+  have h2 (z : M ⊗[R] D) :
+      σ.lTensor (M ⊗[R] D)
+          ((TensorProduct.assoc R M D D).symm
+            ((Coalgebra.comul (R := R) (A := D)).lTensor M z)) =
+        (TensorProduct.assoc R M D C).symm
+          (((f : C →ₗ[R] D).rTensor C ∘ₗ Coalgebra.comul).lTensor M (σ.lTensor M z)) := by
+    induction z using TensorProduct.inductionOn with
+    | tmul v x =>
+      simp only [LinearMap.lTensor_tmul, LinearMap.comp_apply]
+      rw [hσ x]
+      induction Coalgebra.comul (R := R) x using TensorProduct.inductionOn with
+      | tmul x₁ x₂ => simp
+      | add y w hy hw => simp [TensorProduct.tmul_add, hy, hw]
+    | add y w hy hw => simp [hy, hw]
+  exact h2 (coact (R := R) (C := D) m)
 
 /-- **The key identity on `Ind_f M`.** Coacting on the counit evaluation of `t ∈ Ind_f M` gives
 `(id ⊗ f) t`. -/

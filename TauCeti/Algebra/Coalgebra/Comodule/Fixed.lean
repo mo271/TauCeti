@@ -8,6 +8,7 @@ module
 public import Mathlib.Algebra.Module.Submodule.EqLocus
 public import Mathlib.LinearAlgebra.TensorProduct.Decomposition
 public import Mathlib.RingTheory.Flat.Basic
+public import TauCeti.Algebra.Coalgebra.Comodule.Corestrict
 public import TauCeti.Algebra.Coalgebra.Subcomodule.Basic
 
 /-!
@@ -30,6 +31,8 @@ is proved in `TauCeti.Algebra.Coalgebra.Comodule.LinearlyReductive.Fixed`.
 * `TauCeti.Comodule.fixedSubcomodule`: the subcomodule of vectors with coaction `v ↦ v ⊗ 1`.
 * `TauCeti.Comodule.mem_fixedSubcomodule` and `TauCeti.Comodule.fixedSubcomodule_eq_top_iff`: its
   membership and triviality characterizations.
+* `TauCeti.Comodule.mem_fixedSubcomodule_corestrict`: corestricting along a coalgebra morphism
+  sending `1` to `1` preserves invariant vectors.
 * `TauCeti.Comodule.Hom.fixedMap`: the induced linear map on invariant vectors.
 * `TauCeti.Comodule.Hom.mem_fixedSubcomodule_iff_of_injective`: reflection of invariance along
   injective comodule morphisms over a flat coalgebra.
@@ -85,6 +88,17 @@ theorem fixedSubcomodule_eq_top_iff :
       ∀ m : M, coact (R := R) (C := C) (M := M) m = m ⊗ₜ[R] (1 : C) :=
   ⟨fun h m ↦ mem_fixedSubcomodule.mp (h ▸ Subcomodule.mem_top m),
     fun h ↦ Subcomodule.ext fun m ↦ by simp [h m]⟩
+
+/-- Corestricting a comodule along a coalgebra morphism sending `1` to `1` preserves invariant
+vectors. -/
+theorem mem_fixedSubcomodule_corestrict {D : Type*} [AddCommMonoid D] [Module R D]
+    [Coalgebra R D] [One D] (f : C →ₗc[R] D) (hf : f 1 = 1)
+    {m : M} (hm : m ∈ fixedSubcomodule R C M) :
+    letI : Comodule R D M := Corestrict f
+    m ∈ fixedSubcomodule R D M := by
+  let _ : Comodule R D M := Corestrict f
+  rw [mem_fixedSubcomodule, corestrict_coact_apply, mem_fixedSubcomodule.mp hm]
+  simp [hf]
 
 namespace Hom
 

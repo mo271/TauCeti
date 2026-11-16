@@ -261,6 +261,20 @@ theorem componentCoordinateMap_indicator (H : FiniteTypeCommHopfAlgCat.{u, u} k)
       · simp
 
 omit [IsAlgClosed k] in
+/-- The component coordinate map sends the constant-group delta function of a component to its
+canonical component idempotent. -/
+@[simp]
+theorem componentCoordinateMap_delta (H : FiniteTypeCommHopfAlgCat.{u, u} k)
+    (C : ConnectedComponents (PrimeSpectrum H)) :
+    componentCoordinateMap H (ConstantGroup.delta k (ConnectedComponents (PrimeSpectrum H)) C) =
+      PrimeSpectrum.connectedComponentsIdempotent C := by
+  classical
+  rw [← componentCoordinateMap_indicator H C]
+  congr 1
+  apply (ConstantGroup.functionAlgEquiv k (ConnectedComponents (PrimeSpectrum H))).injective
+  rw [ConstantGroup.functionAlgEquiv_delta, AlgEquiv.apply_symm_apply]
+
+omit [IsAlgClosed k] in
 /-- The component coordinate map is injective. -/
 theorem componentCoordinateMap_injective (H : FiniteTypeCommHopfAlgCat.{u, u} k) :
     Function.Injective (componentCoordinateMap H) :=
@@ -417,7 +431,7 @@ instance (H : FiniteTypeCommHopfAlgCat.{u, u} k) : Mono (componentCoordinateHom 
 
 /-- The idempotent of the identity component of `Spec H` is the idempotent of the connected
 component of the augmentation point. -/
-private theorem connectedComponentsIdempotent_one (H : FiniteTypeCommHopfAlgCat.{u, u} k) :
+theorem connectedComponentsIdempotent_one (H : FiniteTypeCommHopfAlgCat.{u, u} k) :
     PrimeSpectrum.connectedComponentsIdempotent (1 : ConnectedComponents (PrimeSpectrum H)) =
       PrimeSpectrum.connectedComponentIdempotent
         (Bialgebra.augmentationPoint k H : PrimeSpectrum H) :=

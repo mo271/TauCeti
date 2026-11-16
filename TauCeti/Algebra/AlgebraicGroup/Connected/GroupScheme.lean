@@ -82,6 +82,14 @@ noncomputable def identityComponentCoordinateMap
     (H : FiniteTypeCommHopfAlgCat.{u, u} k) : H ⟶ identityComponent H :=
   mkQuotient H (HopfAlgebra.identityComponentHopfIdeal (k := k) (H := H))
 
+/-- The identity-component coordinate morphism is the quotient morphism by the identity-component
+Hopf ideal. -/
+theorem identityComponentCoordinateMap_def
+    (H : FiniteTypeCommHopfAlgCat.{u, u} k) :
+    identityComponentCoordinateMap H =
+      mkQuotient H (HopfAlgebra.identityComponentHopfIdeal (k := k) (H := H)) := by
+  rfl
+
 /-- The kernel of the identity-component coordinate morphism is the ideal cutting out the
 connected component of the augmentation point. -/
 theorem identityComponentCoordinateMap_ker

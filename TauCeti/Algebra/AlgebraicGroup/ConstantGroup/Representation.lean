@@ -8,6 +8,8 @@ module
 public import Mathlib.RepresentationTheory.Basic
 public import TauCeti.Algebra.AlgebraicGroup.ConstantGroup.Basic
 public import TauCeti.Algebra.AlgebraicGroup.Representation.PointsAction.Basic
+public import TauCeti.Algebra.Coalgebra.Comodule.Fixed
+import TauCeti.LinearAlgebra.TensorProduct.Basic
 
 /-!
 # Representations of finite constant groups as comodules
@@ -19,8 +21,10 @@ attached to `G`: the coaction is
 `v ↦ ∑ g, ρ g v ⊗ δ_g`,
 
 where `δ_g = TauCeti.ConstantGroup.delta R G g` is the indicator function of `g` in the
-coordinate ring `G → R`. This file constructs this comodule and shows that the rational point `g`
-of the constant group acts on `V` through `ρ g`. No finiteness or freeness is required of `V`.
+coordinate ring `G → R`. This file constructs this comodule, shows that the rational point `g`
+of the constant group acts on `V` through `ρ g`, and characterizes the fixed subcomodule of any
+comodule over `coordinateRing R G` as the vectors fixed by all rational points of `G`. No
+finiteness or freeness is required of the comodule.
 
 ## Main declarations
 
@@ -28,6 +32,8 @@ of the constant group acts on `V` through `ρ g`. No finiteness or freeness is r
   to a representation of `G`.
 * `TauCeti.ConstantGroup.basePointsRepresentation_toPoints`: the rational point `g` acts through
   `ρ g`.
+* `TauCeti.ConstantGroup.mem_fixedSubcomodule_iff_forall_basePointsRepresentation_toPoints`:
+  pointwise characterization of fixed vectors in comodules over a finite constant group.
 
 ## References
 
@@ -106,5 +112,43 @@ theorem basePointsRepresentation_toPoints (ρ : Representation R G V) (g : G) (v
     one_smul, zero_smul, Finset.sum_ite_eq, Finset.mem_univ, ite_true]
 
 end Comodule
+
+section Fixed
+
+/-- In any comodule over the coordinate Hopf algebra of a finite constant group, a vector is fixed
+by the coaction if and only if it is fixed by the rational point of every element of `G`. -/
+theorem mem_fixedSubcomodule_iff_forall_basePointsRepresentation_toPoints
+    {R : Type u} [CommRing R] {G : Type v} [Group G] [Finite G]
+    {M : Type w} [AddCommMonoid M] [Module R M] [Comodule R (coordinateRing R G) M] {m : M} :
+    m ∈ Comodule.fixedSubcomodule R (coordinateRing R G) M ↔
+      ∀ g : G, Comodule.basePointsRepresentation (H := coordinateRing R G) M (toPoints R G g) m =
+        m := by
+  classical
+  let _ : Fintype G := Fintype.ofFinite G
+  constructor
+  · intro hm g
+    exact Comodule.basePointsRepresentation_eq_of_coact_eq_tmul_one m
+      (Comodule.mem_fixedSubcomodule.mp hm) (toPoints R G g)
+  · intro hm
+    let b : G → coordinateRing R G := delta R G
+    let φ : G → (coordinateRing R G →ₗ[R] R) := fun g ↦ (toPoints R G g).ofConv.toLinearMap
+    have hb (x : coordinateRing R G) : ∑ g : G, φ g x • b g = x := by
+      apply (functionAlgEquiv R G).injective
+      ext h
+      simp [φ, b, toPoints_apply]
+    rw [Comodule.mem_fixedSubcomodule,
+      ← LinearMap.sum_tensorComponent_tmul b φ hb (Comodule.coact m),
+      ← LinearMap.sum_tensorComponent_tmul b φ hb (m ⊗ₜ[R] 1)]
+    refine Finset.sum_congr rfl fun g _ ↦ ?_
+    have hcomp : LinearMap.tensorComponent (φ g)
+        (Comodule.coact (R := R) (C := coordinateRing R G) m) = m := by
+      have hg := congrArg (TensorProduct.lid R M)
+        (Comodule.endOfPoint_one_tmul_eq_one_tmul_basePointsRepresentation (toPoints R G g) m)
+      simpa only [φ, LinearMap.tensorComponent_def, LinearMap.comp_apply, LinearEquiv.coe_coe,
+        TensorProduct.lid_comm, TensorProduct.lid_tmul, one_smul, hm g] using hg
+    rw [hcomp, LinearMap.tensorComponent_tmul]
+    simp [φ]
+
+end Fixed
 
 end TauCeti.ConstantGroup
