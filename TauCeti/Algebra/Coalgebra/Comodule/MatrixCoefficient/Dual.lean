@@ -6,6 +6,7 @@ Authors: The Tau Ceti contributors
 module
 
 public import TauCeti.Algebra.Coalgebra.Comodule.Dual
+public import TauCeti.Algebra.Coalgebra.Comodule.MatrixCoefficient.Matrix
 public import TauCeti.Algebra.Coalgebra.Comodule.MatrixCoefficient.Product
 
 /-!
@@ -23,7 +24,8 @@ Finite projectivity identifies every functional on `Mᵛ` with evaluation at som
 coefficient sets satisfy `CoeffSet(Mᵛ) = S '' CoeffSet(M)`. No inverse for the antipode is
 needed. When the Hopf algebra is commutative, this becomes an equality of coefficient
 subalgebras, and combining it with the product-comodule formula gives the coefficient algebra of
-`M × Mᵛ`.
+`M × Mᵛ`. In a finite basis, the coefficient matrix of the dual basis is the transposed entrywise
+antipode image of the original coefficient matrix.
 
 ## Main results
 
@@ -33,6 +35,8 @@ subalgebras, and combining it with the product-comodule formula gives the coeffi
   the antipode image of the original coefficient algebra.
 * `TauCeti.Comodule.matrixCoefficientSubalgebra_prod_dual`: adjoining a comodule and its dual
   adjoins the original coefficient algebra and its antipode image.
+* `Module.Basis.coefficientMatrix_dualBasis`: the coefficient matrix in the dual basis is the
+  transposed entrywise antipode image of the original coefficient matrix.
 
 ## References
 
@@ -138,3 +142,28 @@ end Algebra
 end
 
 end TauCeti.Comodule
+
+namespace Module.Basis
+
+variable {R H M ι : Type*} [CommSemiring R] [Semiring H] [HopfAlgebra R H]
+  [AddCommMonoid M] [Module R M] [TauCeti.Comodule R H M]
+  [Module.Finite R M] [Module.Projective R M] [Finite ι] [DecidableEq ι]
+
+attribute [local instance] TauCeti.Comodule.dual
+
+/-- In the dual basis, the coefficient matrix of the dual comodule is the transpose of the
+entrywise antipode image of the original coefficient matrix. -/
+@[simp]
+theorem coefficientMatrix_dualBasis (b : Basis ι R M) :
+    TauCeti.Comodule.coefficientMatrix (C := H) b.dualBasis =
+      ((TauCeti.Comodule.coefficientMatrix (C := H) b).map
+        (HopfAlgebra.antipode R)).transpose := by
+  ext i j
+  have hcoord : b.dualBasis.coord i = Module.Dual.eval R M (b i) := by
+    ext φ
+    simp [Basis.coord_apply]
+  rw [TauCeti.Comodule.coefficientMatrix_apply, hcoord,
+    TauCeti.Comodule.matrixCoefficient_dual_eval, Matrix.transpose_apply, Matrix.map_apply,
+    TauCeti.Comodule.coefficientMatrix_apply, b.coe_dualBasis]
+
+end Module.Basis
