@@ -5,6 +5,7 @@ Authors: The Tau Ceti contributors
 -/
 module
 
+public import Mathlib.Algebra.Polynomial.Degree.IsMonicOfDegree
 public import Mathlib.Algebra.Polynomial.Reverse
 public import Mathlib.Algebra.Polynomial.RingDivision
 public import Mathlib.Algebra.Polynomial.Taylor
@@ -46,8 +47,9 @@ finite products (`Polynomial.reflect_prod`), which computes the reflection of a 
 polynomials term by term. The reverse of a scalar multiple of a product of linear factors with
 nonzero roots is again such a product in the reciprocal roots
 (`Polynomial.reverse_C_mul_prod_X_sub_C`). Reflection at a degree bound stays within that bound,
-also after a coefficient map, and its coefficient at the bound is the constant coefficient.
-The reverse of
+also after a coefficient map, and its coefficient at the bound is the constant coefficient; when
+that constant coefficient is `1`, the reflection is monic (and of exact degree equal to the bound
+over a nontrivial semiring). The reverse of
 `(X - C a) ^ n` is `(1 - C a * X) ^ n`, and over a nontrivial ring its factor `1 - X` (for `a = 1`)
 is nonzero.
 
@@ -181,6 +183,23 @@ theorem natDegree_map_reflect_le_of_natDegree_le [Semiring R] [Semiring S] (f : 
 theorem coeff_reflect_self [Semiring R] (p : R[X]) (N : ℕ) :
     (p.reflect N).coeff N = p.coeff 0 := by
   rw [coeff_reflect, revAt_le le_rfl, Nat.sub_self]
+
+/-- Reflecting a normalized polynomial (`p.coeff 0 = 1`) at a bound `N ≥ p.natDegree` produces a
+monic polynomial. -/
+theorem monic_reflect_of_natDegree_le [Semiring R] {p : R[X]} {N : ℕ} (hN : p.natDegree ≤ N)
+    (hp0 : p.coeff 0 = 1) : (p.reflect N).Monic := by
+  rcases subsingleton_or_nontrivial R with _ | _
+  · rw [Subsingleton.elim (p.reflect N) 1]
+    exact monic_one
+  · exact monic_of_natDegree_le_of_coeff_eq_one N (natDegree_reflect_le_of_natDegree_le hN)
+      (by rwa [coeff_reflect_self])
+
+/-- Over a nontrivial semiring, reflecting a normalized polynomial (`p.coeff 0 = 1`) at a bound
+`N ≥ p.natDegree` produces a monic polynomial of exact degree `N`. -/
+theorem isMonicOfDegree_reflect [Semiring R] [Nontrivial R] {p : R[X]} {N : ℕ}
+    (hN : p.natDegree ≤ N) (hp0 : p.coeff 0 = 1) : (p.reflect N).IsMonicOfDegree N :=
+  (isMonicOfDegree_iff (p.reflect N) N).mpr
+    ⟨natDegree_reflect_le_of_natDegree_le hN, by rwa [coeff_reflect_self]⟩
 
 /-- Reflection exchanges an invertible root with its inverse, preserving its multiplicity.
 The degree bound can exceed the actual degree, and the zero polynomial is included. -/

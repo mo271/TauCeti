@@ -5,17 +5,23 @@ Authors: The Tau Ceti contributors
 -/
 module
 
+public import Mathlib.Algebra.Polynomial.OfFn
 public import Mathlib.LinearAlgebra.Matrix.Charpoly.Coeff
+public import Mathlib.RingTheory.AdjoinRoot
+public import Mathlib.RingTheory.Norm.Basic
 public import Mathlib.RingTheory.Polynomial.Resultant.Basic
 public import Mathlib.RingTheory.PowerSeries.PiTopology
 public import Mathlib.RingTheory.PowerSeries.Trunc
+import Mathlib.Tactic.LinearCombination
 import Mathlib.Topology.Algebra.MvPolynomial
+import TauCeti.Algebra.Polynomial.Degree.IsMonicOfDegree
 import TauCeti.Algebra.Polynomial.Degree.Operations
 import TauCeti.Algebra.Polynomial.Reverse
 import TauCeti.GroupTheory.Perm.Basic
 import TauCeti.LinearAlgebra.Matrix.Charpoly.Resultant
 import TauCeti.LinearAlgebra.Matrix.Charpoly.Reverse
 import TauCeti.LinearAlgebra.Matrix.Polynomial
+import TauCeti.RingTheory.Polynomial.Resultant.AdjoinRoot
 import TauCeti.RingTheory.Polynomial.Resultant.Basic
 import TauCeti.RingTheory.PowerSeries.Trunc
 
@@ -42,6 +48,17 @@ therefore irrelevant when `B(0) = 0` (`Polynomial.colemanDBounded_add_of_coeff_z
 minimal-rank transform `Polynomial.colemanD` then agrees with every bounded one
 (`Polynomial.colemanD_eq_colemanDBounded`). The bound `m` is irrelevant once it bounds the
 degree of `B` (`Polynomial.colemanDBounded_of_natDegree_le`).
+
+When `P.coeff 0 = 1` and `P.natDegree ≤ n`, the reversal `P* = reflect n P` is monic of degree `n`
+(`Polynomial.monic_reflect_of_natDegree_le`, `Polynomial.isMonicOfDegree_reflect`), so
+`D_(n,m)(B, P)` is the algebra norm over `R[T]` of the class of `1 - T B` in
+`AdjoinRoot ((P.reflect n).map C)` (`Polynomial.colemanDBounded_eq_norm_mk`). In particular,
+`D_(n,m)(B, P)` depends on `B` only through its class modulo `reflect n P`
+(`Polynomial.colemanDBounded_eq_of_mk_eq`) and reduces to the transform of `B %ₘ reflect n P` at
+the fixed degree bound `n` (`Polynomial.colemanDBounded_modByMonic`). Over a topological ring, each
+coefficient of `D_(n,m)(B, P)` is a polynomial in the coefficients of `B` and `P` up to `m` and
+`n`, hence varies continuously with them (`Polynomial.tendsto_coeff_colemanDBounded`,
+`Polynomial.continuous_coeff_colemanDBounded_ofFn`).
 
 Evaluating the transform at a scalar `t` gives the resultant over `R` of `reflect n P` and
 `1 - t B` (`Polynomial.eval_colemanDBounded`). For a polynomial `Q` with `Q(0) = 1` and invertible
@@ -78,6 +95,12 @@ determinants of polynomials in compact operators.
   of rank `n` has degree at most `n` and constant coefficient one.
 * `Polynomial.colemanDBounded_prod_one_sub_C_mul_X`: the transform of a product of linear
   factors.
+* `Polynomial.colemanDBounded_eq_norm_mk`, `Polynomial.eval_colemanDBounded_eq_norm_mk`:
+  identification of `D_(n,m)(B, P)` and its scalar evaluations as `AdjoinRoot` algebra norms.
+* `Polynomial.colemanDBounded_modByMonic`, `Polynomial.colemanDBounded_add_mul_reflect`: reduction
+  and invariance of `B` modulo `reflect n P` at fixed rank `n`.
+* `Polynomial.tendsto_coeff_colemanDBounded`, `Polynomial.continuous_coeff_colemanDBounded_ofFn`:
+  continuity of each output coefficient in the input coefficients.
 * `Matrix.colemanDBounded_charpolyRev`: finite matrix spectral mapping,
   `D_(n,m)(B, det (1 - T A)) = det (1 - T B(A))` for an `n × n` matrix `A`.
 * `Polynomial.colemanDBounded_X_left`, `Polynomial.colemanDBounded_zero_left`,
@@ -378,6 +401,85 @@ theorem isUnit_eval_one_colemanDBounded_one_sub_C_mul_reverse_iff
     isCoprime_mul_unit_left_left (isUnit_C.2 (IsUnit.of_mul_eq_one _ hc))]
 
 end RieszColeman
+
+section AdjoinRoot
+
+/-- **Coleman's finite transform as an algebra norm.** For `P` with `P(0) = 1` and
+`P.natDegree ≤ n`, and `B` with `B.natDegree ≤ m`, `colemanDBounded B P n m` is the algebra norm
+over `R[T]` of the class of `1 - T B(X)` in `AdjoinRoot ((P.reflect n).map C)`. -/
+theorem colemanDBounded_eq_norm_mk (hP : P.natDegree ≤ n) (hP0 : P.coeff 0 = 1)
+    (hB : B.natDegree ≤ m) :
+    colemanDBounded B P n m =
+      Algebra.norm R[X] (AdjoinRoot.mk ((P.reflect n).map C) (1 - C X * B.map C)) := by
+  nontriviality R
+  have hQ : ((P.reflect n).map C).IsMonicOfDegree n := (isMonicOfDegree_reflect hP hP0).map C
+  rw [colemanDBounded_def,
+    AdjoinRoot.norm_mk_eq_resultant_of_natDegree_le hQ.monic (natDegree_one_sub_C_X_mul_map_le hB),
+    hQ.natDegree_eq]
+
+/-- Evaluating Coleman's finite transform at `t` gives the algebra norm over `R` of the class of
+`1 - t B` in `AdjoinRoot (P.reflect n)`. -/
+theorem eval_colemanDBounded_eq_norm_mk (hP : P.natDegree ≤ n) (hP0 : P.coeff 0 = 1)
+    (hB : B.natDegree ≤ m) (t : R) :
+    (colemanDBounded B P n m).eval t =
+      Algebra.norm R (AdjoinRoot.mk (P.reflect n) (1 - C t * B)) := by
+  nontriviality R
+  have hQ := isMonicOfDegree_reflect hP hP0
+  have ht : (1 - C t * B).natDegree ≤ m := (natDegree_one_sub_C_mul_le _ _).trans hB
+  rw [eval_colemanDBounded, AdjoinRoot.norm_mk_eq_resultant_of_natDegree_le hQ.monic ht,
+    hQ.natDegree_eq]
+
+/-- At fixed characteristic rank `n`, Coleman's transform depends on the functional polynomial `B`
+only through its residue class modulo `P.reflect n`. -/
+theorem colemanDBounded_eq_of_mk_eq {B₁ B₂ : R[X]} {m₁ m₂ : ℕ} (hP : P.natDegree ≤ n)
+    (hP0 : P.coeff 0 = 1) (hB₁ : B₁.natDegree ≤ m₁) (hB₂ : B₂.natDegree ≤ m₂)
+    (h : AdjoinRoot.mk (P.reflect n) B₁ = AdjoinRoot.mk (P.reflect n) B₂) :
+    colemanDBounded B₁ P n m₁ = colemanDBounded B₂ P n m₂ := by
+  nontriviality R
+  rw [colemanDBounded_eq_norm_mk hP hP0 hB₁, colemanDBounded_eq_norm_mk hP hP0 hB₂]
+  congr 1
+  rw [AdjoinRoot.mk_eq_mk] at h ⊢
+  obtain ⟨q, hq⟩ := h
+  refine ⟨-(C (X : R[X]) * q.map C), ?_⟩
+  have hmap := congrArg (Polynomial.map (C : R →+* R[X])) hq
+  simp only [Polynomial.map_sub, Polynomial.map_mul] at hmap
+  linear_combination -C (X : R[X]) * hmap
+
+/-- Adding a multiple of `P.reflect n` to the functional polynomial `B` leaves Coleman's transform
+at rank `n` unchanged. -/
+theorem colemanDBounded_add_mul_reflect {Q : R[X]} {m₁ m₂ : ℕ} (hP : P.natDegree ≤ n)
+    (hP0 : P.coeff 0 = 1) (hB : B.natDegree ≤ m₁)
+    (hBQ : (B + P.reflect n * Q).natDegree ≤ m₂) :
+    colemanDBounded (B + P.reflect n * Q) P n m₂ = colemanDBounded B P n m₁ :=
+  colemanDBounded_eq_of_mk_eq hP hP0 hBQ hB (by simp)
+
+/-- **Reduction of the functional polynomial at fixed characteristic rank.** For normalized `P` of
+degree at most `n` and `B` of degree at most `m`, `D_(n,m)(B, P)` reduces to the transform of the
+monic remainder `B %ₘ P.reflect n` at the fixed degree bound `n`. -/
+theorem colemanDBounded_modByMonic (hP : P.natDegree ≤ n) (hP0 : P.coeff 0 = 1)
+    (hB : B.natDegree ≤ m) :
+    colemanDBounded B P n m = colemanDBounded (B %ₘ P.reflect n) P n n := by
+  nontriviality R
+  have hQ := isMonicOfDegree_reflect hP hP0
+  have hdeg : (B %ₘ P.reflect n).natDegree ≤ n := by
+    rcases eq_or_ne (B %ₘ P.reflect n) 0 with h0 | h0
+    · simp [h0]
+    · exact (natDegree_lt_natDegree h0 (degree_modByMonic_lt B hQ.monic)).le.trans
+        hQ.natDegree_eq.le
+  refine colemanDBounded_eq_of_mk_eq hP hP0 hB hdeg (AdjoinRoot.mk_eq_mk.mpr ⟨B /ₘ P.reflect n, ?_⟩)
+  linear_combination (modByMonic_add_div B (P.reflect n)).symm
+
+/-- Along `B = P.reflect n`, Coleman's transform of `P` at rank `n` is `1`: on a matrix `A` of size
+`n`, `P.reflect n` is the characteristic polynomial of `A`, which annihilates `A` by
+Cayley–Hamilton. -/
+@[simp]
+theorem colemanDBounded_reflect_self_left (hP : P.natDegree ≤ n) (hP0 : P.coeff 0 = 1) :
+    colemanDBounded (P.reflect n) P n n = 1 := by
+  rw [colemanDBounded_eq_of_mk_eq (B₂ := 0) (m₂ := 0) hP hP0
+    (natDegree_reflect_le_of_natDegree_le hP) (by simp) (by simp),
+    colemanDBounded_zero_left hP0]
+
+end AdjoinRoot
 
 /-- An entry of the Sylvester matrix defining Coleman's transform `D_(n,m)(B, P)` with `B(0) = 0`,
 in row `i` and column `x`, inside the band where it can be nonzero, is a monomial in `T`. In the
@@ -704,6 +806,60 @@ theorem continuous_coeff_colemanDSeries [TopologicalSpace R] [IsTopologicalSemir
     (continuous_pi fun j ↦ PowerSeries.WithPiTopology.continuous_coeff R j)
 
 end Series
+
+section Continuity
+
+/-- Each coefficient of `colemanDBounded B P n m` is a polynomial in the coefficients of `B` up to
+`m` and those of `P` up to `n`, hence passes to limits along any filter over a topological
+commutative ring. -/
+theorem tendsto_coeff_colemanDBounded {α : Type*} [TopologicalSpace R]
+    [IsTopologicalSemiring R] {l : Filter α} {B P : α → R[X]} {B₀ P₀ : R[X]} {n m : ℕ}
+    (hB : ∀ i ≤ m, Filter.Tendsto (fun a ↦ (B a).coeff i) l (nhds (B₀.coeff i)))
+    (hP : ∀ j ≤ n, Filter.Tendsto (fun a ↦ (P a).coeff j) l (nhds (P₀.coeff j))) (k : ℕ) :
+    Filter.Tendsto (fun a ↦ (colemanDBounded (B a) (P a) n m).coeff k) l
+      (nhds ((colemanDBounded B₀ P₀ n m).coeff k)) := by
+  let Idx := Fin (m + 1) ⊕ Fin (n + 1)
+  set UB : (MvPolynomial Idx R)[X] :=
+    ∑ i : Fin (m + 1), monomial (i : ℕ) (MvPolynomial.X (Sum.inl i))
+  set UP : (MvPolynomial Idx R)[X] :=
+    ∑ j : Fin (n + 1), monomial (j : ℕ) (MvPolynomial.X (Sum.inr j))
+  set Φ := (colemanDBounded UB UP n m).coeff k with hΦ_def
+  let vec (b p : R[X]) : Idx → R := Sum.elim (fun i ↦ b.coeff i) (fun j ↦ p.coeff j)
+  have hΦ (b p : R[X]) : (colemanDBounded b p n m).coeff k = MvPolynomial.eval (vec b p) Φ := by
+    have hUB : UB.map (MvPolynomial.eval (vec b p)) =
+        PowerSeries.trunc (m + 1) (b : PowerSeries R) := by
+      simp [UB, vec, Polynomial.map_sum, PowerSeries.trunc_apply,
+        Fin.sum_univ_eq_sum_range (fun i ↦ monomial i (b.coeff i))]
+    have hUP : UP.map (MvPolynomial.eval (vec b p)) =
+        PowerSeries.trunc (n + 1) (p : PowerSeries R) := by
+      simp [UP, vec, Polynomial.map_sum, PowerSeries.trunc_apply,
+        Fin.sum_univ_eq_sum_range (fun j ↦ monomial j (p.coeff j))]
+    rw [hΦ_def, ← coeff_map, colemanDBounded_map, hUB, hUP]
+    refine congrArg (fun q : R[X] ↦ q.coeff k) (colemanDBounded_congr ?_ ?_)
+    · intro i hi
+      simp [PowerSeries.coeff_trunc, Nat.lt_succ_of_le hi]
+    · intro j hj
+      simp [PowerSeries.coeff_trunc, Nat.lt_succ_of_le hj]
+  simp_rw [hΦ]
+  refine ((MvPolynomial.continuous_eval Φ).tendsto (vec B₀ P₀)).comp
+    (tendsto_pi_nhds.mpr fun idx ↦ ?_)
+  rcases idx with i | j
+  · exact hB i (Nat.lt_succ_iff.mp i.isLt)
+  · exact hP j (Nat.lt_succ_iff.mp j.isLt)
+
+/-- Over a topological commutative ring, the `k`-th coefficient of
+`colemanDBounded (ofFn (m + 1) b) P n m` is a continuous function of the coefficient tuple `b`. -/
+theorem continuous_coeff_colemanDBounded_ofFn [DecidableEq R] [TopologicalSpace R]
+    [IsTopologicalSemiring R] (P : R[X]) (n m k : ℕ) :
+    Continuous fun b : Fin (m + 1) → R ↦ (colemanDBounded (ofFn (m + 1) b) P n m).coeff k := by
+  rw [continuous_iff_continuousAt]
+  intro b₀
+  refine tendsto_coeff_colemanDBounded (fun i hi ↦ ?_) (fun _ _ ↦ tendsto_const_nhds) k
+  have hi' : i < m + 1 := Nat.lt_succ_of_le hi
+  simpa only [ofFn_coeff_eq_val_of_lt _ hi'] using
+    (continuous_apply (⟨i, hi'⟩ : Fin (m + 1))).continuousAt.tendsto
+
+end Continuity
 
 end Polynomial
 
