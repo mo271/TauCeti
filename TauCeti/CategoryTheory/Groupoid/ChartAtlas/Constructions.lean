@@ -6,41 +6,41 @@ Authors: The Tau Ceti contributors
 module
 
 public import Mathlib.CategoryTheory.Products.Basic
+public import TauCeti.Algebra.Group.Action.Sum
+public import TauCeti.Algebra.GroupAction.Prod
 public import TauCeti.CategoryTheory.Groupoid.ChartAtlas.Basic
 
 /-!
 # Constructions on retained-arrow chart atlases and induced chart atlases
 
-This file develops standard constructions on `TauCeti.ChartAtlas` and establishes the equivalence
-between retained-arrow chart atlases and families of fully faithful action-groupoid charts:
+This file develops standard constructions on `TauCeti.ChartAtlas` and the two-way correspondence
+with families of fully faithful action-groupoid charts:
 
-1. **Restriction (`TauCeti.ChartAtlas.restrict`).** Restricting `𝓐` to `G i`-invariant subsets
-   `S i : SubMulAction (G i) (U i)` yields `𝓐.restrict S` and a full and faithful inclusion
-   morphism `𝓐.restrictHom S`.
-2. **Binary products (`TauCeti.ChartAtlas.prod`).** The componentwise product `𝓐.prod 𝓑` has
-   projections `fstHom`, `sndHom`, universal pairing `Hom.prod`, and presenting-groupoid
-   equivalence `prodObjEquivalence : (𝓐.prod 𝓑).Obj ≌ 𝓐.Obj × 𝓑.Obj`.
-3. **Induced atlas of action charts (`TauCeti.ChartAtlas.ofCharts`).** Any family of fully faithful
-   functors `F i : ActionCategory (G i) (U i) ⥤ C` into a groupoid `C` induces `ofCharts F` on
-   `fun i j ↦ ChartOverlap (F i) (F j)` and a fully faithful comparison functor
-   `toGroupoid F : (ofCharts F).Obj ⥤ C`, essentially surjective iff the charts cover `C` up to iso.
-4. **Round-trip and disjoint-union comparisons (`toOfCharts`, `fromOfCharts`, `sumCharts`).**
-   `ofCharts 𝓐.chartFunctor` recovers `𝓐` via strict mutual inverse morphisms, `ofChartsReindexHom`
-   gives full and faithful reindexing morphisms, and `sumInlHom`, `sumInrHom` embed two chart
-   families into `ofCharts (sumCharts F₁ F₂)` compatibly with `toGroupoid`.
+1. **Restriction and reindexing (`restrict`, `reindex`).** Restricting `𝓐` to `G i`-invariant
+   subsets `S i : SubMulAction (G i) (U i)` yields `𝓐.restrict S` with full and faithful inclusion
+   `𝓐.restrictHom S` and universal lift `𝓐.restrictLift S`. Pulling chart indices back along
+   `σ : ν → ι` yields `𝓐.reindex σ` and a full and faithful morphism `𝓐.reindexHom σ`.
+2. **Binary products (`prod`).** The componentwise product `𝓐.prod 𝓑` (via
+   `TauCeti.IndependentProd`) has projections `fstHom`, `sndHom`, universal pairing `Hom.prod`, and
+   presenting-groupoid equivalence `prodObjEquivalence : (𝓐.prod 𝓑).Obj ≌ 𝓐.Obj × 𝓑.Obj`.
+3. **Induced atlas and round-trip (`ofCharts`, `toOfCharts`, `fromOfCharts`, `sumCharts`).** Fully
+   faithful charts `F i : ActionCategory (G i) (U i) ⥤ C` into a groupoid `C` induce `ofCharts F`
+   and fully faithful `ofChartsFunctor F : (ofCharts F).Obj ⥤ C` (essentially surjective iff the
+   charts cover `C` up to isomorphism); `toOfCharts` and `fromOfCharts` strictly recover `𝓐` from
+   `ofCharts 𝓐.chartFunctor`, and `sumCharts` combines chart families over `ι ⊕ κ`.
 
 ## Main declarations
 
-* `TauCeti.ChartAtlas.restrict`, `TauCeti.ChartAtlas.restrictHom`: invariant-subaction restriction.
+* `TauCeti.ChartAtlas.restrict`, `TauCeti.ChartAtlas.restrictHom`,
+  `TauCeti.ChartAtlas.restrictLift`: invariant-subaction restriction and its universal lift.
+* `TauCeti.ChartAtlas.reindex`, `TauCeti.ChartAtlas.reindexHom`: chart-index pullback.
 * `TauCeti.ChartAtlas.prod`, `TauCeti.ChartAtlas.Hom.prod`, `TauCeti.ChartAtlas.prodObjEquivalence`:
   binary products, universal pairing, and presenting-groupoid equivalence.
 * `TauCeti.ChartAtlas.ChartOverlap`, `TauCeti.ChartAtlas.ofCharts`,
-  `TauCeti.ChartAtlas.toGroupoid`: induced chart atlas of fully faithful action charts.
-* `TauCeti.ChartAtlas.toOfCharts`, `TauCeti.ChartAtlas.fromOfCharts`: strict mutual inverse atlas
-  morphisms between `𝓐` and `ofCharts 𝓐.chartFunctor`.
-* `TauCeti.ChartAtlas.ofChartsReindexHom`, `TauCeti.ChartAtlas.sumCharts`,
-  `TauCeti.ChartAtlas.sumInlHom`, `TauCeti.ChartAtlas.sumInrHom`: reindexing and disjoint-sum
-  inclusions of induced chart atlases.
+  `TauCeti.ChartAtlas.ofChartsFunctor`: induced chart atlas and comparison functor to `C`.
+* `TauCeti.ChartAtlas.toOfCharts`, `TauCeti.ChartAtlas.fromOfCharts`,
+  `TauCeti.ChartAtlas.ofChartsReindexHom`, `TauCeti.ChartAtlas.sumCharts`,
+  `TauCeti.ChartAtlas.sumInlHom`, `TauCeti.ChartAtlas.sumInrHom`: round-trip and sum comparisons.
 -/
 
 public section
@@ -116,30 +116,22 @@ def restrict : ChartAtlas G (fun i ↦ S i) (𝓐.RestrictArrow S) where
 /-- Composition of overlap arrows in `𝓐.restrict S`. -/
 @[simp] theorem restrict_comp {i j k : ι} (α : 𝓐.RestrictArrow S i j) (β : 𝓐.RestrictArrow S j k)
     (h : (𝓐.restrict S).tgt α = (𝓐.restrict S).src β) :
-    (𝓐.restrict S).comp α β h =
-      ⟨𝓐.comp α.1 β.1
-        (congrArg Subtype.val ((𝓐.restrict_tgt S α).symm.trans (h.trans (𝓐.restrict_src S β)))),
-        by simp [α.2.1, β.2.2]⟩ := (rfl)
+    (𝓐.restrict S).comp α β h = ⟨𝓐.comp α.1 β.1
+      (congrArg Subtype.val ((𝓐.restrict_tgt S α).symm.trans (h.trans (𝓐.restrict_src S β)))),
+      by simp [α.2.1, β.2.2]⟩ := (rfl)
 
 /-- The canonical inclusion morphism `(𝓐.restrict S).Hom 𝓐`, keeping all group labels. -/
 -- `expose, implicit_reducible`: unification in `groupHom`, `obj`, and `map` must see `index i = i`.
-@[expose, implicit_reducible] def restrictHom : (𝓐.restrict S).Hom 𝓐 where
-  index := id
-  groupHom i := MonoidHom.id (G i)
-  obj _ := Subtype.val
-  map α := α.1
-  src_map _ := by simp
-  tgt_map _ := by simp
-  map_unit _ _ := by simp
-  map_comp _ _ _ := by simp
-  map_smul _ _ := by simp
+@[expose, implicit_reducible] def restrictHom : (𝓐.restrict S).Hom 𝓐 :=
+  ⟨id, fun i ↦ MonoidHom.id (G i), fun _ ↦ Subtype.val, Subtype.val,
+    fun _ ↦ by simp, fun _ ↦ by simp, fun _ _ ↦ by simp, fun _ _ _ ↦ by simp, fun _ _ ↦ by simp⟩
 
 /-- The index map of `restrictHom` is the identity. -/
 @[simp] theorem restrictHom_index : (𝓐.restrictHom S).index = id := (rfl)
 
 /-- The group homomorphism of `restrictHom` on chart `i` is `MonoidHom.id (G i)`. -/
-@[simp] theorem restrictHom_groupHom (i : ι) : (𝓐.restrictHom S).groupHom i = MonoidHom.id (G i) :=
-  (rfl)
+@[simp] theorem restrictHom_groupHom (i : ι) :
+    (𝓐.restrictHom S).groupHom i = MonoidHom.id (G i) := (rfl)
 
 /-- `restrictHom` sends a point in `S i` to its underlying point in `U i`. -/
 @[simp] theorem restrictHom_obj (i : ι) (x : S i) : (𝓐.restrictHom S).obj i x = x.1 := (rfl)
@@ -157,41 +149,133 @@ instance instFullRestrictHom : (𝓐.restrictHom S).toFunctor.Full :=
   (Hom.full_toFunctor_iff _).mpr fun x y β hs ht ↦
     ⟨⟨β, hs.symm ▸ x.2, ht.symm ▸ y.2⟩, Subtype.ext hs, Subtype.ext ht, rfl⟩
 
+variable {κ : Type v₁} {G' : κ → Type v₂} [∀ k, Group (G' k)]
+  {U' : κ → Type v₃} [∀ k, MulAction (G' k) (U' k)]
+  {R' : κ → κ → Type v₄} [∀ k l, MulAction (G' l) (R' k l)] {𝓑 : ChartAtlas G' U' R'}
+
+/-- Postcomposition with `𝓐.restrictHom S` is injective on atlas morphisms. -/
+theorem restrictHom_comp_injective :
+    Function.Injective ((𝓐.restrictHom S).comp : 𝓑.Hom (𝓐.restrict S) → 𝓑.Hom 𝓐) := by
+  intro Ψ₁ Ψ₂ h
+  have hidx : Ψ₁.index = Ψ₂.index := by simpa using congrArg Hom.index h
+  have hsub : ∀ {i₁ i₂ j₁ j₂} (_ : i₁ = i₂) (_ : j₁ = j₂) (a : 𝓐.RestrictArrow S i₁ j₁)
+      (b : 𝓐.RestrictArrow S i₂ j₂), a.1 ≍ b.1 → a ≍ b := by
+    rintro _ _ _ _ rfl rfl _ _ hab; exact heq_of_eq (Subtype.ext (eq_of_heq hab))
+  refine Hom.ext hidx (fun k ↦ ?_) fun {k l} α ↦ hsub (congrFun hidx k) (congrFun hidx l) _ _ ?_
+  · have hg : ((𝓐.restrictHom S).comp Ψ₁).groupHom k ≍ ((𝓐.restrictHom S).comp Ψ₂).groupHom k := by
+      rw [h]
+    exact (heq_of_eq (MonoidHom.id_comp _)).symm.trans (hg.trans (heq_of_eq (MonoidHom.id_comp _)))
+  · change ((𝓐.restrictHom S).comp Ψ₁).map α ≍ ((𝓐.restrictHom S).comp Ψ₂).map α; rw [h]
+
+/-- Lift an atlas morphism `Φ : 𝓑.Hom 𝓐` whose chart maps land in `S` to `𝓑.Hom (𝓐.restrict S)`. -/
+-- `expose, implicit_reducible`: `(𝓐.restrictLift S Φ hΦ).index` must reduce to `Φ.index`.
+@[expose, implicit_reducible] def restrictLift (Φ : 𝓑.Hom 𝓐)
+    (hΦ : ∀ k x, Φ.obj k x ∈ S (Φ.index k)) : 𝓑.Hom (𝓐.restrict S) :=
+  ⟨Φ.index, Φ.groupHom, fun k x ↦ ⟨Φ.obj k x, hΦ k x⟩,
+    fun α ↦ ⟨Φ.map α, (Φ.src_map α).symm ▸ hΦ _ _, (Φ.tgt_map α).symm ▸ hΦ _ _⟩,
+    fun _ ↦ by ext; simp, fun _ ↦ by ext; simp, fun _ _ ↦ by ext; simp,
+    fun α β h ↦ by ext; simp [Φ.map_comp α β (by simpa [Subtype.ext_iff] using h)],
+    fun _ _ ↦ by ext; simp⟩
+
+/-- Index map of `restrictLift`. -/
+@[simp] theorem restrictLift_index (Φ : 𝓑.Hom 𝓐) (hΦ : ∀ k x, Φ.obj k x ∈ S (Φ.index k)) :
+    (𝓐.restrictLift S Φ hΦ).index = Φ.index := (rfl)
+
+/-- Group homomorphism of `restrictLift` at chart `k`. -/
+@[simp] theorem restrictLift_groupHom (Φ : 𝓑.Hom 𝓐) (hΦ : ∀ k x, Φ.obj k x ∈ S (Φ.index k))
+    (k : κ) : (𝓐.restrictLift S Φ hΦ).groupHom k = Φ.groupHom k := (rfl)
+
+/-- Point map of `restrictLift` at chart `k`. -/
+@[simp] theorem restrictLift_obj (Φ : 𝓑.Hom 𝓐) (hΦ : ∀ k x, Φ.obj k x ∈ S (Φ.index k))
+    (k : κ) (x : U' k) : (𝓐.restrictLift S Φ hΦ).obj k x = ⟨Φ.obj k x, hΦ k x⟩ := (rfl)
+
+/-- Overlap-arrow map of `restrictLift`. -/
+@[simp] theorem restrictLift_map (Φ : 𝓑.Hom 𝓐) (hΦ : ∀ k x, Φ.obj k x ∈ S (Φ.index k))
+    {k l : κ} (α : R' k l) : (𝓐.restrictLift S Φ hΦ).map α =
+      ⟨Φ.map α, (Φ.src_map α).symm ▸ hΦ _ _, (Φ.tgt_map α).symm ▸ hΦ _ _⟩ := (rfl)
+
+/-- Postcomposing `restrictLift` with `restrictHom` recovers `Φ`. -/
+@[simp] theorem restrictHom_comp_restrictLift (Φ : 𝓑.Hom 𝓐)
+    (hΦ : ∀ k x, Φ.obj k x ∈ S (Φ.index k)) :
+    (𝓐.restrictHom S).comp (𝓐.restrictLift S Φ hΦ) = Φ :=
+  Hom.ext rfl (fun _ ↦ heq_of_eq (MonoidHom.id_comp _)) (fun _ ↦ HEq.rfl)
+
+/-- Universal property of `ChartAtlas.restrict`: a morphism into `𝓐.restrict S` equals
+`𝓐.restrictLift S Φ hΦ` iff postcomposing with `𝓐.restrictHom S` gives `Φ`. -/
+theorem eq_restrictLift_iff {Ψ : 𝓑.Hom (𝓐.restrict S)} {Φ : 𝓑.Hom 𝓐}
+    (hΦ : ∀ k x, Φ.obj k x ∈ S (Φ.index k)) :
+    Ψ = 𝓐.restrictLift S Φ hΦ ↔ (𝓐.restrictHom S).comp Ψ = Φ :=
+  ⟨by rintro rfl; exact 𝓐.restrictHom_comp_restrictLift S Φ hΦ,
+    fun h ↦ 𝓐.restrictHom_comp_injective S (h.trans (𝓐.restrictHom_comp_restrictLift S Φ hΦ).symm)⟩
+
 end Restrict
+
+section Reindex
+
+variable {ι : Type u₁} {G : ι → Type u₂} [∀ i, Group (G i)]
+  {U : ι → Type u₃} [∀ i, MulAction (G i) (U i)]
+  {R : ι → ι → Type u₄} [∀ i j, MulAction (G j) (R i j)]
+  (𝓐 : ChartAtlas G U R) {ν : Type v₁} (σ : ν → ι)
+
+/-- Pull back the chart index set of a chart atlas `𝓐` along an arbitrary map `σ : ν → ι`. -/
+-- `expose, implicit_reducible`: `(ofCharts F).reindex σ` unifies with `ofCharts (F ∘ σ)`.
+@[expose, implicit_reducible] def reindex :
+    ChartAtlas (fun n ↦ G (σ n)) (fun n ↦ U (σ n)) (fun m n ↦ R (σ m) (σ n)) :=
+  ⟨𝓐.src, 𝓐.tgt, fun n ↦ 𝓐.unit (σ n), 𝓐.inv, 𝓐.comp, fun n ↦ 𝓐.src_unit (σ n),
+    fun n ↦ 𝓐.tgt_unit (σ n), 𝓐.src_inv, 𝓐.tgt_inv, 𝓐.src_comp, 𝓐.tgt_comp, 𝓐.unit_comp,
+    𝓐.comp_unit, 𝓐.comp_assoc, 𝓐.comp_inv, 𝓐.inv_comp, 𝓐.src_smul, 𝓐.tgt_smul, 𝓐.comp_smul,
+    𝓐.existsUnique_smul_eq⟩
+
+/-- Source of an overlap arrow in `𝓐.reindex σ`. -/
+@[simp] theorem reindex_src {m n : ν} (α : R (σ m) (σ n)) : (𝓐.reindex σ).src α = 𝓐.src α := (rfl)
+
+/-- Target of an overlap arrow in `𝓐.reindex σ`. -/
+@[simp] theorem reindex_tgt {m n : ν} (α : R (σ m) (σ n)) : (𝓐.reindex σ).tgt α = 𝓐.tgt α := (rfl)
+
+/-- Unit overlap arrow in `𝓐.reindex σ`. -/
+@[simp] theorem reindex_unit (n : ν) (x : U (σ n)) :
+    (𝓐.reindex σ).unit n x = 𝓐.unit (σ n) x := (rfl)
+
+/-- Inverse overlap arrow in `𝓐.reindex σ`. -/
+@[simp] theorem reindex_inv {m n : ν} (α : R (σ m) (σ n)) : (𝓐.reindex σ).inv α = 𝓐.inv α := (rfl)
+
+/-- Composition of overlap arrows in `𝓐.reindex σ`. -/
+@[simp] theorem reindex_comp {l m n : ν} (α : R (σ l) (σ m)) (β : R (σ m) (σ n))
+    (h : (𝓐.reindex σ).tgt α = (𝓐.reindex σ).src β) :
+    (𝓐.reindex σ).comp α β h = 𝓐.comp α β h := (rfl)
+
+/-- Canonical atlas morphism `(𝓐.reindex σ).Hom 𝓐` induced by reindexing charts along `σ`. -/
+-- `expose, implicit_reducible`: dependent chart types must see `(𝓐.reindexHom σ).index n = σ n`.
+@[expose, implicit_reducible] def reindexHom : (𝓐.reindex σ).Hom 𝓐 :=
+  ⟨σ, fun n ↦ MonoidHom.id (G (σ n)), fun _ ↦ id, id,
+    fun _ ↦ rfl, fun _ ↦ rfl, fun _ _ ↦ rfl, fun _ _ _ ↦ rfl, fun _ _ ↦ rfl⟩
+
+/-- Index map of `reindexHom`. -/
+@[simp] theorem reindexHom_index : (𝓐.reindexHom σ).index = σ := (rfl)
+
+/-- Group homomorphism of `reindexHom` at chart `n`. -/
+@[simp] theorem reindexHom_groupHom (n : ν) :
+    (𝓐.reindexHom σ).groupHom n = MonoidHom.id (G (σ n)) := (rfl)
+
+/-- Point map of `reindexHom` at chart `n`. -/
+@[simp] theorem reindexHom_obj (n : ν) (x : U (σ n)) : (𝓐.reindexHom σ).obj n x = x := (rfl)
+
+/-- Overlap-arrow map of `reindexHom`. -/
+@[simp] theorem reindexHom_map {m n : ν} (α : R (σ m) (σ n)) : (𝓐.reindexHom σ).map α = α := (rfl)
+
+/-- Every chart-reindexing morphism is faithful on presenting groupoids. -/
+instance instFaithfulReindexHom : (𝓐.reindexHom σ).toFunctor.Faithful :=
+  (Hom.faithful_toFunctor_iff _).mpr fun _ _ _ _ hm ↦ hm
+
+/-- Every chart-reindexing morphism is full on presenting groupoids. -/
+instance instFullReindexHom : (𝓐.reindexHom σ).toFunctor.Full :=
+  (Hom.full_toFunctor_iff _).mpr fun _ _ β hs ht ↦ ⟨β, hs, ht, rfl⟩
+
+end Reindex
 
 section Prod
 
-/-- Pair carrier `α × β` equipped with the componentwise action of a product monoid `M₁ × M₂`, used
-for both chart domains and overlap-arrow spaces of `ChartAtlas.prod` without clashing with Mathlib's
-diagonal `MulAction M (α × β)` instance. -/
-@[ext] structure ProdCarrier (α : Type*) (β : Type*) where
-  /-- First coordinate. -/
-  fst : α
-  /-- Second coordinate. -/
-  snd : β
-
-namespace ProdCarrier
-
-/-- Componentwise scalar action of `M₁ × M₂` on `ProdCarrier α β`. -/
-instance instSMul {M₁ M₂ α β : Type*} [SMul M₁ α] [SMul M₂ β] :
-    SMul (M₁ × M₂) (ProdCarrier α β) where
-  smul g x := ⟨g.1 • x.fst, g.2 • x.snd⟩
-
-/-- First coordinate of componentwise scalar multiplication on `ProdCarrier`. -/
-@[simp] theorem fst_smul {M₁ M₂ α β : Type*} [SMul M₁ α] [SMul M₂ β]
-    (g : M₁ × M₂) (x : ProdCarrier α β) : (g • x).fst = g.1 • x.fst := (rfl)
-
-/-- Second coordinate of componentwise scalar multiplication on `ProdCarrier`. -/
-@[simp] theorem snd_smul {M₁ M₂ α β : Type*} [SMul M₁ α] [SMul M₂ β]
-    (g : M₁ × M₂) (x : ProdCarrier α β) : (g • x).snd = g.2 • x.snd := (rfl)
-
-/-- Componentwise `MulAction` of `M₁ × M₂` on `ProdCarrier α β` for any two acting monoids. -/
-instance instMulAction {M₁ M₂ α β : Type*} [Monoid M₁] [Monoid M₂]
-    [MulAction M₁ α] [MulAction M₂ β] : MulAction (M₁ × M₂) (ProdCarrier α β) where
-  one_smul x := ProdCarrier.ext (one_smul _ x.fst) (one_smul _ x.snd)
-  mul_smul g h x := ProdCarrier.ext (mul_smul g.1 h.1 x.fst) (mul_smul g.2 h.2 x.snd)
-
-end ProdCarrier
+open scoped TauCeti.IndependentProd
 
 variable {ι : Type u₁} {G₁ : ι → Type u₂} [∀ i, Group (G₁ i)]
   {U₁ : ι → Type u₃} [∀ i, MulAction (G₁ i) (U₁ i)]
@@ -203,74 +287,62 @@ variable {ι : Type u₁} {G₁ : ι → Type u₂} [∀ i, Group (G₁ i)]
 
 /-- The binary product `𝓐.prod 𝓑` of two retained-arrow chart atlases. -/
 def prod : ChartAtlas (fun p : ι × κ ↦ G₁ p.1 × G₂ p.2)
-    (fun p ↦ ProdCarrier (U₁ p.1) (U₂ p.2))
-    (fun p q ↦ ProdCarrier (R₁ p.1 q.1) (R₂ p.2 q.2)) where
-  src α := ⟨𝓐.src α.fst, 𝓑.src α.snd⟩
-  tgt α := ⟨𝓐.tgt α.fst, 𝓑.tgt α.snd⟩
-  unit p x := ⟨𝓐.unit p.1 x.fst, 𝓑.unit p.2 x.snd⟩
-  inv α := ⟨𝓐.inv α.fst, 𝓑.inv α.snd⟩
-  comp α β h := ⟨𝓐.comp α.fst β.fst (congrArg ProdCarrier.fst h),
-    𝓑.comp α.snd β.snd (congrArg ProdCarrier.snd h)⟩
-  src_unit p x := ProdCarrier.ext (𝓐.src_unit p.1 x.fst) (𝓑.src_unit p.2 x.snd)
-  tgt_unit p x := ProdCarrier.ext (𝓐.tgt_unit p.1 x.fst) (𝓑.tgt_unit p.2 x.snd)
-  src_inv α := ProdCarrier.ext (𝓐.src_inv α.fst) (𝓑.src_inv α.snd)
-  tgt_inv α := ProdCarrier.ext (𝓐.tgt_inv α.fst) (𝓑.tgt_inv α.snd)
-  src_comp _ _ _ := ProdCarrier.ext (𝓐.src_comp _ _ _) (𝓑.src_comp _ _ _)
-  tgt_comp _ _ _ := ProdCarrier.ext (𝓐.tgt_comp _ _ _) (𝓑.tgt_comp _ _ _)
-  unit_comp _ _ _ := ProdCarrier.ext (𝓐.unit_comp _ _ _) (𝓑.unit_comp _ _ _)
-  comp_unit _ _ _ := ProdCarrier.ext (𝓐.comp_unit _ _ _) (𝓑.comp_unit _ _ _)
-  comp_assoc _ _ _ _ _ := ProdCarrier.ext (𝓐.comp_assoc _ _ _ _ _) (𝓑.comp_assoc _ _ _ _ _)
-  comp_inv α := ProdCarrier.ext (𝓐.comp_inv α.fst) (𝓑.comp_inv α.snd)
-  inv_comp α := ProdCarrier.ext (𝓐.inv_comp α.fst) (𝓑.inv_comp α.snd)
-  src_smul g α := ProdCarrier.ext (𝓐.src_smul g.1 α.fst) (𝓑.src_smul g.2 α.snd)
-  tgt_smul g α := ProdCarrier.ext (𝓐.tgt_smul g.1 α.fst) (𝓑.tgt_smul g.2 α.snd)
-  comp_smul α g β _ := ProdCarrier.ext (𝓐.comp_smul α.fst g.1 β.fst _)
-    (𝓑.comp_smul α.snd g.2 β.snd _)
+    (fun p ↦ U₁ p.1 × U₂ p.2) (fun p q ↦ R₁ p.1 q.1 × R₂ p.2 q.2) where
+  src α := (𝓐.src α.1, 𝓑.src α.2)
+  tgt α := (𝓐.tgt α.1, 𝓑.tgt α.2)
+  unit p x := (𝓐.unit p.1 x.1, 𝓑.unit p.2 x.2)
+  inv α := (𝓐.inv α.1, 𝓑.inv α.2)
+  comp α β h := (𝓐.comp α.1 β.1 (congrArg Prod.fst h), 𝓑.comp α.2 β.2 (congrArg Prod.snd h))
+  src_unit p x := Prod.ext (𝓐.src_unit p.1 x.1) (𝓑.src_unit p.2 x.2)
+  tgt_unit p x := Prod.ext (𝓐.tgt_unit p.1 x.1) (𝓑.tgt_unit p.2 x.2)
+  src_inv α := Prod.ext (𝓐.src_inv α.1) (𝓑.src_inv α.2)
+  tgt_inv α := Prod.ext (𝓐.tgt_inv α.1) (𝓑.tgt_inv α.2)
+  src_comp _ _ _ := Prod.ext (𝓐.src_comp _ _ _) (𝓑.src_comp _ _ _)
+  tgt_comp _ _ _ := Prod.ext (𝓐.tgt_comp _ _ _) (𝓑.tgt_comp _ _ _)
+  unit_comp _ _ _ := Prod.ext (𝓐.unit_comp _ _ _) (𝓑.unit_comp _ _ _)
+  comp_unit _ _ _ := Prod.ext (𝓐.comp_unit _ _ _) (𝓑.comp_unit _ _ _)
+  comp_assoc _ _ _ _ _ := Prod.ext (𝓐.comp_assoc _ _ _ _ _) (𝓑.comp_assoc _ _ _ _ _)
+  comp_inv α := Prod.ext (𝓐.comp_inv α.1) (𝓑.comp_inv α.2)
+  inv_comp α := Prod.ext (𝓐.inv_comp α.1) (𝓑.inv_comp α.2)
+  src_smul g α := Prod.ext (𝓐.src_smul g.1 α.1) (𝓑.src_smul g.2 α.2)
+  tgt_smul g α := Prod.ext (𝓐.tgt_smul g.1 α.1) (𝓑.tgt_smul g.2 α.2)
+  comp_smul α g β _ := Prod.ext (𝓐.comp_smul α.1 g.1 β.1 _) (𝓑.comp_smul α.2 g.2 β.2 _)
   existsUnique_smul_eq α β h :=
-    let ⟨g₁, hg₁, hu₁⟩ := 𝓐.existsUnique_smul_eq α.fst β.fst (congrArg ProdCarrier.fst h)
-    let ⟨g₂, hg₂, hu₂⟩ := 𝓑.existsUnique_smul_eq α.snd β.snd (congrArg ProdCarrier.snd h)
-    ⟨(g₁, g₂), ProdCarrier.ext hg₁ hg₂, fun g hg ↦
-      Prod.ext (hu₁ g.1 (congrArg ProdCarrier.fst hg)) (hu₂ g.2 (congrArg ProdCarrier.snd hg))⟩
+    let ⟨g₁, hg₁, hu₁⟩ := 𝓐.existsUnique_smul_eq α.1 β.1 (congrArg Prod.fst h)
+    let ⟨g₂, hg₂, hu₂⟩ := 𝓑.existsUnique_smul_eq α.2 β.2 (congrArg Prod.snd h)
+    ⟨(g₁, g₂), Prod.ext hg₁ hg₂, fun g hg ↦
+      Prod.ext (hu₁ g.1 (congrArg Prod.fst hg)) (hu₂ g.2 (congrArg Prod.snd hg))⟩
 
 /-- Source of an overlap arrow in `𝓐.prod 𝓑`. -/
-@[simp] theorem prod_src {p q : ι × κ} (α : ProdCarrier (R₁ p.1 q.1) (R₂ p.2 q.2)) :
-    (𝓐.prod 𝓑).src α = ⟨𝓐.src α.fst, 𝓑.src α.snd⟩ := (rfl)
+@[simp] theorem prod_src {p q : ι × κ} (α : R₁ p.1 q.1 × R₂ p.2 q.2) :
+    (𝓐.prod 𝓑).src α = (𝓐.src α.1, 𝓑.src α.2) := (rfl)
 
 /-- Target of an overlap arrow in `𝓐.prod 𝓑`. -/
-@[simp] theorem prod_tgt {p q : ι × κ} (α : ProdCarrier (R₁ p.1 q.1) (R₂ p.2 q.2)) :
-    (𝓐.prod 𝓑).tgt α = ⟨𝓐.tgt α.fst, 𝓑.tgt α.snd⟩ := (rfl)
+@[simp] theorem prod_tgt {p q : ι × κ} (α : R₁ p.1 q.1 × R₂ p.2 q.2) :
+    (𝓐.prod 𝓑).tgt α = (𝓐.tgt α.1, 𝓑.tgt α.2) := (rfl)
 
 /-- Unit overlap arrow in `𝓐.prod 𝓑`. -/
-@[simp] theorem prod_unit (p : ι × κ) (x : ProdCarrier (U₁ p.1) (U₂ p.2)) :
-    (𝓐.prod 𝓑).unit p x = ⟨𝓐.unit p.1 x.fst, 𝓑.unit p.2 x.snd⟩ := (rfl)
+@[simp] theorem prod_unit (p : ι × κ) (x : U₁ p.1 × U₂ p.2) :
+    (𝓐.prod 𝓑).unit p x = (𝓐.unit p.1 x.1, 𝓑.unit p.2 x.2) := (rfl)
 
 /-- Inverse overlap arrow in `𝓐.prod 𝓑`. -/
-@[simp] theorem prod_inv {p q : ι × κ} (α : ProdCarrier (R₁ p.1 q.1) (R₂ p.2 q.2)) :
-    (𝓐.prod 𝓑).inv α = ⟨𝓐.inv α.fst, 𝓑.inv α.snd⟩ := (rfl)
+@[simp] theorem prod_inv {p q : ι × κ} (α : R₁ p.1 q.1 × R₂ p.2 q.2) :
+    (𝓐.prod 𝓑).inv α = (𝓐.inv α.1, 𝓑.inv α.2) := (rfl)
 
 /-- Composition of overlap arrows in `𝓐.prod 𝓑`. -/
 @[simp] theorem prod_comp {p q r : ι × κ}
-    (α : ProdCarrier (R₁ p.1 q.1) (R₂ p.2 q.2)) (β : ProdCarrier (R₁ q.1 r.1) (R₂ q.2 r.2))
+    (α : R₁ p.1 q.1 × R₂ p.2 q.2) (β : R₁ q.1 r.1 × R₂ q.2 r.2)
     (h : (𝓐.prod 𝓑).tgt α = (𝓐.prod 𝓑).src β) :
     (𝓐.prod 𝓑).comp α β h =
-      ⟨𝓐.comp α.fst β.fst
-          (congrArg ProdCarrier.fst ((𝓐.prod_tgt 𝓑 α).symm.trans (h.trans (𝓐.prod_src 𝓑 β)))),
-        𝓑.comp α.snd β.snd
-          (congrArg ProdCarrier.snd ((𝓐.prod_tgt 𝓑 α).symm.trans (h.trans (𝓐.prod_src 𝓑 β))))⟩ :=
-  (rfl)
+      (𝓐.comp α.1 β.1 (congrArg Prod.fst ((𝓐.prod_tgt 𝓑 α).symm.trans (h.trans (𝓐.prod_src 𝓑 β)))),
+        𝓑.comp α.2 β.2
+          (congrArg Prod.snd ((𝓐.prod_tgt 𝓑 α).symm.trans (h.trans (𝓐.prod_src 𝓑 β))))) := (rfl)
 
 /-- First projection morphism `(𝓐.prod 𝓑).Hom 𝓐`. -/
 -- `expose, implicit_reducible`: dependent chart types must see `(𝓐.fstHom 𝓑).index p` as `p.1`.
-@[expose, implicit_reducible] def fstHom : (𝓐.prod 𝓑).Hom 𝓐 where
-  index := Prod.fst
-  groupHom _ := MonoidHom.fst _ _
-  obj _ := ProdCarrier.fst
-  map := ProdCarrier.fst
-  src_map _ := by simp
-  tgt_map _ := by simp
-  map_unit _ _ := by simp
-  map_comp _ _ _ := by simp
-  map_smul _ _ := by simp
+@[expose, implicit_reducible] def fstHom : (𝓐.prod 𝓑).Hom 𝓐 :=
+  ⟨Prod.fst, fun _ ↦ MonoidHom.fst _ _, fun _ ↦ Prod.fst, Prod.fst,
+    fun _ ↦ by simp, fun _ ↦ by simp, fun _ _ ↦ by simp, fun _ _ _ ↦ by simp, fun _ _ ↦ by simp⟩
 
 /-- Index map of `fstHom`. -/
 @[simp] theorem fstHom_index : (𝓐.fstHom 𝓑).index = Prod.fst := (rfl)
@@ -280,25 +352,17 @@ def prod : ChartAtlas (fun p : ι × κ ↦ G₁ p.1 × G₂ p.2)
     (𝓐.fstHom 𝓑).groupHom p = MonoidHom.fst (G₁ p.1) (G₂ p.2) := (rfl)
 
 /-- Point map of `fstHom` at chart `p`. -/
-@[simp] theorem fstHom_obj (p : ι × κ) (x : ProdCarrier (U₁ p.1) (U₂ p.2)) :
-    (𝓐.fstHom 𝓑).obj p x = x.fst := (rfl)
+@[simp] theorem fstHom_obj (p : ι × κ) (x : U₁ p.1 × U₂ p.2) : (𝓐.fstHom 𝓑).obj p x = x.1 := (rfl)
 
 /-- Overlap-arrow map of `fstHom`. -/
-@[simp] theorem fstHom_map {p q : ι × κ} (α : ProdCarrier (R₁ p.1 q.1) (R₂ p.2 q.2)) :
-    (𝓐.fstHom 𝓑).map α = α.fst := (rfl)
+@[simp] theorem fstHom_map {p q : ι × κ} (α : R₁ p.1 q.1 × R₂ p.2 q.2) :
+    (𝓐.fstHom 𝓑).map α = α.1 := (rfl)
 
 /-- Second projection morphism `(𝓐.prod 𝓑).Hom 𝓑`. -/
 -- `expose, implicit_reducible`: dependent chart types must see `(𝓐.sndHom 𝓑).index p` as `p.2`.
-@[expose, implicit_reducible] def sndHom : (𝓐.prod 𝓑).Hom 𝓑 where
-  index := Prod.snd
-  groupHom _ := MonoidHom.snd _ _
-  obj _ := ProdCarrier.snd
-  map := ProdCarrier.snd
-  src_map _ := by simp
-  tgt_map _ := by simp
-  map_unit _ _ := by simp
-  map_comp _ _ _ := by simp
-  map_smul _ _ := by simp
+@[expose, implicit_reducible] def sndHom : (𝓐.prod 𝓑).Hom 𝓑 :=
+  ⟨Prod.snd, fun _ ↦ MonoidHom.snd _ _, fun _ ↦ Prod.snd, Prod.snd,
+    fun _ ↦ by simp, fun _ ↦ by simp, fun _ _ ↦ by simp, fun _ _ _ ↦ by simp, fun _ _ ↦ by simp⟩
 
 /-- Index map of `sndHom`. -/
 @[simp] theorem sndHom_index : (𝓐.sndHom 𝓑).index = Prod.snd := (rfl)
@@ -308,12 +372,11 @@ def prod : ChartAtlas (fun p : ι × κ ↦ G₁ p.1 × G₂ p.2)
     (𝓐.sndHom 𝓑).groupHom p = MonoidHom.snd (G₁ p.1) (G₂ p.2) := (rfl)
 
 /-- Point map of `sndHom` at chart `p`. -/
-@[simp] theorem sndHom_obj (p : ι × κ) (x : ProdCarrier (U₁ p.1) (U₂ p.2)) :
-    (𝓐.sndHom 𝓑).obj p x = x.snd := (rfl)
+@[simp] theorem sndHom_obj (p : ι × κ) (x : U₁ p.1 × U₂ p.2) : (𝓐.sndHom 𝓑).obj p x = x.2 := (rfl)
 
 /-- Overlap-arrow map of `sndHom`. -/
-@[simp] theorem sndHom_map {p q : ι × κ} (α : ProdCarrier (R₁ p.1 q.1) (R₂ p.2 q.2)) :
-    (𝓐.sndHom 𝓑).map α = α.snd := (rfl)
+@[simp] theorem sndHom_map {p q : ι × κ} (α : R₁ p.1 q.1 × R₂ p.2 q.2) :
+    (𝓐.sndHom 𝓑).map α = α.2 := (rfl)
 
 section ProdPairing
 
@@ -323,16 +386,11 @@ variable {𝓐 𝓑} {μ : Type*} {G₃ : μ → Type*} [∀ m, Group (G₃ m)]
 
 /-- Product pairing morphism `𝓒.Hom (𝓐.prod 𝓑)` assembled from morphisms into each factor. -/
 -- `expose, implicit_reducible`: dependent chart types must see `(Φ₁.prod Φ₂).index m`.
-@[expose, implicit_reducible] def Hom.prod (Φ₁ : 𝓒.Hom 𝓐) (Φ₂ : 𝓒.Hom 𝓑) : 𝓒.Hom (𝓐.prod 𝓑) where
-  index m := (Φ₁.index m, Φ₂.index m)
-  groupHom m := (Φ₁.groupHom m).prod (Φ₂.groupHom m)
-  obj m x := ⟨Φ₁.obj m x, Φ₂.obj m x⟩
-  map α := ⟨Φ₁.map α, Φ₂.map α⟩
-  src_map _ := by ext <;> simp
-  tgt_map _ := by ext <;> simp
-  map_unit _ _ := by ext <;> simp
-  map_comp _ _ _ := by ext <;> simp [Φ₁.map_comp, Φ₂.map_comp]
-  map_smul _ _ := by ext <;> simp
+@[expose, implicit_reducible] def Hom.prod (Φ₁ : 𝓒.Hom 𝓐) (Φ₂ : 𝓒.Hom 𝓑) : 𝓒.Hom (𝓐.prod 𝓑) :=
+  ⟨fun m ↦ (Φ₁.index m, Φ₂.index m), fun m ↦ (Φ₁.groupHom m).prod (Φ₂.groupHom m),
+    fun m x ↦ (Φ₁.obj m x, Φ₂.obj m x), fun α ↦ (Φ₁.map α, Φ₂.map α),
+    fun _ ↦ by ext <;> simp, fun _ ↦ by ext <;> simp, fun _ _ ↦ by ext <;> simp,
+    fun _ _ _ ↦ by ext <;> simp [Φ₁.map_comp, Φ₂.map_comp], fun _ _ ↦ by ext <;> simp⟩
 
 /-- Index map of `Hom.prod`. -/
 @[simp] theorem Hom.prod_index (Φ₁ : 𝓒.Hom 𝓐) (Φ₂ : 𝓒.Hom 𝓑) (m : μ) :
@@ -344,19 +402,21 @@ variable {𝓐 𝓑} {μ : Type*} {G₃ : μ → Type*} [∀ m, Group (G₃ m)]
 
 /-- Point map of `Hom.prod` at chart `m`. -/
 @[simp] theorem Hom.prod_obj (Φ₁ : 𝓒.Hom 𝓐) (Φ₂ : 𝓒.Hom 𝓑) (m : μ) (x : U₃ m) :
-    (Φ₁.prod Φ₂).obj m x = ⟨Φ₁.obj m x, Φ₂.obj m x⟩ := (rfl)
+    (Φ₁.prod Φ₂).obj m x = (Φ₁.obj m x, Φ₂.obj m x) := (rfl)
 
 /-- Overlap-arrow map of `Hom.prod`. -/
 @[simp] theorem Hom.prod_map (Φ₁ : 𝓒.Hom 𝓐) (Φ₂ : 𝓒.Hom 𝓑) {m n : μ} (α : R₃ m n) :
-    (Φ₁.prod Φ₂).map α = ⟨Φ₁.map α, Φ₂.map α⟩ := (rfl)
+    (Φ₁.prod Φ₂).map α = (Φ₁.map α, Φ₂.map α) := (rfl)
 
 /-- Projecting `Φ₁.prod Φ₂` onto the first factor recovers `Φ₁`. -/
 @[simp] theorem fstHom_comp_prod (Φ₁ : 𝓒.Hom 𝓐) (Φ₂ : 𝓒.Hom 𝓑) :
-    (𝓐.fstHom 𝓑).comp (Φ₁.prod Φ₂) = Φ₁ := Hom.ext rfl (fun _ ↦ HEq.rfl) (fun _ ↦ HEq.rfl)
+    (𝓐.fstHom 𝓑).comp (Φ₁.prod Φ₂) = Φ₁ :=
+  Hom.ext rfl (fun _ ↦ heq_of_eq (MonoidHom.fst_comp_prod _ _)) (fun _ ↦ HEq.rfl)
 
 /-- Projecting `Φ₁.prod Φ₂` onto the second factor recovers `Φ₂`. -/
 @[simp] theorem sndHom_comp_prod (Φ₁ : 𝓒.Hom 𝓐) (Φ₂ : 𝓒.Hom 𝓑) :
-    (𝓐.sndHom 𝓑).comp (Φ₁.prod Φ₂) = Φ₂ := Hom.ext rfl (fun _ ↦ HEq.rfl) (fun _ ↦ HEq.rfl)
+    (𝓐.sndHom 𝓑).comp (Φ₁.prod Φ₂) = Φ₂ :=
+  Hom.ext rfl (fun _ ↦ heq_of_eq (MonoidHom.snd_comp_prod _ _)) (fun _ ↦ HEq.rfl)
 
 /-- Pairing the two projections of `𝓐.prod 𝓑` gives the identity morphism. -/
 @[simp] theorem fstHom_prod_sndHom : (𝓐.fstHom 𝓑).prod (𝓐.sndHom 𝓑) = Hom.id (𝓐.prod 𝓑) :=
@@ -374,15 +434,12 @@ end ProdPairing
 
 /-- Categorical equivalence `(𝓐.prod 𝓑).Obj ≌ 𝓐.Obj × 𝓑.Obj` identifying the presenting groupoid
 of a product atlas with the product of the presenting groupoids. -/
--- `expose, implicit_reducible`: dependent chart indices in `inverse_map_arrow`, `unitIso`, and
--- `counitIso` require `functor` and `inverse` object maps to reduce.
+-- `expose, implicit_reducible`: `functor` and `inverse` object maps must reduce on chart indices.
 @[expose, implicit_reducible] def prodObjEquivalence : (𝓐.prod 𝓑).Obj ≌ 𝓐.Obj × 𝓑.Obj where
   functor := (𝓐.fstHom 𝓑).toFunctor.prod' (𝓐.sndHom 𝓑).toFunctor
-  inverse :=
-    { obj p := ⟨(p.1.chart, p.2.chart), ⟨p.1.point, p.2.point⟩⟩
-      map f := ⟨⟨f.1.arrow, f.2.arrow⟩, by simp, by simp⟩
-      map_id _ := by ext <;> simp
-      map_comp _ _ := by ext <;> simp }
+  inverse := ⟨fun p ↦ ⟨(p.1.chart, p.2.chart), (p.1.point, p.2.point)⟩,
+    fun f ↦ ⟨(f.1.arrow, f.2.arrow), by simp, by simp⟩, fun _ ↦ by ext <;> simp,
+    fun _ _ ↦ by ext <;> simp⟩
   unitIso := Iso.refl _
   counitIso := Iso.refl _
   functor_unitIso_comp _ := by ext <;> simp
@@ -393,12 +450,12 @@ of a product atlas with the product of the presenting groupoids. -/
 
 /-- Object action of the inverse functor of `prodObjEquivalence`. -/
 @[simp] theorem prodObjEquivalence_inverse_obj (p : 𝓐.Obj × 𝓑.Obj) :
-    (𝓐.prodObjEquivalence 𝓑).inverse.obj p = ⟨(p.1.chart, p.2.chart), ⟨p.1.point, p.2.point⟩⟩ :=
+    (𝓐.prodObjEquivalence 𝓑).inverse.obj p = ⟨(p.1.chart, p.2.chart), (p.1.point, p.2.point)⟩ :=
   (rfl)
 
 /-- Arrow action of the inverse functor of `prodObjEquivalence`. -/
 @[simp] theorem prodObjEquivalence_inverse_map_arrow {p q : 𝓐.Obj × 𝓑.Obj} (f : p ⟶ q) :
-    ((𝓐.prodObjEquivalence 𝓑).inverse.map f).arrow = ⟨f.1.arrow, f.2.arrow⟩ := (rfl)
+    ((𝓐.prodObjEquivalence 𝓑).inverse.map f).arrow = (f.1.arrow, f.2.arrow) := (rfl)
 
 /-- Unit isomorphism of `prodObjEquivalence`. -/
 @[simp] theorem prodObjEquivalence_unitIso :
@@ -410,13 +467,9 @@ of a product atlas with the product of the presenting groupoids. -/
 
 end Prod
 
-section OfCharts
-
-variable {C : Type*} [Category* C]
-
 section MonoidCharts
 
-variable {M₁ : Type u₁} {M₂ : Type u₂} [Monoid M₁] [Monoid M₂]
+variable {C : Type*} [Category* C] {M₁ : Type u₁} {M₂ : Type u₂} [Monoid M₁] [Monoid M₂]
   {U₁ : Type u₃} {U₂ : Type u₄} [MulAction M₁ U₁] [MulAction M₂ U₂]
 
 /-- An overlap arrow between two action-category charts `F₁ : ActionCategory M₁ U₁ ⥤ C` and
@@ -438,23 +491,20 @@ instance instSMulChartOverlap (F₁ : ActionCategory M₁ U₁ ⥤ C) (F₂ : Ac
     α.hom ≫ F₂.map (Functor.Elements.homMk m rfl :
       ActionCategory.objEquiv M₂ U₂ α.tgt ⟶ ActionCategory.objEquiv M₂ U₂ (m • α.tgt))⟩
 
-section ChartOverlapSMul
-
-variable {F₁ : ActionCategory M₁ U₁ ⥤ C} {F₂ : ActionCategory M₂ U₂ ⥤ C} (m : M₂)
-  (α : ChartOverlap F₁ F₂)
-
 /-- `smul` on `ChartOverlap` preserves `src`. -/
-@[simp] theorem chartOverlap_smul_src : (m • α).src = α.src := (rfl)
+@[simp] theorem chartOverlap_smul_src {F₁ : ActionCategory M₁ U₁ ⥤ C}
+    {F₂ : ActionCategory M₂ U₂ ⥤ C} (m : M₂) (α : ChartOverlap F₁ F₂) : (m • α).src = α.src := (rfl)
 
 /-- `smul` on `ChartOverlap` translates `tgt` by `m`. -/
-@[simp] theorem chartOverlap_smul_tgt : (m • α).tgt = m • α.tgt := (rfl)
+@[simp] theorem chartOverlap_smul_tgt {F₁ : ActionCategory M₁ U₁ ⥤ C}
+    {F₂ : ActionCategory M₂ U₂ ⥤ C} (m : M₂) (α : ChartOverlap F₁ F₂) :
+    (m • α).tgt = m • α.tgt := (rfl)
 
-/-- `smul` on `ChartOverlap` postcomposes `hom` with the image under `F₂` of the action-category
-arrow labelled by `m`. -/
-@[simp] theorem chartOverlap_smul_hom : (m • α).hom = α.hom ≫ F₂.map (Functor.Elements.homMk m rfl :
-    ActionCategory.objEquiv M₂ U₂ α.tgt ⟶ ActionCategory.objEquiv M₂ U₂ (m • α.tgt)) := (rfl)
-
-end ChartOverlapSMul
+/-- `smul` on `ChartOverlap` postcomposes `hom` with `F₂.map` of the arrow labelled by `m`. -/
+@[simp] theorem chartOverlap_smul_hom {F₁ : ActionCategory M₁ U₁ ⥤ C}
+    {F₂ : ActionCategory M₂ U₂ ⥤ C} (m : M₂) (α : ChartOverlap F₁ F₂) :
+    (m • α).hom = α.hom ≫ F₂.map (Functor.Elements.homMk m rfl :
+      ActionCategory.objEquiv M₂ U₂ α.tgt ⟶ ActionCategory.objEquiv M₂ U₂ (m • α.tgt)) := (rfl)
 
 /-- `MulAction` of `M₂` on `ChartOverlap F₁ F₂`. -/
 instance instMulActionChartOverlap (F₁ : ActionCategory M₁ U₁ ⥤ C)
@@ -474,12 +524,9 @@ instance instMulActionChartOverlap (F₁ : ActionCategory M₁ U₁ ⥤ C)
           Functor.Elements.homMk m₁ rfl =
         Functor.Elements.homMk (m₁ * m₂) rfl ≫
           eqToHom (congrArg (ActionCategory.objEquiv M₂ U₂) hm) :=
-      Functor.Elements.hom_ext <|
-        (SingleObj.comp_as_mul M₂ m₂ m₁).trans
-          ((SingleObj.comp_as_mul M₂ (m₁ * m₂) _).trans
-            ((congrArg (· * (m₁ * m₂)) (ActionCategory.eqToHom_hom _)).trans (one_mul _))).symm
-    have hhom : (m₁ • m₂ • α).hom =
-        ((m₁ * m₂) • α).hom ≫
+      Functor.Elements.hom_ext <| by
+        rw [ActionCategory.comp_hom, ActionCategory.comp_hom, ActionCategory.eqToHom_hom]; simp
+    have hhom : (m₁ • m₂ • α).hom = ((m₁ * m₂) • α).hom ≫
           eqToHom (congrArg (fun u ↦ F₂.obj (ActionCategory.objEquiv M₂ U₂ u)) hm) := by
       simp [← F₂.map_comp, hcomp, eqToHom_map]
     exact ChartOverlap.ext rfl hm
@@ -489,17 +536,17 @@ end MonoidCharts
 
 section GroupoidCharts
 
-variable [IsGroupoid C] {ι : Type u₁} {G : ι → Type u₂} [∀ i, Group (G i)]
+variable {C : Type*} [Category* C] [IsGroupoid C]
+  {ι : Type u₁} {G : ι → Type u₂} [∀ i, Group (G i)]
   {U : ι → Type u₃} [∀ i, MulAction (G i) (U i)]
-
-section FixedCharts
-
-variable (F : ∀ i, ActionCategory (G i) (U i) ⥤ C) [∀ i, (F i).Full] [∀ i, (F i).Faithful]
+  (F : ∀ i, ActionCategory (G i) (U i) ⥤ C) [∀ i, (F i).Full] [∀ i, (F i).Faithful]
 
 /-- **Induced retained-arrow chart atlas.** Any family of fully faithful action-groupoid charts
 `F i : ActionCategory (G i) (U i) ⥤ C` into a groupoid `C` induces a `ChartAtlas` on
 `fun i j ↦ ChartOverlap (F i) (F j)`, retaining all ineffective isotropy labels. -/
-noncomputable def ofCharts : ChartAtlas G U (fun i j ↦ ChartOverlap (F i) (F j)) where
+-- `expose, implicit_reducible`: `(ofCharts F).reindex σ` unifies with `ofCharts (F ∘ σ)`.
+@[expose, implicit_reducible] noncomputable def ofCharts :
+    ChartAtlas G U (fun i j ↦ ChartOverlap (F i) (F j)) where
   src α := α.src
   tgt α := α.tgt
   unit _ x := ⟨x, x, 𝟙 _⟩
@@ -568,16 +615,14 @@ noncomputable def ofCharts : ChartAtlas G U (fun i j ↦ ChartOverlap (F i) (F j
 @[simp] theorem ofCharts_comp {i j k : ι}
     (α : ChartOverlap (F i) (F j)) (β : ChartOverlap (F j) (F k))
     (h : (ofCharts F).tgt α = (ofCharts F).src β) :
-    (ofCharts F).comp α β h =
-      ⟨α.src, β.tgt,
-        α.hom ≫ eqToHom (congrArg (fun u ↦ (F j).obj (ActionCategory.objEquiv (G j) (U j) u))
-          ((ofCharts_tgt F α).symm.trans (h.trans (ofCharts_src F β)))) ≫ β.hom⟩ := (rfl)
+    (ofCharts F).comp α β h = ⟨α.src, β.tgt,
+      α.hom ≫ eqToHom (congrArg (fun u ↦ (F j).obj (ActionCategory.objEquiv (G j) (U j) u))
+        ((ofCharts_tgt F α).symm.trans (h.trans (ofCharts_src F β)))) ≫ β.hom⟩ := (rfl)
 
 /-- The canonical comparison functor `(ofCharts F).Obj ⥤ C` from the presenting groupoid of the
 induced chart atlas back to `C`. -/
--- `expose, implicit_reducible`: morphism types `(toGroupoid F).map f` must reduce their endpoints
--- `(toGroupoid F).obj x` to the chart images `(F x.chart).obj (...)` in `C`.
-@[expose, implicit_reducible] noncomputable def toGroupoid : (ofCharts F).Obj ⥤ C where
+-- `expose, implicit_reducible`: `(ofChartsFunctor F).obj x` must reduce in morphism types.
+@[expose, implicit_reducible] noncomputable def ofChartsFunctor : (ofCharts F).Obj ⥤ C where
   obj x := (F x.chart).obj (ActionCategory.objEquiv (G x.chart) (U x.chart) x.point)
   map {x y} f :=
     eqToHom (congrArg (fun u ↦ (F x.chart).obj (ActionCategory.objEquiv (G x.chart) (U x.chart) u))
@@ -602,14 +647,14 @@ induced chart atlas back to `C`. -/
       x ⟶ z) = e at h ⊢
     rcases e with ⟨_, _, _⟩; subst h; simp
 
-/-- `toGroupoid F` evaluates on `⟨i, x⟩` as `(F i).obj (objEquiv (G i) (U i) x)`. -/
-@[simp] theorem toGroupoid_obj (x : (ofCharts F).Obj) :
-    (toGroupoid F).obj x =
+/-- `ofChartsFunctor F` evaluates on `⟨i, x⟩` as `(F i).obj (objEquiv (G i) (U i) x)`. -/
+@[simp] theorem ofChartsFunctor_obj (x : (ofCharts F).Obj) :
+    (ofChartsFunctor F).obj x =
       (F x.chart).obj (ActionCategory.objEquiv (G x.chart) (U x.chart) x.point) := (rfl)
 
-/-- Action of `toGroupoid F` on morphisms. -/
-theorem toGroupoid_map {x y : (ofCharts F).Obj} (f : x ⟶ y) :
-    (toGroupoid F).map f =
+/-- Action of `ofChartsFunctor F` on morphisms. -/
+theorem ofChartsFunctor_map {x y : (ofCharts F).Obj} (f : x ⟶ y) :
+    (ofChartsFunctor F).map f =
       eqToHom (congrArg
         (fun u ↦ (F x.chart).obj (ActionCategory.objEquiv (G x.chart) (U x.chart) u))
         ((ofCharts_src F f.arrow).symm.trans f.src_arrow).symm) ≫ f.arrow.hom ≫
@@ -617,53 +662,51 @@ theorem toGroupoid_map {x y : (ofCharts F).Obj} (f : x ⟶ y) :
           (fun u ↦ (F y.chart).obj (ActionCategory.objEquiv (G y.chart) (U y.chart) u))
           ((ofCharts_tgt F f.arrow).symm.trans f.tgt_arrow)) := (rfl)
 
-private theorem toGroupoid_map_of_arrow_eq {x y : (ofCharts F).Obj} (f : x ⟶ y)
+private theorem ofChartsFunctor_map_of_arrow_eq {x y : (ofCharts F).Obj} (f : x ⟶ y)
     {α : ChartOverlap (F x.chart) (F y.chart)} (hf : f.arrow = α)
     (hs : α.src = x.point) (ht : α.tgt = y.point) :
-    (toGroupoid F).map f =
+    (ofChartsFunctor F).map f =
       eqToHom (congrArg
         (fun u ↦ (F x.chart).obj (ActionCategory.objEquiv (G x.chart) (U x.chart) u)) hs.symm) ≫
         α.hom ≫ eqToHom (congrArg
           (fun u ↦ (F y.chart).obj (ActionCategory.objEquiv (G y.chart) (U y.chart) u)) ht) := by
   rcases f with ⟨_, _, _⟩; subst hf; rfl
 
-/-- Action of `toGroupoid F` on a morphism constructed directly from chart points and a morphism in
-`C`. -/
-@[simp] theorem toGroupoid_map_mk {i j : ι} (x : U i) (y : U j)
+/-- Action of `ofChartsFunctor F` on a morphism constructed directly from chart points and `m`. -/
+@[simp] theorem ofChartsFunctor_map_mk {i j : ι} (x : U i) (y : U j)
     (m : (F i).obj (ActionCategory.objEquiv (G i) (U i) x) ⟶
       (F j).obj (ActionCategory.objEquiv (G j) (U j) y))
     (hs : (ofCharts F).src ⟨x, y, m⟩ = x) (ht : (ofCharts F).tgt ⟨x, y, m⟩ = y) :
-    (toGroupoid F).map (⟨⟨x, y, m⟩, hs, ht⟩ : (⟨i, x⟩ : (ofCharts F).Obj) ⟶ ⟨j, y⟩) = m := by
-  simp [toGroupoid_map]
+    (ofChartsFunctor F).map (⟨⟨x, y, m⟩, hs, ht⟩ : (⟨i, x⟩ : (ofCharts F).Obj) ⟶ ⟨j, y⟩) = m := by
+  simp [ofChartsFunctor_map]
 
-/-- `toGroupoid F` is faithful. -/
-instance instFaithfulToGroupoid : (toGroupoid F).Faithful where
+/-- `ofChartsFunctor F` is faithful. -/
+instance instFaithfulOfChartsFunctor : (ofChartsFunctor F).Faithful where
   map_injective {x y} f₁ f₂ h := by
     obtain ⟨⟨sx₁, sy₁, m₁⟩, hs₁, ht₁⟩ := f₁; obtain ⟨⟨sx₂, sy₂, m₂⟩, hs₂, ht₂⟩ := f₂
     obtain rfl : sx₁ = x.point := (ofCharts_src F _).symm.trans hs₁
     obtain rfl : sy₁ = y.point := (ofCharts_tgt F _).symm.trans ht₁
     obtain rfl : sx₂ = x.point := (ofCharts_src F _).symm.trans hs₂
     obtain rfl : sy₂ = y.point := (ofCharts_tgt F _).symm.trans ht₂
-    exact Obj.Hom.ext (ChartOverlap.ext rfl rfl (heq_of_eq (by simpa [toGroupoid_map] using h)))
+    exact Obj.Hom.ext <| ChartOverlap.ext rfl rfl <| heq_of_eq <| by
+      simpa [ofChartsFunctor_map] using h
 
-/-- `toGroupoid F` is full. -/
-instance instFullToGroupoid : (toGroupoid F).Full where
+/-- `ofChartsFunctor F` is full. -/
+instance instFullOfChartsFunctor : (ofChartsFunctor F).Full where
   map_surjective {x y} m :=
     ⟨⟨⟨x.point, y.point, m⟩, ofCharts_src F _, ofCharts_tgt F _⟩,
-      toGroupoid_map_mk F x.point y.point m _ _⟩
+      ofChartsFunctor_map_mk F x.point y.point m _ _⟩
 
-/-- `toGroupoid F` is essentially surjective precisely when every object of `C` is isomorphic to a
-point in the image of one of the charts `F i`. -/
-theorem essSurj_toGroupoid_iff :
-    (toGroupoid F).EssSurj ↔
-      ∀ c : C, ∃ (i : ι) (x : U i),
-        Nonempty ((F i).obj (ActionCategory.objEquiv (G i) (U i) x) ≅ c) :=
+/-- `ofChartsFunctor F` is essentially surjective iff the charts `F i` cover `C` up to iso. -/
+theorem essSurj_ofChartsFunctor_iff :
+    (ofChartsFunctor F).EssSurj ↔ ∀ c : C, ∃ (i : ι) (x : U i),
+      Nonempty ((F i).obj (ActionCategory.objEquiv (G i) (U i) x) ≅ c) :=
   ⟨fun h c ↦ let ⟨y, ⟨e⟩⟩ := h.mem_essImage c; ⟨y.chart, y.point, ⟨e⟩⟩,
     fun h ↦ ⟨fun c ↦ let ⟨i, x, ⟨e⟩⟩ := h c; ⟨⟨i, x⟩, ⟨e⟩⟩⟩⟩
 
-/-- Restricting `toGroupoid F` along the `i`-th chart inclusion recovers `F i`. -/
-@[simp] theorem chartFunctor_comp_toGroupoid (i : ι) :
-    (ofCharts F).chartFunctor i ⋙ toGroupoid F = F i := by
+/-- Restricting `ofChartsFunctor F` along the `i`-th chart inclusion recovers `F i`. -/
+@[simp] theorem chartFunctor_comp_ofChartsFunctor (i : ι) :
+    (ofCharts F).chartFunctor i ⋙ ofChartsFunctor F = F i := by
   refine CategoryTheory.Functor.hext (fun a ↦ congrArg (F i).obj (ActionCategory.back_coe a))
     fun {a b} f ↦ ?_
   let g₀ : G i := f.hom
@@ -677,65 +720,31 @@ theorem essSurj_toGroupoid_iff :
       ⟨a.back, g₀ • a.back,
         𝟙 _ ≫ (F i).map (Functor.Elements.homMk g₀ rfl : obj a.back ⟶ obj (g₀ • a.back))⟩ :=
     ((ofCharts F).chartFunctor_map_arrow i f).trans (congrArg (g₀ • ·) (ofCharts_unit F i a.back))
-  rw [Functor.comp_map, toGroupoid_map_of_arrow_eq F _ hf rfl (ActionCategory.hom_smul f)]
+  rw [Functor.comp_map, ofChartsFunctor_map_of_arrow_eq F _ hf rfl (ActionCategory.hom_smul f)]
   simp [hact, eqToHom_map]
 
-end FixedCharts
-
-section Reindex
-
-variable {ν μ : Type*} {G' : μ → Type*} [∀ m, Group (G' m)]
-  {U' : μ → Type*} [∀ m, MulAction (G' m) (U' m)]
-  (F : ∀ m, ActionCategory (G' m) (U' m) ⥤ C) [∀ m, (F m).Full] [∀ m, (F m).Faithful]
-
-/-- Reindexing a family of fully faithful action charts along `σ : ν → μ` induces a canonical
+/-- Reindexing a family of fully faithful action charts along `σ : ν → ι` induces a canonical
 morphism of chart atlases `(ofCharts (fun n ↦ F (σ n))).Hom (ofCharts F)`. -/
--- `expose, implicit_reducible`: dependent chart types must see `(ofChartsReindexHom F σ).index n`.
-@[expose, implicit_reducible] noncomputable def ofChartsReindexHom (σ : ν → μ) :
-    (ofCharts (fun n ↦ F (σ n))).Hom (ofCharts F) where
-  index := σ
-  groupHom n := MonoidHom.id (G' (σ n))
-  obj _ := id
-  map α := α
-  src_map _ := by simp
-  tgt_map _ := by simp
-  map_unit _ _ := by simp
-  map_comp _ _ _ := by simp
-  map_smul _ _ := by simp
+noncomputable abbrev ofChartsReindexHom {ν : Type*} (σ : ν → ι) :
+    (ofCharts (fun n ↦ F (σ n))).Hom (ofCharts F) :=
+  (ofCharts F).reindexHom σ
 
-/-- Index map of `ofChartsReindexHom`. -/
-@[simp] theorem ofChartsReindexHom_index (σ : ν → μ) : (ofChartsReindexHom F σ).index = σ := (rfl)
+/-- `ofChartsReindexHom` commutes strictly with `ofChartsFunctor`. -/
+@[simp] theorem ofChartsReindexHom_toFunctor_comp_ofChartsFunctor {ν : Type*} (σ : ν → ι) :
+    (ofChartsReindexHom F σ).toFunctor ⋙ ofChartsFunctor F =
+      ofChartsFunctor (fun n ↦ F (σ n)) := (rfl)
 
-/-- Group homomorphism of `ofChartsReindexHom` at chart `n`. -/
-@[simp] theorem ofChartsReindexHom_groupHom (σ : ν → μ) (n : ν) :
-    (ofChartsReindexHom F σ).groupHom n = MonoidHom.id (G' (σ n)) := (rfl)
-
-/-- Point map of `ofChartsReindexHom` at chart `n`. -/
-@[simp] theorem ofChartsReindexHom_obj (σ : ν → μ) (n : ν) (x : U' (σ n)) :
-    (ofChartsReindexHom F σ).obj n x = x := (rfl)
-
-/-- Overlap-arrow map of `ofChartsReindexHom`. -/
-@[simp] theorem ofChartsReindexHom_map (σ : ν → μ) {n₁ n₂ : ν}
-    (α : ChartOverlap (F (σ n₁)) (F (σ n₂))) : (ofChartsReindexHom F σ).map α = α := (rfl)
-
-/-- `ofChartsReindexHom` commutes strictly with `toGroupoid`. -/
-@[simp] theorem ofChartsReindexHom_toFunctor_comp_toGroupoid (σ : ν → μ) :
-    (ofChartsReindexHom F σ).toFunctor ⋙ toGroupoid F = toGroupoid (fun n ↦ F (σ n)) := (rfl)
-
-/-- Any chart-family reindexing morphism is faithful on presenting groupoids. -/
-instance instFaithfulOfChartsReindexHom (σ : ν → μ) :
+/-- `ofChartsReindexHom` induces a faithful functor on presenting groupoids. -/
+instance instFaithfulOfChartsReindexHom {ν : Type*} (σ : ν → ι) :
     (ofChartsReindexHom F σ).toFunctor.Faithful :=
-  Functor.Faithful.of_comp_eq (ofChartsReindexHom_toFunctor_comp_toGroupoid F σ)
+  inferInstanceAs ((ofCharts F).reindexHom σ).toFunctor.Faithful
 
-/-- Any chart-family reindexing morphism is full on presenting groupoids. -/
-instance instFullOfChartsReindexHom (σ : ν → μ) : (ofChartsReindexHom F σ).toFunctor.Full :=
-  Functor.Full.of_comp_faithful_iso (eqToIso (ofChartsReindexHom_toFunctor_comp_toGroupoid F σ))
-
-end Reindex
+/-- `ofChartsReindexHom` induces a full functor on presenting groupoids. -/
+instance instFullOfChartsReindexHom {ν : Type*} (σ : ν → ι) :
+    (ofChartsReindexHom F σ).toFunctor.Full :=
+  inferInstanceAs ((ofCharts F).reindexHom σ).toFunctor.Full
 
 end GroupoidCharts
-
-end OfCharts
 
 section RoundTrip
 
@@ -744,7 +753,8 @@ variable {ι : Type u₁} {G : ι → Type u₂} [∀ i, Group (G i)]
   {R : ι → ι → Type u₄} [∀ i j, MulAction (G j) (R i j)]
   (𝓐 : ChartAtlas G U R)
 
-private theorem chartOverlap_chartFunctor_ext {i j : ι}
+/-- Two overlap arrows between `chartFunctor`s are equal when their underlying `R`-arrows agree. -/
+theorem chartOverlap_chartFunctor_ext {i j : ι}
     {α β : ChartOverlap (𝓐.chartFunctor i) (𝓐.chartFunctor j)} (h : α.hom.arrow = β.hom.arrow) :
     α = β := by
   have hs : α.src = β.src := (ActionCategory.coe_back (M := G i) α.src).symm.trans <|
@@ -815,17 +825,16 @@ morphism it defines in `𝓐.Obj`. -/
     (ActionCategory.coe_back (M := G j) (𝓐.tgt α)).symm⟩⟩
   src_map _ := by simp
   tgt_map _ := by simp
-  map_unit i x := by exact chartOverlap_chartFunctor_ext 𝓐 (𝓐.fromOfCharts.map_unit i x).symm
+  map_unit i x := 𝓐.chartOverlap_chartFunctor_ext (𝓐.fromOfCharts.map_unit i x).symm
   map_comp {i j k} α β h := by
     let mk {a b : ι} (γ : R a b) : ChartOverlap (𝓐.chartFunctor a) (𝓐.chartFunctor b) :=
       ⟨𝓐.src γ, 𝓐.tgt γ, ⟨γ, (ActionCategory.coe_back (M := G a) (𝓐.src γ)).symm,
         (ActionCategory.coe_back (M := G b) (𝓐.tgt γ)).symm⟩⟩
-    exact chartOverlap_chartFunctor_ext 𝓐 (𝓐.fromOfCharts.map_comp (mk α) (mk β)
+    exact 𝓐.chartOverlap_chartFunctor_ext (𝓐.fromOfCharts.map_comp (mk α) (mk β)
       ((ofCharts_tgt _ (mk α)).trans (h.trans (ofCharts_src _ (mk β)).symm))).symm
-  map_smul {i j} g α := by
-    exact chartOverlap_chartFunctor_ext 𝓐 (𝓐.fromOfCharts.map_smul g ⟨𝓐.src α, 𝓐.tgt α,
-      ⟨α, (ActionCategory.coe_back (M := G i) (𝓐.src α)).symm,
-        (ActionCategory.coe_back (M := G j) (𝓐.tgt α)).symm⟩⟩).symm
+  map_smul {i j} g α := 𝓐.chartOverlap_chartFunctor_ext (𝓐.fromOfCharts.map_smul g ⟨𝓐.src α,
+    𝓐.tgt α, ⟨α, (ActionCategory.coe_back (M := G i) (𝓐.src α)).symm,
+      (ActionCategory.coe_back (M := G j) (𝓐.tgt α)).symm⟩⟩).symm
 
 /-- Index map of `toOfCharts`. -/
 @[simp] theorem toOfCharts_index (i : ι) : 𝓐.toOfCharts.index i = i := (rfl)
@@ -836,33 +845,41 @@ morphism it defines in `𝓐.Obj`. -/
 /-- Point map of `toOfCharts` at chart `i`. -/
 @[simp] theorem toOfCharts_obj (i : ι) (x : U i) : 𝓐.toOfCharts.obj i x = x := (rfl)
 
+/-- Source point of `toOfCharts.map α`. -/
+@[simp] theorem toOfCharts_map_src {i j : ι} (α : R i j) :
+    (𝓐.toOfCharts.map α).src = 𝓐.src α := (rfl)
+
+/-- Target point of `toOfCharts.map α`. -/
+@[simp] theorem toOfCharts_map_tgt {i j : ι} (α : R i j) :
+    (𝓐.toOfCharts.map α).tgt = 𝓐.tgt α := (rfl)
+
 /-- Underlying arrow of `toOfCharts.map α`. -/
 @[simp] theorem toOfCharts_map_hom_arrow {i j : ι} (α : R i j) :
     (𝓐.toOfCharts.map α).hom.arrow = α := (rfl)
 
 /-- The functor induced by `fromOfCharts` on presenting groupoids coincides with
-`toGroupoid 𝓐.chartFunctor`. -/
+`ofChartsFunctor 𝓐.chartFunctor`. -/
 @[simp] theorem fromOfCharts_toFunctor :
-    𝓐.fromOfCharts.toFunctor = toGroupoid 𝓐.chartFunctor := by
+    𝓐.fromOfCharts.toFunctor = ofChartsFunctor 𝓐.chartFunctor := by
   have hobj (x : (ofCharts 𝓐.chartFunctor).Obj) :
-      𝓐.fromOfCharts.toFunctor.obj x = (toGroupoid 𝓐.chartFunctor).obj x :=
+      𝓐.fromOfCharts.toFunctor.obj x = (ofChartsFunctor 𝓐.chartFunctor).obj x :=
     congrArg (Obj.mk x.chart) (ActionCategory.coe_back (M := G x.chart) x.point).symm
   refine CategoryTheory.Functor.hext hobj fun {x y} f ↦
     Obj.Hom.hext (hobj x) (hobj y) (heq_of_eq ?_)
   obtain ⟨⟨sx, sy, m⟩, hs, ht⟩ := f
   obtain rfl : sx = x.point := (ofCharts_src _ _).symm.trans hs
   obtain rfl : sy = y.point := (ofCharts_tgt _ _).symm.trans ht
-  simp [toGroupoid_map]
+  simp [ofChartsFunctor_map]
 
 /-- `fromOfCharts` is a strict left inverse to `toOfCharts`. -/
 @[simp] theorem fromOfCharts_comp_toOfCharts : 𝓐.fromOfCharts.comp 𝓐.toOfCharts = Hom.id 𝓐 :=
-  Hom.ext rfl (fun _ ↦ HEq.rfl) (fun _ ↦ HEq.rfl)
+  Hom.ext rfl (fun _ ↦ heq_of_eq (MonoidHom.id_comp _)) (fun _ ↦ HEq.rfl)
 
-/-- `fromOfCharts` is a strict right inverse to `toOfCharts` (equivalently, `toOfCharts` is a
-strict left inverse to `fromOfCharts`). -/
+/-- `fromOfCharts` is a strict right inverse to `toOfCharts`. -/
 @[simp] theorem toOfCharts_comp_fromOfCharts :
     𝓐.toOfCharts.comp 𝓐.fromOfCharts = Hom.id (ofCharts 𝓐.chartFunctor) :=
-  Hom.ext rfl (fun _ ↦ HEq.rfl) fun _ ↦ heq_of_eq (chartOverlap_chartFunctor_ext 𝓐 rfl)
+  Hom.ext rfl (fun _ ↦ heq_of_eq (MonoidHom.id_comp _)) fun _ ↦
+    heq_of_eq (𝓐.chartOverlap_chartFunctor_ext rfl)
 
 end RoundTrip
 
@@ -873,22 +890,12 @@ variable {C : Type*} [Category* C]
   {U : ι → Type u₃} [∀ i, MulAction (G i) (U i)]
   {κ : Type v₁} {G' : κ → Type u₂} [∀ k, Group (G' k)]
   {U' : κ → Type u₃} [∀ k, MulAction (G' k) (U' k)]
-
-/-- Group structure on the disjoint-sum group family `Sum.elim G G' s`. -/
-instance instGroupSumElim : ∀ s : ι ⊕ κ, Group (Sum.elim G G' s)
-  | .inl i => inferInstanceAs (Group (G i))
-  | .inr k => inferInstanceAs (Group (G' k))
-
-/-- Group action of `Sum.elim G G' s` on `Sum.elim U U' s`. -/
-instance instMulActionSumElim : ∀ s : ι ⊕ κ, MulAction (Sum.elim G G' s) (Sum.elim U U' s)
-  | .inl i => inferInstanceAs (MulAction (G i) (U i))
-  | .inr k => inferInstanceAs (MulAction (G' k) (U' k))
-
-variable (F₁ : ∀ i, ActionCategory (G i) (U i) ⥤ C) (F₂ : ∀ k, ActionCategory (G' k) (U' k) ⥤ C)
+  (F₁ : ∀ i, ActionCategory (G i) (U i) ⥤ C) (F₂ : ∀ k, ActionCategory (G' k) (U' k) ⥤ C)
 
 /-- Combining two families of action charts into `C` over `ι ⊕ κ`. -/
--- Exposed so `sumCharts` reduces on `.inl` and `.inr` in dependent functor types.
-@[expose] def sumCharts : ∀ s : ι ⊕ κ, ActionCategory (Sum.elim G G' s) (Sum.elim U U' s) ⥤ C
+-- `expose, implicit_reducible`: `sumCharts` must reduce on `.inl` and `.inr` in implicit args.
+@[expose, implicit_reducible] def sumCharts :
+    ∀ s : ι ⊕ κ, ActionCategory (Sum.elim G G' s) (Sum.elim U U' s) ⥤ C
   | .inl i => F₁ i
   | .inr k => F₂ k
 
@@ -910,77 +917,25 @@ instance instFaithfulSumCharts : ∀ s : ι ⊕ κ, (sumCharts F₁ F₂ s).Fait
   | .inl i => inferInstanceAs (F₁ i).Faithful
   | .inr k => inferInstanceAs (F₂ k).Faithful
 
-section GroupoidSum
-
 variable [IsGroupoid C]
 
 /-- Left inclusion of `ofCharts F₁` into the combined chart atlas `ofCharts (sumCharts F₁ F₂)`. -/
--- `expose, implicit_reducible`: dependent chart types must see `(sumInlHom F₁ F₂).index i`.
-@[expose, implicit_reducible] noncomputable def sumInlHom :
-    (ofCharts F₁).Hom (ofCharts (sumCharts F₁ F₂)) :=
+noncomputable abbrev sumInlHom : (ofCharts F₁).Hom (ofCharts (sumCharts F₁ F₂)) :=
   ofChartsReindexHom (sumCharts F₁ F₂) Sum.inl
 
-/-- Index map of `sumInlHom`. -/
-@[simp] theorem sumInlHom_index : (sumInlHom F₁ F₂).index = Sum.inl := (rfl)
-
-/-- Group homomorphism of `sumInlHom` at chart `i`. -/
-@[simp] theorem sumInlHom_groupHom (i : ι) : (sumInlHom F₁ F₂).groupHom i = MonoidHom.id (G i) :=
-  (rfl)
-
-/-- Point map of `sumInlHom` at chart `i`. -/
-@[simp] theorem sumInlHom_obj (i : ι) (x : U i) : (sumInlHom F₁ F₂).obj i x = x := (rfl)
-
-/-- Overlap-arrow map of `sumInlHom`. -/
-@[simp] theorem sumInlHom_map {i j : ι} (α : ChartOverlap (F₁ i) (F₁ j)) :
-    (sumInlHom F₁ F₂).map α = α := (rfl)
-
-/-- `sumInlHom` commutes strictly with `toGroupoid`. -/
-@[simp] theorem sumInlHom_toFunctor_comp_toGroupoid :
-    (sumInlHom F₁ F₂).toFunctor ⋙ toGroupoid (sumCharts F₁ F₂) = toGroupoid F₁ :=
-  ofChartsReindexHom_toFunctor_comp_toGroupoid (sumCharts F₁ F₂) Sum.inl
-
-/-- The left chart-family inclusion is faithful on presenting groupoids. -/
-instance instFaithfulSumInlHom : (sumInlHom F₁ F₂).toFunctor.Faithful :=
-  Functor.Faithful.of_comp_eq (sumInlHom_toFunctor_comp_toGroupoid F₁ F₂)
-
-/-- The left chart-family inclusion is full on presenting groupoids. -/
-instance instFullSumInlHom : (sumInlHom F₁ F₂).toFunctor.Full :=
-  Functor.Full.of_comp_faithful_iso (eqToIso (sumInlHom_toFunctor_comp_toGroupoid F₁ F₂))
+/-- `sumInlHom` commutes strictly with `ofChartsFunctor`. -/
+@[simp] theorem sumInlHom_toFunctor_comp_ofChartsFunctor :
+    (sumInlHom F₁ F₂).toFunctor ⋙ ofChartsFunctor (sumCharts F₁ F₂) = ofChartsFunctor F₁ :=
+  ofChartsReindexHom_toFunctor_comp_ofChartsFunctor (sumCharts F₁ F₂) Sum.inl
 
 /-- Right inclusion of `ofCharts F₂` into the combined chart atlas `ofCharts (sumCharts F₁ F₂)`. -/
--- `expose, implicit_reducible`: dependent chart types must see `(sumInrHom F₁ F₂).index k`.
-@[expose, implicit_reducible] noncomputable def sumInrHom :
-    (ofCharts F₂).Hom (ofCharts (sumCharts F₁ F₂)) :=
+noncomputable abbrev sumInrHom : (ofCharts F₂).Hom (ofCharts (sumCharts F₁ F₂)) :=
   ofChartsReindexHom (sumCharts F₁ F₂) Sum.inr
 
-/-- Index map of `sumInrHom`. -/
-@[simp] theorem sumInrHom_index : (sumInrHom F₁ F₂).index = Sum.inr := (rfl)
-
-/-- Group homomorphism of `sumInrHom` at chart `k`. -/
-@[simp] theorem sumInrHom_groupHom (k : κ) : (sumInrHom F₁ F₂).groupHom k = MonoidHom.id (G' k) :=
-  (rfl)
-
-/-- Point map of `sumInrHom` at chart `k`. -/
-@[simp] theorem sumInrHom_obj (k : κ) (x : U' k) : (sumInrHom F₁ F₂).obj k x = x := (rfl)
-
-/-- Overlap-arrow map of `sumInrHom`. -/
-@[simp] theorem sumInrHom_map {k l : κ} (α : ChartOverlap (F₂ k) (F₂ l)) :
-    (sumInrHom F₁ F₂).map α = α := (rfl)
-
-/-- `sumInrHom` commutes strictly with `toGroupoid`. -/
-@[simp] theorem sumInrHom_toFunctor_comp_toGroupoid :
-    (sumInrHom F₁ F₂).toFunctor ⋙ toGroupoid (sumCharts F₁ F₂) = toGroupoid F₂ :=
-  ofChartsReindexHom_toFunctor_comp_toGroupoid (sumCharts F₁ F₂) Sum.inr
-
-/-- The right chart-family inclusion is faithful on presenting groupoids. -/
-instance instFaithfulSumInrHom : (sumInrHom F₁ F₂).toFunctor.Faithful :=
-  Functor.Faithful.of_comp_eq (sumInrHom_toFunctor_comp_toGroupoid F₁ F₂)
-
-/-- The right chart-family inclusion is full on presenting groupoids. -/
-instance instFullSumInrHom : (sumInrHom F₁ F₂).toFunctor.Full :=
-  Functor.Full.of_comp_faithful_iso (eqToIso (sumInrHom_toFunctor_comp_toGroupoid F₁ F₂))
-
-end GroupoidSum
+/-- `sumInrHom` commutes strictly with `ofChartsFunctor`. -/
+@[simp] theorem sumInrHom_toFunctor_comp_ofChartsFunctor :
+    (sumInrHom F₁ F₂).toFunctor ⋙ ofChartsFunctor (sumCharts F₁ F₂) = ofChartsFunctor F₂ :=
+  ofChartsReindexHom_toFunctor_comp_ofChartsFunctor (sumCharts F₁ F₂) Sum.inr
 
 end SumElim
 
