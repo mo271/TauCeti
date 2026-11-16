@@ -23,6 +23,11 @@ spaces.
   of `ZMod.toCircle`.
 * `ZMod.toCircle_pow_mul_eq_self_iff`: for `n` coprime to `b`, multiplication by `toCircle k ^ b`
   fixes a nonzero complex number only for `k = 0`, so `ℤ/n` acts freely on `ℂ \ {0}` this way.
+* `Subgroup.instIsCyclicSubgroupCircle`: every finite subgroup of `Circle` is cyclic.
+* `Subgroup.eq_range_toCircle_of_finite`: every finite subgroup of `Circle` is the image of
+  `ZMod.toCircle` at its order.
+* `Subgroup.eq_of_subgroup_circle_of_natCard_eq`: two finite subgroups of `Circle` of the same
+  order are equal.
 -/
 
 public section
@@ -51,3 +56,39 @@ theorem toCircle_pow_mul_eq_self_iff {b : ℕ} (hnb : n.Coprime b) {w : ℂ} (hw
     ((isUnit_iff_coprime b n).2 hnb.symm).mul_right_eq_zero]
 
 end ZMod
+
+namespace Subgroup
+
+/-- **Every finite subgroup of `Circle` is cyclic**, since it embeds into the multiplicative
+monoid of the field `ℂ` along `Circle.coeHom`. -/
+instance instIsCyclicSubgroupCircle (H : Subgroup Circle) [Finite H] : IsCyclic H :=
+  isCyclic_of_injective_ringHom (Circle.coeHom.comp H.subtype)
+    (Circle.coe_injective.comp Subtype.val_injective)
+
+/-- **Every finite subgroup of `Circle` is the subgroup of `(Nat.card H)`-th roots of unity**,
+given as the range of `ZMod.toCircle` at `Nat.card H`. -/
+theorem eq_range_toCircle_of_finite (H : Subgroup Circle) [Finite H] :
+    H = (ZMod.toCircle (N := Nat.card H)).toMonoidHom.range := by
+  have : NeZero (Nat.card H) := ⟨Nat.card_pos.ne'⟩
+  have : Finite (ZMod.toCircle (N := Nat.card H)).toMonoidHom.range :=
+    Set.finite_range (ZMod.toCircle (N := Nat.card H)).toMonoidHom
+  have hle : H ≤ (ZMod.toCircle (N := Nat.card H)).toMonoidHom.range := fun ζ hζ ↦ by
+    have hpow : ζ ^ Nat.card H = 1 :=
+      congrArg Subtype.val (pow_card_eq_one' (x := (⟨ζ, hζ⟩ : H)))
+    exact ZMod.exists_toCircle_eq_of_pow_eq_one hpow
+  refine Subgroup.eq_of_le_of_card_ge hle ?_
+  have hbij : Function.Bijective (ZMod.toCircle (N := Nat.card H)).toMonoidHom.rangeRestrict :=
+    ⟨fun _ _ h ↦ ZMod.injective_toCircle (congrArg Subtype.val h),
+      MonoidHom.rangeRestrict_surjective _⟩
+  have hcard : Nat.card (ZMod.toCircle (N := Nat.card H)).toMonoidHom.range = Nat.card H := by
+    rw [← Nat.card_eq_of_bijective _ hbij]
+    exact Nat.card_zmod (Nat.card H)
+  exact hcard.le
+
+/-- **Two finite subgroups of `Circle` of the same cardinality are equal.** -/
+theorem eq_of_subgroup_circle_of_natCard_eq {H₁ H₂ : Subgroup Circle} [Finite H₁] [Finite H₂]
+    (h : Nat.card H₁ = Nat.card H₂) : H₁ = H₂ := by
+  rw [H₁.eq_range_toCircle_of_finite, H₂.eq_range_toCircle_of_finite]
+  congr!
+
+end Subgroup
