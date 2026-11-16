@@ -10,6 +10,7 @@ public import TauCeti.AlgebraicGeometry.Curves.Genus.BaseChange
 public import TauCeti.AlgebraicGeometry.Geometrically.FunctionField
 public import TauCeti.AlgebraicGeometry.Morphisms.Smooth.Regular
 public import TauCeti.AlgebraicGeometry.Morphisms.Smooth.RelativeDimension
+public import TauCeti.AlgebraicGeometry.Scheme.Regular.Scheme
 public import TauCeti.AlgebraicGeometry.WeilDivisor.Scheme.SerreDuality
 public import TauCeti.FieldTheory.FunctionField.ConstantExtension.Genus.Change
 public import TauCeti.FieldTheory.FunctionField.RiemannRoch.Equiv
@@ -29,7 +30,11 @@ Over a perfect field, or for separable `k' / k`, this is Stichtenoth's Theorem 3
 (`TauCeti.GenusDrop.genus_lt_genus`, the curve `y² = x^p - t` over `𝔽_p(t)`, whose regular proper
 model is therefore not smooth), and in general it never increases
 (`TauCeti.genus_le_genus_of_constantCompositum_eq_top`). Smoothness of the curve is what rules out
-the drop, over any constant field.
+the drop, over any constant field. More precisely, if `X` is a regular proper geometrically integral
+curve over `k` whose function field's genus drops under `K / k`, then the base-changed curve
+`X ×_k Spec K` is not regular (`TauCeti.AlgebraicGeometry.not_isRegular_of_isPullback_of_genus_lt`),
+because flat base change preserves `dim H¹(X, 𝒪_X)` while regularity of `X ×_k Spec K` would equate
+its cohomological genus with the smaller genus of `F · K`.
 
 The proof compares both genera with cohomology. The base change `X_{k'} = X ×_k Spec k'` is again
 smooth, proper and geometrically integral, its genus `dim H¹(X_{k'}, 𝒪)` is that of `X` by flat
@@ -50,9 +55,9 @@ he proves for perfect `k`; here `k' / k` may be inseparable.
 
 ## Main results
 
-* `AlgebraicGeometry.Scheme.genus_eq_genus_functionField_of_smooth`: the genus
-  `dim H¹(X, 𝒪_X)` of a smooth proper geometrically integral curve is the genus of its function
-  field.
+* `AlgebraicGeometry.Scheme.genus_eq_genus_functionField_of_isCurveOver` and
+  `AlgebraicGeometry.Scheme.genus_eq_genus_functionField_of_smooth`: the genus `dim H¹(X, 𝒪_X)` of
+  a regular (or smooth) proper curve with exact constants is the genus of its function field.
 * `TauCeti.AlgebraicGeometry.genus_functionField_eq_of_isPullback`: the function field of the
   base change of such a curve to any field extension `K / k` has the same genus.
 * `TauCeti.AlgebraicGeometry.genus_eq_genus_functionField_of_constantCompositum_eq_top`:
@@ -63,6 +68,10 @@ he proves for perfect `k`; here `k' / k` may be inseparable.
 * `TauCeti.AlgebraicGeometry.isEmpty_algEquiv_functionField_of_genus_lt`: a field whose genus drops
   under some algebraic constant field extension is not the function field of a smooth proper
   geometrically integral curve.
+* `TauCeti.AlgebraicGeometry.not_isRegular_of_isPullback_of_genus_lt` and
+  `not_isRegular_of_isPullback_of_genus_lt_of_algEquiv`: if the genus of `k(X)` drops under an
+  algebraic constant extension `K / k`, then the base change `X ×_k Spec K` of a regular proper
+  geometrically integral curve `X` is not regular.
 * `TauCeti.AlgebraicGeometry.riemannRochSpace_conorm_eq_span_of_smooth` and
   `TauCeti.AlgebraicGeometry.dim_conorm_of_smooth`: `L(Con D) = L(D) · k'` and
   `ℓ(Con D) = ℓ(D)` for a finite extension `k' / k`.
@@ -88,6 +97,22 @@ universe u
 
 variable {k : Type u} [Field k]
 
+/-- **The genus of a curve with DVR codimension-one stalks is the genus of its function field.**
+For a proper integral curve `X` over `k` whose codimension-one local rings are discrete valuation
+rings and whose function field has exact constants `k`, `dim_k H¹(X, 𝒪_X) = g(k(X) / k)`. -/
+theorem _root_.AlgebraicGeometry.Scheme.genus_eq_genus_functionField_of_isCurveOver (X : Scheme.{u})
+    [X.Over (Spec (.of k))] [X.IsCurveOver k]
+    [∀ y : CodimensionOnePoint X, IsDiscreteValuationRing (X.presheaf.stalk (y : X))]
+    (hk : IsIntegrallyClosedIn k X.functionField) :
+    haveI := finiteDimensional_cohomology_one_trivial_of_isProper k (X := X)
+      (Scheme.IsCurveOver.topologicalKrullDim_eq_one (X := X) k)
+    X.genus k = genus k X.functionField := by
+  have : IsNoetherian X := Scheme.IsCurveOver.isNoetherian k X
+  have : X.IsSeparated := Scheme.IsSeparated.of_isSeparated (X ↘ Spec (.of k))
+  exact SchemeWeilDivisor.genus_eq_genus_functionField
+    (Scheme.IsCurveOver.valuativeCriterion_existence k X)
+    (Scheme.IsCurveOver.coheight_le_one (k := k)) Scheme.IsCurveOver.isFunctionField hk
+
 /-- **The genus of a smooth curve is the genus of its function field.** For a smooth proper
 geometrically integral curve `X` over `k`, the genus `dim_k H¹(X, 𝒪_X)` is the genus of the
 function field `k(X)` defined through Riemann's theorem. -/
@@ -99,12 +124,8 @@ theorem _root_.AlgebraicGeometry.Scheme.genus_eq_genus_functionField_of_smooth (
   have := SmoothOfRelativeDimension.smooth 1 (X ↘ Spec (.of k))
   have := isDiscreteValuationRing_stalk_of_smooth (X := X) k
   have := Scheme.IsCurveOver.of_smooth k X
-  have : IsNoetherian X := Scheme.IsCurveOver.isNoetherian k X
-  have : X.IsSeparated := Scheme.IsSeparated.of_isSeparated (X ↘ Spec (.of k))
-  exact SchemeWeilDivisor.genus_eq_genus_functionField
-    (Scheme.IsCurveOver.valuativeCriterion_existence k X)
-    (Scheme.IsCurveOver.coheight_le_one (k := k)) Scheme.IsCurveOver.isFunctionField
-    (isIntegrallyClosedIn_functionField_of_geometricallyIntegral)
+  exact Scheme.genus_eq_genus_functionField_of_isCurveOver X
+    isIntegrallyClosedIn_functionField_of_geometricallyIntegral
 
 variable {K : Type u} [Field K] [Algebra k K]
   {X Y : Scheme.{u}} [X.Over (Spec (.of k))] [Y.Over (Spec (.of K))] {g : Y ⟶ X}
@@ -191,6 +212,66 @@ theorem isEmpty_algEquiv_functionField_of_genus_lt [IsIntegral X]
     (h : constantCompositum F k' F' = ⊤) (hlt : genus k' F' < genus k F) :
     IsEmpty (F ≃ₐ[k] X.functionField) :=
   ⟨fun e ↦ hlt.ne (genus_eq_genus_of_constantCompositum_eq_top_of_algEquiv e h)⟩
+
+include H in
+/-- **A genus drop forces the base-changed curve to be non-regular.** Let `X` be a regular proper
+geometrically integral curve over `k` and `Y = X ×_k Spec K` its base change along an algebraic
+extension `K / k`. If the compositum `F' = k(X) · K` satisfies `g(F' / K) < g(k(X) / k)`, then `Y`
+is not regular. -/
+theorem not_isRegular_of_isPullback_of_genus_lt [X.IsCurveOver k] [IsRegular X]
+    [GeometricallyIntegral (X ↘ Spec (.of k))] [Algebra.IsAlgebraic k K]
+    {F' : Type*} [Field F'] [Algebra K F'] [Algebra X.functionField F'] [Algebra k F']
+    [IsScalarTower k K F'] [IsScalarTower k X.functionField F']
+    (h : constantCompositum X.functionField K F' = ⊤)
+    (hlt : genus K F' < genus k X.functionField) :
+    ¬ IsRegular Y := by
+  intro hregY
+  have := GeometricallyIntegral.geometrically_isIntegral _ _ _ H
+  have : IsProper (Y ↘ Spec (.of K)) :=
+    MorphismProperty.of_isPullback (P := @IsProper) H inferInstance
+  have : GeometricallyIntegral (Y ↘ Spec (.of K)) :=
+    MorphismProperty.of_isPullback (P := @GeometricallyIntegral) H inferInstance
+  obtain ⟨e⟩ := nonempty_functionField_algEquiv_of_isPullback H h
+  have hFK : IsFunctionField K F' :=
+    (Scheme.IsCurveOver.isFunctionField (k := k) (X := X)).of_constantCompositum_eq_top h
+  have hY : IsFunctionField K Y.functionField := by
+    have : Algebra.EssFiniteType K Y.functionField := essFiniteType_functionField K
+    rw [isFunctionField_iff_trdeg_eq_one]
+    exact Cardinal.lift_inj.mp (by rw [e.lift_trdeg_eq, hFK.trdeg_eq_one, Cardinal.lift_one,
+      Cardinal.lift_one])
+  have : Y.IsCurveOver K := ⟨(isFunctionField_functionField_iff K).mp hY⟩
+  have hfinX := finiteDimensional_cohomology_one_trivial_of_isProper k (X := X)
+    (Scheme.IsCurveOver.topologicalKrullDim_eq_one (X := X) k)
+  have hgen : genus K F' = genus k X.functionField :=
+    (genus_eq_of_ringEquiv (RingEquiv.refl K) e.toRingEquiv e.commutes).trans <| by
+      rw [← Scheme.genus_eq_genus_functionField_of_isCurveOver Y
+          isIntegrallyClosedIn_functionField_of_geometricallyIntegral,
+        genus_eq_of_isPullback_of_isProper H,
+        Scheme.genus_eq_genus_functionField_of_isCurveOver X
+          isIntegrallyClosedIn_functionField_of_geometricallyIntegral]
+  exact hlt.ne hgen
+
+include H in
+/-- Variant of `not_isRegular_of_isPullback_of_genus_lt` for a curve `X` whose function field is
+identified with `F` via `e : F ≃ₐ[k] X.functionField`. -/
+theorem not_isRegular_of_isPullback_of_genus_lt_of_algEquiv [X.IsCurveOver k] [IsRegular X]
+    [GeometricallyIntegral (X ↘ Spec (.of k))] [Algebra.IsAlgebraic k K]
+    {F : Type*} [Field F] [Algebra k F] (e : F ≃ₐ[k] X.functionField)
+    {F' : Type*} [Field F'] [Algebra K F'] [Algebra F F'] [Algebra k F']
+    [IsScalarTower k K F'] [IsScalarTower k F F']
+    (h : constantCompositum F K F' = ⊤) (hlt : genus K F' < genus k F) :
+    ¬ IsRegular Y := by
+  let _ : Algebra X.functionField F' :=
+    ((algebraMap F F').comp (e.symm : X.functionField →+* F)).toAlgebra
+  have : IsScalarTower k X.functionField F' := .of_algebraMap_eq fun c ↦ by
+    simp [RingHom.algebraMap_toAlgebra, IsScalarTower.algebraMap_apply k F F']
+  have hrange : (algebraMap X.functionField F').range = (algebraMap F F').range := by
+    ext z
+    simp [RingHom.algebraMap_toAlgebra, e.symm.surjective.exists]
+  have hX : constantCompositum X.functionField K F' = ⊤ :=
+    (constantCompositum_eq_top_iff_of_range_eq _ K F' hrange).2 h
+  rw [← genus_eq_of_ringEquiv (RingEquiv.refl k) e.toRingEquiv e.commutes] at hlt
+  exact not_isRegular_of_isPullback_of_genus_lt H hX hlt
 
 /-! ### Divisors of a smooth curve under finite constant field extensions -/
 

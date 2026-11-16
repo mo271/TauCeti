@@ -7,10 +7,18 @@ module
 
 public import Mathlib.Algebra.Field.Shrink
 public import Mathlib.Algebra.TrivSqZeroExt.Basic
+public import Mathlib.FieldTheory.IsAlgClosed.AlgebraicClosure
 public import Mathlib.RingTheory.Etale.Field
 public import TauCeti.FieldTheory.PurelyInseparable.TensorProduct
 public import TauCeti.RingTheory.RegularLocalRing.Basic
 public import TauCeti.RingTheory.Smooth.Regular
+import Mathlib.FieldTheory.PurelyInseparable.PerfectClosure
+import Mathlib.LinearAlgebra.TensorProduct.Finiteness
+import Mathlib.RingTheory.Etale.Descent
+import Mathlib.RingTheory.Smooth.Locus
+import TauCeti.RingTheory.RegularLocalRing.Flat
+import TauCeti.RingTheory.RegularLocalRing.Smooth
+import TauCeti.RingTheory.Smooth.Field
 
 /-!
 # Geometrically regular algebras over a field
@@ -18,9 +26,19 @@ public import TauCeti.RingTheory.Smooth.Regular
 An algebra `B` over a field `k` is *geometrically regular* if `B` is Noetherian and the base
 change `L ⊗[k] B` is a regular ring for every finite purely inseparable extension `L / k`
 (Stacks, Definition 10.166.2, in the form of Lemma 10.166.1). Stacks, Lemma 10.166.1, shows that
-this is equivalent to regularity of `L ⊗[k] B` for every finitely generated field extension
-`L / k`; that equivalence is not proved here. Geometric regularity of the fibres is the condition
-defining regular ring maps, G-rings and excellent rings.
+for arbitrary Noetherian `B` this is equivalent to regularity of `L ⊗[k] B` for every finitely
+generated field extension `L / k`; that general non-finite-type equivalence is not proved here.
+Geometric regularity of the fibres is the condition defining regular ring maps, G-rings and
+excellent rings.
+
+When `B` is of finite type over `k`, geometric regularity is equivalent to smoothness over `k`
+(`TauCeti.Excellence.geometricallyRegular_iff_smooth`), and therefore implies regularity of
+`K ⊗[k] B` for *every* field extension `K / k`. Indeed, for finite-type `B` each prime of
+`K ⊗[k] B` for an arbitrary purely inseparable extension `K / k` is finitely generated, hence
+extended from `L ⊗[k] B` for a finite purely inseparable subextension `L / k`, so regularity
+ascends to `perfectClosure k (AlgebraicClosure k) ⊗[k] B`; over a perfect field `K`, regularity of
+`K ⊗[k] B` implies smoothness over `K` (`TauCeti.formallySmooth_of_isRegularLocalRing`), and
+smoothness descends along the faithfully flat map `k → K`.
 
 Regularity of `B` itself does not suffice: a nontrivial finite purely inseparable extension `L / k`
 is a field, hence regular, but `L ⊗[k] L` is not reduced, so `L` is not geometrically regular over
@@ -38,6 +56,18 @@ is a field, hence regular, but `L ⊗[k] L` is not reduced, so `L` is not geomet
 * `TauCeti.Excellence.GeometricallyRegular.of_smooth`: a smooth `k`-algebra is geometrically
   regular; this covers `k` itself, the zero algebra and polynomial rings in finitely many
   variables.
+* `Algebra.Smooth.of_isRegularRing_of_perfectField` and
+  `Algebra.Smooth.of_isRegularRing_tensorProduct_of_perfectField`: a finite-type algebra over `k`
+  that becomes regular over a perfect extension `K / k` is smooth over `k`.
+* `TauCeti.Excellence.GeometricallyRegular.isRegularRing_of_isPurelyInseparable`: for finite-type
+  `B`, geometric regularity persists along arbitrary purely inseparable extensions `K / k`.
+* `TauCeti.Excellence.GeometricallyRegular.smooth` and
+  `TauCeti.Excellence.geometricallyRegular_iff_smooth`: for finite-type `B`, geometric regularity
+  is equivalent to `Algebra.Smooth k B`.
+* `TauCeti.Excellence.GeometricallyRegular.isRegularRing_tensorProduct_of_finiteType`,
+  `Algebra.Smooth.iff_isRegularRing_tensorProduct_of_perfectField`, and
+  `Algebra.Smooth.iff_forall_isRegularRing_tensorProduct`: equivalences with regularity after field
+  base change.
 * `TauCeti.Excellence.GeometricallyRegular.of_isSeparable`: a finite separable field extension is
   geometrically regular.
 * `TauCeti.Excellence.GeometricallyRegular.surjective_algebraMap_of_algHom`: a nonzero
@@ -54,8 +84,9 @@ is a field, hence regular, but `L ⊗[k] L` is not reduced, so `L` is not geomet
 
 ## References
 
-* The Stacks Project, Section 10.166 (Geometrically regular algebras), Lemma 10.166.1 and
-  Definition 10.166.2.
+* The Stacks Project, Section 10.140 (Smooth algebras over fields) and Section 10.166
+  (Geometrically regular algebras), Lemma 10.166.1 and Definition 10.166.2.
+* A. Grothendieck, *Éléments de géométrie algébrique* IV₂, Section 6.7, and IV₄, Section 17.15.
 -/
 
 public section
@@ -199,6 +230,140 @@ theorem GeometricallyRegular.of_isLocalization {k : Type u} [Field k] (M : Submo
   · have : Algebra.Smooth k B := .of_equiv <| IsLocalization.atUnits k M (S := B) fun x hx ↦
       (isUnit_iff_ne_zero.mpr fun h ↦ h0 (h ▸ hx))
     infer_instance
+
+/-! ### Finite-type algebras: geometric regularity and smoothness -/
+
+/-- **A regular algebra of finite type over a perfect field is smooth.** Every localization at a
+prime is a regular local algebra essentially of finite type over a perfect field, hence formally
+smooth (`TauCeti.formallySmooth_of_isRegularLocalRing`). -/
+theorem _root_.Algebra.Smooth.of_isRegularRing_of_perfectField {k : Type u} {B : Type v} [Field k]
+    [PerfectField k] [CommRing B] [Algebra k B] [Algebra.FiniteType k B] [IsRegularRing B] :
+    Algebra.Smooth k B := by
+  have : Algebra.FinitePresentation k B := Algebra.FinitePresentation.of_finiteType.mp inferInstance
+  refine ⟨Algebra.smoothLocus_eq_univ_iff.mp (Set.eq_univ_iff_forall.mpr fun q ↦ ?_), inferInstance⟩
+  exact formallySmooth_of_isRegularLocalRing (k := k) (S := Localization.AtPrime q.asIdeal)
+
+/-- If `B` is of finite type over `k` and `K ⊗[k] B` is regular for a perfect extension `K / k`,
+then `B` is smooth over `k`: `K ⊗[k] B` is smooth over `K`, and smoothness descends along the
+faithfully flat map `k → K`. -/
+theorem _root_.Algebra.Smooth.of_isRegularRing_tensorProduct_of_perfectField {k : Type u}
+    {B : Type v} (K : Type w) [Field k] [CommRing B] [Algebra k B] [Algebra.FiniteType k B]
+    [Field K] [PerfectField K] [Algebra k K] [IsRegularRing (K ⊗[k] B)] :
+    Algebra.Smooth k B := by
+  have : Algebra.Smooth K (K ⊗[k] B) := .of_isRegularRing_of_perfectField
+  exact .of_smooth_tensorProduct_of_faithfullyFlat K
+
+/-- Every finite subset of `K ⊗[k] B`, for an algebraic extension `K / k`, lies in the image of
+`L ⊗[k] B` for a finite intermediate field `L` of `K / k`. -/
+private theorem exists_finite_intermediateField_subset_range {k : Type u} {B : Type v} {K : Type w}
+    [Field k] [CommRing B] [Algebra k B] [Field K] [Algebra k K] [Algebra.IsAlgebraic k K]
+    (s : Finset (K ⊗[k] B)) :
+    ∃ (L : IntermediateField k K), Module.Finite k L ∧
+      (s : Set (K ⊗[k] B)) ⊆ Set.range (Algebra.TensorProduct.map L.val (AlgHom.id k B)) := by
+  obtain ⟨M, hM, hsM⟩ :=
+    TensorProduct.exists_finite_submodule_left_of_setFinite (s : Set (K ⊗[k] B)) s.finite_toSet
+  obtain ⟨t, rfl⟩ := Module.Finite.iff_fg.mp hM
+  let L : IntermediateField k K := IntermediateField.adjoin k (t : Set K)
+  have hfin : FiniteDimensional k L :=
+    IntermediateField.finiteDimensional_adjoin fun x _ ↦
+      (Algebra.IsAlgebraic.isAlgebraic (R := k) x).isIntegral
+  have hle : Submodule.span k (t : Set K) ≤ L.toSubmodule :=
+    Submodule.span_le.mpr (IntermediateField.subset_adjoin k (t : Set K))
+  let φ : L ⊗[k] B →ₐ[k] K ⊗[k] B := Algebra.TensorProduct.map L.val (AlgHom.id k B)
+  have hcomp (w : Submodule.span k (t : Set K) ⊗[k] B) :
+      φ ((Submodule.inclusion hle).rTensor B w) =
+        (Submodule.span k (t : Set K)).subtype.rTensor B w := by
+    induction w with
+    | tmul m b => simp [φ]
+    | add w₁ w₂ hw₁ hw₂ => simp only [map_add, hw₁, hw₂]
+  refine ⟨L, hfin, fun z hz ↦ ?_⟩
+  obtain ⟨w, rfl⟩ := hsM hz
+  exact ⟨(Submodule.inclusion hle).rTensor B w, hcomp w⟩
+
+/-- If `f : R →+* S` is flat with `R` regular and `(Q.comap f).map f = Q`, then `S_Q` is a regular
+local ring. -/
+private theorem isRegularLocalRing_of_ringHom_flat {R S : Type*} [CommRing R] [CommRing S]
+    [IsRegularRing R] [IsNoetherianRing S] (f : R →+* S) (hf : f.Flat) (Q : Ideal S) [Q.IsPrime]
+    (hmap : (Q.comap f).map f = Q) : IsRegularLocalRing (Localization.AtPrime Q) := by
+  let P₀ : Ideal R := Q.comap f
+  have : P₀.IsPrime := Q.comap_isPrime f
+  have := hf.localRingHom Q P₀ rfl
+  algebraize [Localization.localRingHom P₀ Q f rfl]
+  refine TauCeti.IsRegularLocalRing.of_flat_of_map_maximalIdeal_eq (R := Localization.AtPrime P₀) ?_
+  rw [← Localization.AtPrime.map_eq_maximalIdeal, Ideal.map_map,
+    show (algebraMap (Localization.AtPrime P₀) (Localization.AtPrime Q)).comp
+        (algebraMap R (Localization.AtPrime P₀)) =
+      (algebraMap S (Localization.AtPrime Q)).comp f
+      from RingHom.ext (Localization.localRingHom_to_map P₀ Q f rfl),
+    ← Ideal.map_map, hmap, Localization.AtPrime.map_eq_maximalIdeal]
+
+/-- **Geometric regularity of a finite-type algebra persists along arbitrary purely inseparable
+extensions.** Every prime `Q` of the Noetherian ring `K ⊗[k] B` is extended from `L ⊗[k] B` for a
+finite purely inseparable subextension `L / k`, and regularity ascends along the flat local map
+`(L ⊗[k] B)_{Q ∩ (L ⊗[k] B)} → (K ⊗[k] B)_Q`. -/
+theorem GeometricallyRegular.isRegularRing_of_isPurelyInseparable {k : Type u} {B : Type v}
+    [Field k] [CommRing B] [Algebra k B] [Algebra.FiniteType k B] [GeometricallyRegular k B]
+    (K : Type w) [Field K] [Algebra k K] [IsPurelyInseparable k K] :
+    IsRegularRing (K ⊗[k] B) := by
+  have : IsNoetherianRing (K ⊗[k] B) := Algebra.FiniteType.isNoetherianRing K (K ⊗[k] B)
+  refine isRegularRing_iff.mpr fun Q _ ↦ ?_
+  obtain ⟨s, hs⟩ := IsNoetherian.noetherian Q
+  obtain ⟨L, _, hrange⟩ := exists_finite_intermediateField_subset_range s
+  have : IsPurelyInseparable k L := IsPurelyInseparable.tower_bot k L K
+  have := GeometricallyRegular.isRegularRing_tensorProduct' (k := k) (B := B) L
+  refine isRegularLocalRing_of_ringHom_flat _ (RingHom.Flat.tensorProductMap (f := L.val)
+    (g := AlgHom.id k B) (.of_isField (Field.toIsField L) _) (.id B)) Q ?_
+  refine le_antisymm Ideal.map_comap_le (hs ▸ Ideal.span_le.mpr fun z hz ↦ ?_)
+  obtain ⟨z₀, rfl⟩ := hrange hz
+  exact Ideal.mem_map_of_mem _ (Ideal.mem_comap.mpr (Ideal.subset_span hz))
+
+/-- **A geometrically regular algebra of finite type over a field is smooth.** Base-changing to the
+perfect closure of `k` inside `AlgebraicClosure k` yields a regular algebra over a perfect field,
+hence smooth, and smoothness descends to `k`. -/
+theorem GeometricallyRegular.smooth {k : Type u} {B : Type v} [Field k] [CommRing B] [Algebra k B]
+    [Algebra.FiniteType k B] [GeometricallyRegular k B] : Algebra.Smooth k B := by
+  have := GeometricallyRegular.isRegularRing_of_isPurelyInseparable (k := k) (B := B)
+    (perfectClosure k (AlgebraicClosure k))
+  exact .of_isRegularRing_tensorProduct_of_perfectField (perfectClosure k (AlgebraicClosure k))
+
+/-- **For a finite-type algebra over a field, geometric regularity is equivalent to smoothness.** -/
+theorem geometricallyRegular_iff_smooth {k : Type u} {B : Type v} [Field k] [CommRing B]
+    [Algebra k B] [Algebra.FiniteType k B] :
+    GeometricallyRegular k B ↔ Algebra.Smooth k B :=
+  ⟨fun _ ↦ GeometricallyRegular.smooth, fun _ ↦ inferInstance⟩
+
+/-- The base change of a geometrically regular finite-type `k`-algebra to *any* field extension
+`K / k`, in any universe, is a regular ring. -/
+theorem GeometricallyRegular.isRegularRing_tensorProduct_of_finiteType {k : Type u} {B : Type v}
+    [Field k] [CommRing B] [Algebra k B] [Algebra.FiniteType k B] [GeometricallyRegular k B]
+    (K : Type w) [Field K] [Algebra k K] : IsRegularRing (K ⊗[k] B) := by
+  have := GeometricallyRegular.smooth (k := k) (B := B)
+  exact IsRegularRing.of_smooth (R := K)
+
+/-- A finite-type `k`-algebra `B` is smooth over `k` if and only if `K ⊗[k] B` is a regular ring
+for a given perfect field extension `K / k`. -/
+theorem _root_.Algebra.Smooth.iff_isRegularRing_tensorProduct_of_perfectField {k : Type u}
+    {B : Type v} (K : Type w) [Field k] [CommRing B] [Algebra k B] [Algebra.FiniteType k B]
+    [Field K] [PerfectField K] [Algebra k K] :
+    Algebra.Smooth k B ↔ IsRegularRing (K ⊗[k] B) :=
+  ⟨fun _ ↦ IsRegularRing.of_smooth (R := K),
+    fun _ ↦ .of_isRegularRing_tensorProduct_of_perfectField K⟩
+
+/-- A finite-type `k`-algebra `B` is smooth over `k` if and only if `AlgebraicClosure k ⊗[k] B` is
+a regular ring. -/
+theorem _root_.Algebra.Smooth.iff_isRegularRing_tensorProduct_algebraicClosure {k : Type u}
+    {B : Type v} [Field k] [CommRing B] [Algebra k B] [Algebra.FiniteType k B] :
+    Algebra.Smooth k B ↔ IsRegularRing (AlgebraicClosure k ⊗[k] B) :=
+  Algebra.Smooth.iff_isRegularRing_tensorProduct_of_perfectField (AlgebraicClosure k)
+
+/-- A finite-type `k`-algebra `B` is smooth over `k` if and only if `K ⊗[k] B` is a regular ring
+for every field extension `K / k`. -/
+theorem _root_.Algebra.Smooth.iff_forall_isRegularRing_tensorProduct {k : Type u} {B : Type v}
+    [Field k] [CommRing B] [Algebra k B] [Algebra.FiniteType k B] :
+    Algebra.Smooth k B ↔ ∀ (K : Type u) [Field K] [Algebra k K], IsRegularRing (K ⊗[k] B) :=
+  ⟨fun _ K _ _ ↦ IsRegularRing.of_smooth (R := K),
+    fun h ↦ have : GeometricallyRegular k B := ⟨Algebra.FiniteType.isNoetherianRing k B,
+      fun L _ _ _ _ ↦ h L⟩; GeometricallyRegular.smooth⟩
 
 /-! ### Checks -/
 
