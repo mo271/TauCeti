@@ -54,7 +54,10 @@ positive coroot is not merely positive but at least `1`, being a positive intege
 * `TauCeti.sum_root_negRootsFinset`: the sum of the negative roots is `-2ρ`.
 * `TauCeti.smul_twoWeylVector_sub_twoWeylVector` and `TauCeti.smul_weylVector_sub_weylVector`:
   a Weyl-group element `w` moves `2ρ` and `ρ` by a sum of roots,
-  `w (2ρ) - 2ρ = -2 ∑_{α > 0, w⁻¹ α < 0} α` and `w ρ - ρ = -∑_{α > 0, w⁻¹ α < 0} α`.
+  `w (2ρ) - 2ρ = -2 ∑_{α > 0, w⁻¹ α < 0} α` and `w ρ - ρ = -∑_{α > 0, w⁻¹ α < 0} α`. Since a
+  nonempty sum of positive roots never vanishes, any Weyl-group element fixing `2ρ` or `ρ` is the
+  identity (`TauCeti.eq_one_of_smul_twoWeylVector_eq`, `TauCeti.eq_one_of_smul_weylVector_eq`), with
+  no order on the coefficient ring needed.
 * `TauCeti.smul_two_smul_sub_twoWeylVector_of_forall_coroot'_eq_one` and
   `TauCeti.smul_sub_eq_neg_sum_inversionsFinset_of_forall_coroot'_eq_one`: a weight `d` pairing
   to `1` with every simple coroot differs from `ρ` by a Weyl-invariant weight, `2d - 2ρ`, and so
@@ -82,6 +85,8 @@ positive coroot is not merely positive but at least `1`, being a positive intege
 * `TauCeti.one_le_coroot'_weylVector_of_mem_posRoots` and
   `TauCeti.coroot'_weylVector_le_neg_one_of_mem_negRoots`: over a linearly ordered coefficient ring
   `⟨ρ, α^∨⟩ ≥ 1` for a positive root and `≤ -1` for a negative one.
+* `RootPairing.Equiv.weightMap_twoWeylVector` and `RootPairing.Equiv.weightMap_weylVector`: an
+  equivalence of root pairings carries `2ρ` and `ρ` to those of the transported base.
 
 ## References
 
@@ -238,6 +243,40 @@ theorem smul_twoWeylVector_sub_twoWeylVector (w : P.weylGroup) :
     ← Finset.sum_sdiff (inversionsFinset_subset_posRootsFinset P b w⁻¹)]
   module
 
+/-- **A Weyl-group element fixing `2ρ` has no inversions**, with no order on the coefficient ring
+needed. -/
+theorem inversions_eq_empty_of_smul_twoWeylVector_eq {w : P.weylGroup}
+    (hw : w • twoWeylVector P b = twoWeylVector P b) : inversions P b w = ∅ := by
+  -- `w (2ρ) - 2ρ` is `-2` times the sum of the inversions of `w⁻¹`, which lies in the pointed
+  -- positive root cone and vanishes only when that inversion set is empty.
+  have hsum2 : (2 : R) • ∑ i ∈ inversionsFinset P b w⁻¹, P.root i = 0 := by
+    have h := smul_twoWeylVector_sub_twoWeylVector P b w
+    rw [hw, sub_self, neg_smul, eq_comm, neg_eq_zero] at h
+    exact h
+  have hcone : ∑ i ∈ inversionsFinset P b w⁻¹, P.root i ∈ posRootCone P b :=
+    AddSubmonoid.sum_mem _ fun i hi ↦ root_mem_posRootCone_of_mem_posRoots P b
+      (inversions_subset_posRoots P b w⁻¹ ((mem_inversionsFinset P b w⁻¹ i).mp hi))
+  have hsum : ∑ i ∈ inversionsFinset P b w⁻¹, P.root i = 0 :=
+    eq_zero_of_add_eq_zero_of_mem_posRootCone P b hcone hcone (by rwa [← two_smul R])
+  have hempty : inversionsFinset P b w⁻¹ = ∅ := by
+    by_contra hne
+    exact sum_root_ne_zero_of_mem_posRoots P b (Finset.nonempty_iff_ne_empty.mpr hne)
+      (fun i hi ↦ inversions_subset_posRoots P b w⁻¹ ((mem_inversionsFinset P b w⁻¹ i).mp hi)) hsum
+  have hinv : inversions P b w⁻¹ = ∅ := by
+    rw [← coe_inversionsFinset, hempty, Finset.coe_empty]
+  let := P.indexNeg
+  refine Set.eq_empty_iff_forall_notMem.mpr fun i hi ↦ ?_
+  have hi' : -P.weylGroupToPerm w i ∈ inversions P b w⁻¹ :=
+    (neg_weylGroupToPerm_mem_inversions_inv_iff P b w i).mpr hi
+  rw [hinv] at hi'
+  exact hi'
+
+/-- **The Weyl group acts freely on `2ρ`**: a Weyl-group element fixing `2ρ` is the identity, with
+no order on the coefficient ring needed. -/
+theorem eq_one_of_smul_twoWeylVector_eq [IsDomain R] [P.IsCrystallographic] [P.IsReduced]
+    {w : P.weylGroup} (hw : w • twoWeylVector P b = twoWeylVector P b) : w = 1 :=
+  eq_one_of_inversions_eq_empty (inversions_eq_empty_of_smul_twoWeylVector_eq P b hw)
+
 section Substitute
 
 /-! ### Integral substitutes for the Weyl vector
@@ -370,6 +409,13 @@ theorem isRegularWeight_weylVector : IsRegularWeight P (weylVector P b) :=
 theorem weylVector_ne_zero [Nonempty ι] : weylVector P b ≠ 0 := fun h ↦
   coroot'_weylVector_ne_zero P b (Classical.arbitrary ι) (by rw [h, map_zero])
 
+/-- **The Weyl group acts freely on the Weyl vector `ρ`**: a Weyl-group element fixing `ρ` is the
+identity, with no order on the coefficient ring needed. -/
+theorem eq_one_of_smul_weylVector_eq {w : P.weylGroup}
+    (hw : w • weylVector P b = weylVector P b) : w = 1 :=
+  eq_one_of_smul_twoWeylVector_eq P b
+    (by rw [← two_smul_weylVector, smul_comm, hw])
+
 end Weyl
 
 section OrderedTwoWeylVector
@@ -464,5 +510,56 @@ theorem coroot'_weylVector_le_neg_one_of_mem_negRoots [P.flip.IsReduced] {i : ι
   exact_mod_cast h
 
 end Ordered
+
+section Map
+
+variable {P b} {ι₂ M₂ N₂ : Type*} [AddCommGroup M₂] [Module R M₂] [AddCommGroup N₂] [Module R N₂]
+  {P₂ : RootPairing ι₂ R M₂ N₂} [Finite ι₂]
+
+/-- **An equivalence of root pairings transports `2ρ` to `2ρ` of the mapped base.** -/
+@[simp]
+theorem _root_.RootPairing.Equiv.weightMap_twoWeylVector (e : P.Equiv P₂) (b : P.Base) :
+    e.weightMap (twoWeylVector P b) = twoWeylVector P₂ (b.map e) := by
+  rw [twoWeylVector_def, twoWeylVector_def, map_sum]
+  refine Finset.sum_equiv e.indexEquiv (fun j ↦ ?_) fun j _ ↦
+    RootPairing.Hom.root_weightMap_apply P P₂ j e.toHom
+  rw [mem_posRootsFinset, mem_posRootsFinset, posRoots_map, e.indexEquiv.injective.mem_set_image]
+
+/-- An equivalence of root pairings transports `2ρ` along `weightEquiv`.
+
+Not `@[simp]`: `RootPairing.Equiv.weightEquiv_apply` rewrites the left-hand side to `weightMap`,
+which `RootPairing.Equiv.weightMap_twoWeylVector` then simplifies. -/
+theorem _root_.RootPairing.Equiv.weightEquiv_twoWeylVector (e : P.Equiv P₂) (b : P.Base) :
+    e.weightEquiv (twoWeylVector P b) = twoWeylVector P₂ (b.map e) :=
+  e.weightMap_twoWeylVector b
+
+/-- **An automorphism of a root pairing acts on `2ρ` by transporting the base.** -/
+@[simp]
+theorem _root_.RootPairing.Equiv.smul_twoWeylVector (g : P.Aut) (b : P.Base) :
+    g • twoWeylVector P b = twoWeylVector P (b.map g) :=
+  g.weightMap_twoWeylVector b
+
+/-- **An equivalence of root pairings transports the Weyl vector `ρ` to `ρ` of the mapped base.** -/
+@[simp]
+theorem _root_.RootPairing.Equiv.weightMap_weylVector [Invertible (2 : R)] (e : P.Equiv P₂)
+    (b : P.Base) :
+    e.weightMap (weylVector P b) = weylVector P₂ (b.map e) := by
+  rw [weylVector_def, weylVector_def, map_smul, e.weightMap_twoWeylVector]
+
+/-- An equivalence of root pairings transports `ρ` along `weightEquiv`.
+
+Not `@[simp]`: `RootPairing.Equiv.weightEquiv_apply` rewrites the left-hand side to `weightMap`. -/
+theorem _root_.RootPairing.Equiv.weightEquiv_weylVector [Invertible (2 : R)] (e : P.Equiv P₂)
+    (b : P.Base) :
+    e.weightEquiv (weylVector P b) = weylVector P₂ (b.map e) :=
+  e.weightMap_weylVector b
+
+/-- **An automorphism of a root pairing acts on `ρ` by transporting the base.** -/
+@[simp]
+theorem _root_.RootPairing.Equiv.smul_weylVector [Invertible (2 : R)] (g : P.Aut) (b : P.Base) :
+    g • weylVector P b = weylVector P (b.map g) :=
+  g.weightMap_weylVector b
+
+end Map
 
 end TauCeti
