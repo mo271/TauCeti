@@ -16,10 +16,13 @@ public import Mathlib.LinearAlgebra.Dimension.Finite
 A contractible space has the singular homology of a point: its homology vanishes in every positive
 degree, and its reduced homology vanishes in every degree. Every map between contractible spaces
 therefore induces an isomorphism on singular homology
-(`TauCeti.isIso_singularHomologyFunctor_map_of_contractibleSpace`). Likewise, the reduced connecting
-morphism of a pair is an isomorphism whenever its ambient space is contractible. For
-`TauCeti.diskBoundaryPair n`, this identifies the relative homology of a disk modulo its boundary
-with the reduced homology of the boundary sphere.  Dually, the quotient map
+(`TauCeti.isIso_singularHomologyFunctor_map_of_contractibleSpace`), and a map from a nonempty space
+into a contractible space induces an isomorphism on singular homology in degree `n` if and only if
+the reduced singular homology of the source vanishes in degree `n`
+(`TauCeti.isIso_singularHomologyFunctor_map_iff_isZero_reducedSingularHomologyFunctor`). Likewise,
+the reduced connecting morphism of a pair is an isomorphism whenever its ambient space is
+contractible. For `TauCeti.diskBoundaryPair n`, this identifies the relative homology of a disk
+modulo its boundary with the reduced homology of the boundary sphere. Dually, the quotient map
 `Hₖ₊₁(X) ⟶ Hₖ₊₁(X, A)` is an isomorphism whenever the subspace is contractible; for a point this is
 `TauCeti.singularHomologyIsoOfSubsetSingleton : Hₖ₊₁(X) ≅ Hₖ₊₁(X, {x})`. The connecting morphism
 `Hₖ₊₁(X, A) ⟶ Hₖ(A)` then vanishes (`TopPair.singularHomologyδ_eq_zero_of_contractibleSpace`).
@@ -94,6 +97,39 @@ theorem isZero_reducedSingularHomologyFunctor_of_contractibleSpace (X : TopCat.{
   | succ n =>
     exact (isZero_singularHomologyFunctor_of_contractibleSpace R X n.succ_ne_zero).of_iso
       ((reducedSingularHomologySuccIso R n).app X)
+
+/-- **A map from a nonempty space to a contractible space induces an isomorphism on singular
+homology in degree `n` if and only if the reduced singular homology of the source vanishes in
+degree `n`.** In degree zero the map intertwines the augmentations, and the augmentation of a
+nonempty space is split by any point; in positive degrees the homology of the target vanishes. -/
+theorem isIso_singularHomologyFunctor_map_iff_isZero_reducedSingularHomologyFunctor
+    {X Y : TopCat.{w}} [Nonempty X] [ContractibleSpace Y] (f : X ⟶ Y) (n : ℕ) :
+    IsIso (((singularHomologyFunctor C n).obj R).map f) ↔
+      IsZero ((reducedSingularHomologyFunctor R n).obj X) := by
+  cases n with
+  | zero =>
+    rw [reducedSingularHomologyFunctor_zero_obj]
+    refine ⟨fun _ ↦ ?_, fun h ↦ ?_⟩
+    · have : IsIso (X.singularHomology₀ε R) := by
+        rw [← singularHomologyMap_singularHomology₀ε R f]
+        infer_instance
+      exact isZero_kernel_of_mono (X.singularHomology₀ε R)
+    · obtain ⟨x⟩ := ‹Nonempty X›
+      have hcond : (𝟙 _ - X.singularHomology₀ε R ≫ singularHomology₀Section R x) ≫
+          X.singularHomology₀ε R = 0 := by simp [Preadditive.sub_comp]
+      have hr : 𝟙 _ - X.singularHomology₀ε R ≫ singularHomology₀Section R x = 0 := by
+        rw [← kernel.lift_ι (X.singularHomology₀ε R) _ hcond,
+          h.eq_of_tgt (kernel.lift (X.singularHomology₀ε R) _ hcond) 0, zero_comp]
+      have : IsIso (X.singularHomology₀ε R) :=
+        ⟨⟨singularHomology₀Section R x, (sub_eq_zero.1 hr).symm,
+          singularHomology₀Section_singularHomology₀ε R x⟩⟩
+      exact IsIso.of_isIso_fac_right (singularHomologyMap_singularHomology₀ε R f)
+  | succ n =>
+    have hY := isZero_singularHomologyFunctor_of_contractibleSpace R Y n.succ_ne_zero
+    exact ⟨fun _ ↦
+        (hY.of_iso (asIso (((singularHomologyFunctor C (n + 1)).obj R).map f))).of_iso
+          ((reducedSingularHomologySuccIso R n).app X),
+      fun h ↦ (h.of_iso ((reducedSingularHomologySuccIso R n).app X).symm).isIso hY _⟩
 
 end Contractible
 
