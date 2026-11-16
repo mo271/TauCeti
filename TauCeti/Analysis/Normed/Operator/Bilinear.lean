@@ -5,13 +5,17 @@ Authors: The Tau Ceti contributors
 -/
 module
 
+public import Mathlib.Analysis.Normed.Group.Quotient
 public import Mathlib.Analysis.Normed.Operator.Bilinear
+public import Mathlib.LinearAlgebra.Quotient.Bilinear
 public import Mathlib.Topology.Algebra.Module.ContinuousLinearMap.Invertible
+public import Mathlib.Topology.Algebra.Module.ContinuousLinearMap.Quotient
 public import Mathlib.Topology.Algebra.Module.Multilinear.Topology
 import Mathlib.Analysis.Calculus.ContDiff.Operations
+import TauCeti.Analysis.Normed.Module.Quotient
 
 /-!
-# Pulling back continuous bilinear maps, and their quadratic maps
+# Pulling back, pairing adjoints, and quotient descent of continuous bilinear maps
 
 A continuous linear map `u : W →L[𝕜] V` pulls a continuous bilinear map `B` on `V` back to the
 bilinear map `B (u ·) (u ·)` on `W`. This operation is itself continuous and linear in `B`
@@ -41,6 +45,18 @@ reverses products, fixes the identity, and tends to the identity as `B₀` stays
 invertible map and `X` tends to the identity. On Banach spaces the comparison operator
 `B₀⁻¹ ∘ B` also tends to the identity as both maps tend to the same invertible map
 (`ContinuousLinearMap.IsInvertible.tendsto_inverse_comp`).
+
+Dually to pullback, a continuous bilinear (or sesquilinear) map `b : E₁ →SL[σ₁₃] E₂ →SL[σ₂₃] G`
+vanishing on `S₁` in its first argument and on `S₂` in its second descends to a continuous
+bilinear map `b.liftQ₂ S₁ S₂ h₁ h₂ : E₁ ⧸ S₁ →SL[σ₁₃] E₂ ⧸ S₂ →SL[σ₂₃] G` by alternating
+`Submodule.liftQL` with `ContinuousLinearMap.flip`. Both operations are isometric, so descending
+through quotients in both arguments preserves the operator norm (`ContinuousLinearMap.norm_liftQ₂`),
+and precomposing a quotient bilinear map with both quotient projections likewise preserves its
+norm (`ContinuousLinearMap.norm_bilinearComp_mkQL`). Evaluating on quotient classes yields the
+two-sided quotient-norm bound `‖b x y‖ ≤ ‖b‖ * ‖S₁.mkQ x‖ * ‖S₂.mkQ y‖` and the bilinear
+Bramble–Hilbert estimate (`ContinuousLinearMap.norm_apply_le_of_exists_mem_norm_sub_le`; compare
+Bramble–Hilbert, *SIAM J. Numer. Anal.* 7 (1970), Theorem 2, and Ciarlet, *The Finite Element
+Method for Elliptic Problems*, §3.1).
 -/
 
 public section
@@ -48,6 +64,8 @@ public section
 noncomputable section
 
 namespace ContinuousLinearMap
+
+section Pullback
 
 variable {𝕜 : Type*} [NontriviallyNormedField 𝕜]
   {V W G : Type*} [SeminormedAddCommGroup V] [NormedSpace 𝕜 V]
@@ -206,6 +224,229 @@ theorem IsInvertible.tendsto_pairingAdjoint {B₀ : E →L[𝕜] E →L[𝕜] H}
   simpa only [hB₀.pairingAdjoint_one] using h.tendsto
 
 end Tendsto
+
+end Pullback
+
+section QuotientSemilinear
+
+variable {𝕜₁ 𝕜₂ 𝕜₃ E₁ E₂ G : Type*}
+  [NontriviallyNormedField 𝕜₁] [NontriviallyNormedField 𝕜₂] [NontriviallyNormedField 𝕜₃]
+  [SeminormedAddCommGroup E₁] [NormedSpace 𝕜₁ E₁]
+  [SeminormedAddCommGroup E₂] [NormedSpace 𝕜₂ E₂]
+  [SeminormedAddCommGroup G] [NormedSpace 𝕜₃ G]
+  {σ₁₃ : 𝕜₁ →+* 𝕜₃} {σ₂₃ : 𝕜₂ →+* 𝕜₃}
+  [RingHomIsometric σ₁₃] [RingHomIsometric σ₂₃]
+
+private theorem le_ker_flip_liftQL (S₁ : Submodule 𝕜₁ E₁) (S₂ : Submodule 𝕜₂ E₂)
+    (b : E₁ →SL[σ₁₃] E₂ →SL[σ₂₃] G) (h₁ : S₁ ≤ b.ker) (h₂ : S₂ ≤ b.flip.ker) :
+    S₂ ≤ (S₁.liftQL b h₁).flip.ker := by
+  intro y hy
+  rw [LinearMap.mem_ker]
+  ext z
+  obtain ⟨x, rfl⟩ := S₁.mkQ_surjective z
+  have hy0 : b.flip y = 0 := h₂ hy
+  simpa only [coe_coe, flip_apply, Submodule.liftQL_apply, Submodule.mkQ_apply,
+    Submodule.liftQ_apply, zero_apply] using congrArg (fun f : E₁ →SL[σ₁₃] G ↦ f x) hy0
+
+/-- Lift a continuous bilinear (or sesquilinear) map `E₁ →SL[σ₁₃] E₂ →SL[σ₂₃] G` to the
+quotient modules `(E₁ ⧸ S₁) →SL[σ₁₃] (E₂ ⧸ S₂) →SL[σ₂₃] G` across submodules annihilated in the
+first and second arguments respectively. -/
+def liftQ₂ (S₁ : Submodule 𝕜₁ E₁) (S₂ : Submodule 𝕜₂ E₂)
+    (b : E₁ →SL[σ₁₃] E₂ →SL[σ₂₃] G) (h₁ : S₁ ≤ b.ker) (h₂ : S₂ ≤ b.flip.ker) :
+    E₁ ⧸ S₁ →SL[σ₁₃] E₂ ⧸ S₂ →SL[σ₂₃] G :=
+  (S₂.liftQL (S₁.liftQL b h₁).flip (le_ker_flip_liftQL S₁ S₂ b h₁ h₂)).flip
+
+@[simp]
+theorem liftQ₂_mk (S₁ : Submodule 𝕜₁ E₁) (S₂ : Submodule 𝕜₂ E₂)
+    (b : E₁ →SL[σ₁₃] E₂ →SL[σ₂₃] G) (h₁ : S₁ ≤ b.ker) (h₂ : S₂ ≤ b.flip.ker)
+    (x : E₁) (y : E₂) :
+    b.liftQ₂ S₁ S₂ h₁ h₂ (Submodule.Quotient.mk x) (Submodule.Quotient.mk y) = b x y :=
+  (rfl)
+
+theorem liftQ₂_mkQ (S₁ : Submodule 𝕜₁ E₁) (S₂ : Submodule 𝕜₂ E₂)
+    (b : E₁ →SL[σ₁₃] E₂ →SL[σ₂₃] G) (h₁ : S₁ ≤ b.ker) (h₂ : S₂ ≤ b.flip.ker)
+    (x : E₁) (y : E₂) :
+    b.liftQ₂ S₁ S₂ h₁ h₂ (S₁.mkQ x) (S₂.mkQ y) = b x y :=
+  (rfl)
+
+/-- Forgetting continuity on `ContinuousLinearMap.liftQ₂` recovers the algebraic quotient lift
+`LinearMap.liftQ₂`. -/
+@[simp]
+theorem toLinearMap₁₂_liftQ₂ (S₁ : Submodule 𝕜₁ E₁) (S₂ : Submodule 𝕜₂ E₂)
+    (b : E₁ →SL[σ₁₃] E₂ →SL[σ₂₃] G) (h₁ : S₁ ≤ b.ker) (h₂ : S₂ ≤ b.flip.ker) :
+    (b.liftQ₂ S₁ S₂ h₁ h₂).toLinearMap₁₂ = b.toLinearMap₁₂.liftQ₂ S₁ S₂
+      (fun x hx ↦ LinearMap.mem_ker.mpr <| LinearMap.ext fun y ↦
+        (toLinearMap₁₂_apply_apply_apply b x y).trans <|
+          (DFunLike.congr_fun (LinearMap.mem_ker.mp (h₁ hx)) y).trans (zero_apply y))
+      (fun y hy ↦ LinearMap.mem_ker.mpr <| LinearMap.ext fun x ↦
+        (LinearMap.flip_apply b.toLinearMap₁₂ x y).trans <|
+          (toLinearMap₁₂_apply_apply_apply b x y).trans <| (flip_apply b x y).symm.trans <|
+            (DFunLike.congr_fun (LinearMap.mem_ker.mp (h₂ hy)) x).trans (zero_apply x)) := by
+  ext x y
+  simp
+
+/-- Universal property of `ContinuousLinearMap.liftQ₂`: a continuous bilinear map on
+`(E₁ ⧸ S₁) × (E₂ ⧸ S₂)` equals `b.liftQ₂ S₁ S₂ h₁ h₂` if and only if it agrees with `b` on pairs
+of quotient classes. -/
+theorem eq_liftQ₂_iff {S₁ : Submodule 𝕜₁ E₁} {S₂ : Submodule 𝕜₂ E₂}
+    {b : E₁ →SL[σ₁₃] E₂ →SL[σ₂₃] G} {h₁ : S₁ ≤ b.ker} {h₂ : S₂ ≤ b.flip.ker}
+    {c : E₁ ⧸ S₁ →SL[σ₁₃] E₂ ⧸ S₂ →SL[σ₂₃] G} :
+    c = b.liftQ₂ S₁ S₂ h₁ h₂ ↔
+      ∀ x y, c (Submodule.Quotient.mk x) (Submodule.Quotient.mk y) = b x y := by
+  refine ⟨fun hc x y ↦ hc ▸ liftQ₂_mk S₁ S₂ b h₁ h₂ x y, fun hc ↦ ?_⟩
+  ext z w
+  obtain ⟨x, rfl⟩ := S₁.mkQ_surjective z
+  obtain ⟨y, rfl⟩ := S₂.mkQ_surjective w
+  exact hc x y
+
+/-- Flipping `liftQ₂` lifts `b.flip` with the two quotient submodules exchanged. -/
+@[simp]
+theorem flip_liftQ₂ (S₁ : Submodule 𝕜₁ E₁) (S₂ : Submodule 𝕜₂ E₂)
+    (b : E₁ →SL[σ₁₃] E₂ →SL[σ₂₃] G) (h₁ : S₁ ≤ b.ker) (h₂ : S₂ ≤ b.flip.ker) :
+    (b.liftQ₂ S₁ S₂ h₁ h₂).flip = b.flip.liftQ₂ S₂ S₁ h₂ ((flip_flip b).symm ▸ h₁) := by
+  rw [eq_liftQ₂_iff]
+  intro y x
+  simp
+
+@[simp]
+theorem liftQ₂_zero (S₁ : Submodule 𝕜₁ E₁) (S₂ : Submodule 𝕜₂ E₂)
+    (h₁ : S₁ ≤ (0 : E₁ →SL[σ₁₃] E₂ →SL[σ₂₃] G).ker := by simp)
+    (h₂ : S₂ ≤ (0 : E₁ →SL[σ₁₃] E₂ →SL[σ₂₃] G).flip.ker := by simp) :
+    (0 : E₁ →SL[σ₁₃] E₂ →SL[σ₂₃] G).liftQ₂ S₁ S₂ h₁ h₂ = 0 := by
+  symm
+  rw [eq_liftQ₂_iff]
+  intro x y
+  simp
+
+theorem liftQ₂_add (S₁ : Submodule 𝕜₁ E₁) (S₂ : Submodule 𝕜₂ E₂)
+    (b₁ b₂ : E₁ →SL[σ₁₃] E₂ →SL[σ₂₃] G)
+    (h₁₁ : S₁ ≤ b₁.ker) (h₁₂ : S₂ ≤ b₁.flip.ker)
+    (h₂₁ : S₁ ≤ b₂.ker) (h₂₂ : S₂ ≤ b₂.flip.ker)
+    (h₁ : S₁ ≤ (b₁ + b₂).ker := fun x hx ↦ by
+      simp [LinearMap.mem_ker.mp (h₁₁ hx), LinearMap.mem_ker.mp (h₂₁ hx)])
+    (h₂ : S₂ ≤ (b₁ + b₂).flip.ker := fun y hy ↦ by
+      simp [LinearMap.mem_ker.mp (h₁₂ hy), LinearMap.mem_ker.mp (h₂₂ hy)]) :
+    (b₁ + b₂).liftQ₂ S₁ S₂ h₁ h₂ = b₁.liftQ₂ S₁ S₂ h₁₁ h₁₂ + b₂.liftQ₂ S₁ S₂ h₂₁ h₂₂ := by
+  symm
+  rw [eq_liftQ₂_iff]
+  intro x y
+  simp
+
+theorem liftQ₂_smul (S₁ : Submodule 𝕜₁ E₁) (S₂ : Submodule 𝕜₂ E₂)
+    (c : 𝕜₃) (b : E₁ →SL[σ₁₃] E₂ →SL[σ₂₃] G) (h₁ : S₁ ≤ b.ker) (h₂ : S₂ ≤ b.flip.ker)
+    (hc₁ : S₁ ≤ (c • b).ker := h₁.trans (LinearMap.ker_le_ker_smul _ _))
+    (hc₂ : S₂ ≤ (c • b).flip.ker := by
+      rw [flip_smul]
+      exact h₂.trans (LinearMap.ker_le_ker_smul _ _)) :
+    (c • b).liftQ₂ S₁ S₂ hc₁ hc₂ = c • b.liftQ₂ S₁ S₂ h₁ h₂ := by
+  symm
+  rw [eq_liftQ₂_iff]
+  intro x y
+  simp
+
+/-- Descending a continuous bilinear map through quotients in both arguments preserves its operator
+norm. -/
+@[simp]
+theorem norm_liftQ₂ (S₁ : Submodule 𝕜₁ E₁) (S₂ : Submodule 𝕜₂ E₂)
+    (b : E₁ →SL[σ₁₃] E₂ →SL[σ₂₃] G) (h₁ : S₁ ≤ b.ker) (h₂ : S₂ ≤ b.flip.ker) :
+    ‖b.liftQ₂ S₁ S₂ h₁ h₂‖ = ‖b‖ := by
+  rw [liftQ₂, opNorm_flip, S₂.norm_liftQL, opNorm_flip, S₁.norm_liftQL]
+
+/-- Descending a continuous bilinear map through quotients in both arguments preserves its
+nonnegative operator norm. -/
+@[simp]
+theorem nnnorm_liftQ₂ (S₁ : Submodule 𝕜₁ E₁) (S₂ : Submodule 𝕜₂ E₂)
+    (b : E₁ →SL[σ₁₃] E₂ →SL[σ₂₃] G) (h₁ : S₁ ≤ b.ker) (h₂ : S₂ ≤ b.flip.ker) :
+    ‖b.liftQ₂ S₁ S₂ h₁ h₂‖₊ = ‖b‖₊ :=
+  Subtype.ext (norm_liftQ₂ S₁ S₂ b h₁ h₂)
+
+/-- **Two-sided quotient-norm bound for continuous bilinear maps.** If `b` vanishes on `S₁` on the
+left and `S₂` on the right, then `‖b x y‖ ≤ ‖b‖ * ‖S₁.mkQ x‖ * ‖S₂.mkQ y‖`. -/
+theorem norm_apply_le_mul_norm_mkQ (S₁ : Submodule 𝕜₁ E₁) (S₂ : Submodule 𝕜₂ E₂)
+    (b : E₁ →SL[σ₁₃] E₂ →SL[σ₂₃] G) (h₁ : S₁ ≤ b.ker) (h₂ : S₂ ≤ b.flip.ker)
+    (x : E₁) (y : E₂) :
+    ‖b x y‖ ≤ ‖b‖ * ‖S₁.mkQ x‖ * ‖S₂.mkQ y‖ := by
+  simpa only [liftQ₂_mkQ, norm_liftQ₂] using
+    (b.liftQ₂ S₁ S₂ h₁ h₂).le_opNorm₂ (S₁.mkQ x) (S₂.mkQ y)
+
+/-- Distance-to-subspace form of `ContinuousLinearMap.norm_apply_le_mul_norm_mkQ`. -/
+theorem norm_apply_le_mul_infDist (S₁ : Submodule 𝕜₁ E₁) (S₂ : Submodule 𝕜₂ E₂)
+    (b : E₁ →SL[σ₁₃] E₂ →SL[σ₂₃] G) (h₁ : S₁ ≤ b.ker) (h₂ : S₂ ≤ b.flip.ker)
+    (x : E₁) (y : E₂) :
+    ‖b x y‖ ≤ ‖b‖ * Metric.infDist x (S₁ : Set E₁) * Metric.infDist y (S₂ : Set E₂) := by
+  rw [← S₁.norm_mkQL_apply, ← S₂.norm_mkQL_apply]
+  exact norm_apply_le_mul_norm_mkQ S₁ S₂ b h₁ h₂ x y
+
+/-- **Bilinear Bramble–Hilbert estimate (quotient-norm form).** Bounds `‖S₁.mkQ x‖ ≤ B₁` and
+`‖S₂.mkQ y‖ ≤ B₂` yield `‖b x y‖ ≤ ‖b‖ * B₁ * B₂` without sign assumptions on `B₁` or `B₂`. -/
+theorem norm_apply_le_of_norm_mkQ_le (S₁ : Submodule 𝕜₁ E₁) (S₂ : Submodule 𝕜₂ E₂)
+    (b : E₁ →SL[σ₁₃] E₂ →SL[σ₂₃] G) (h₁ : S₁ ≤ b.ker) (h₂ : S₂ ≤ b.flip.ker)
+    {x : E₁} {y : E₂} {B₁ B₂ : ℝ} (hx : ‖S₁.mkQ x‖ ≤ B₁) (hy : ‖S₂.mkQ y‖ ≤ B₂) :
+    ‖b x y‖ ≤ ‖b‖ * B₁ * B₂ := by
+  simpa only [liftQ₂_mkQ] using
+    (b.liftQ₂ S₁ S₂ h₁ h₂).le_of_opNorm₂_le_of_le (norm_liftQ₂ S₁ S₂ b h₁ h₂).le hx hy
+
+/-- **Bilinear Bramble–Hilbert estimate (approximation form).** If `b` vanishes on `S₁` in its
+first argument and on `S₂` in its second, and `x` and `y` admit approximants in `S₁` and `S₂`
+within norms `B₁` and `B₂`, then `‖b x y‖ ≤ ‖b‖ * B₁ * B₂` without sign assumptions on `B₁` or
+`B₂`. -/
+theorem norm_apply_le_of_exists_mem_norm_sub_le (S₁ : Submodule 𝕜₁ E₁) (S₂ : Submodule 𝕜₂ E₂)
+    (b : E₁ →SL[σ₁₃] E₂ →SL[σ₂₃] G) (h₁ : S₁ ≤ b.ker) (h₂ : S₂ ≤ b.flip.ker)
+    {x : E₁} {y : E₂} {B₁ B₂ : ℝ}
+    (hx : ∃ p ∈ S₁, ‖x - p‖ ≤ B₁) (hy : ∃ q ∈ S₂, ‖y - q‖ ≤ B₂) :
+    ‖b x y‖ ≤ ‖b‖ * B₁ * B₂ := by
+  obtain ⟨p, hp, hxp⟩ := hx
+  obtain ⟨q, hq, hyq⟩ := hy
+  have hmk₁ : ‖S₁.mkQ x‖ ≤ B₁ := by
+    have heq : S₁.mkQ (x - p) = S₁.mkQ x := by
+      rw [map_sub, S₁.mkQ_apply p, (Submodule.Quotient.mk_eq_zero S₁).mpr hp, sub_zero]
+    rw [← heq]
+    exact (Submodule.Quotient.norm_mk_le S₁ (x - p)).trans hxp
+  have hmk₂ : ‖S₂.mkQ y‖ ≤ B₂ := by
+    have heq : S₂.mkQ (y - q) = S₂.mkQ y := by
+      rw [map_sub, S₂.mkQ_apply q, (Submodule.Quotient.mk_eq_zero S₂).mpr hq, sub_zero]
+    rw [← heq]
+    exact (Submodule.Quotient.norm_mk_le S₂ (y - q)).trans hyq
+  exact norm_apply_le_of_norm_mkQ_le S₁ S₂ b h₁ h₂ hmk₁ hmk₂
+
+end QuotientSemilinear
+
+section QuotientLinear
+
+variable {𝕜 E₁ E₂ G : Type*} [NontriviallyNormedField 𝕜]
+  [SeminormedAddCommGroup E₁] [NormedSpace 𝕜 E₁]
+  [SeminormedAddCommGroup E₂] [NormedSpace 𝕜 E₂]
+  [SeminormedAddCommGroup G] [NormedSpace 𝕜 G]
+
+/-- Precomposing a continuous bilinear map out of quotient modules with both quotient projections
+preserves its operator norm. -/
+@[simp]
+theorem norm_bilinearComp_mkQL (S₁ : Submodule 𝕜 E₁) (S₂ : Submodule 𝕜 E₂)
+    (c : E₁ ⧸ S₁ →L[𝕜] E₂ ⧸ S₂ →L[𝕜] G) :
+    ‖c.bilinearComp S₁.mkQL S₂.mkQL‖ = ‖c‖ := by
+  have h₁ : S₁ ≤ (c.bilinearComp S₁.mkQL S₂.mkQL).ker := by
+    intro x hx
+    ext y
+    simp [(Submodule.Quotient.mk_eq_zero S₁).mpr hx]
+  have h₂ : S₂ ≤ (c.bilinearComp S₁.mkQL S₂.mkQL).flip.ker := by
+    intro y hy
+    ext x
+    simp [(Submodule.Quotient.mk_eq_zero S₂).mpr hy]
+  have heq : c = (c.bilinearComp S₁.mkQL S₂.mkQL).liftQ₂ S₁ S₂ h₁ h₂ := by
+    rw [eq_liftQ₂_iff]
+    intro x y
+    rfl
+  conv_rhs => rw [heq]
+  exact (norm_liftQ₂ S₁ S₂ _ h₁ h₂).symm
+
+@[simp]
+theorem bilinearComp_mkQL_liftQ₂ (S₁ : Submodule 𝕜 E₁) (S₂ : Submodule 𝕜 E₂)
+    (b : E₁ →L[𝕜] E₂ →L[𝕜] G) (h₁ : S₁ ≤ b.ker) (h₂ : S₂ ≤ b.flip.ker) :
+    (b.liftQ₂ S₁ S₂ h₁ h₂).bilinearComp S₁.mkQL S₂.mkQL = b := by
+  ext x y
+  exact liftQ₂_mk S₁ S₂ b h₁ h₂ x y
+
+end QuotientLinear
 
 end ContinuousLinearMap
 
