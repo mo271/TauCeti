@@ -73,6 +73,8 @@ concentrated at `v` with component in `U(K_v, n)`
 * `OpenSubgroup.exponent_ideleClassConductor_le_iff`: the exponent of a finite place `v` in the
   conductor of `U` is at most `n` exactly when `U` contains the ideles concentrated at `v` with
   component in `U(K_v, n)`.
+* `OpenSubgroup.mem_ideleClassConductor_infinitePart_iff`: a real place `v` lies in the infinite
+  part of the conductor of `U` exactly when `U` does not contain the class of `-1` at `v`.
 
 ## References
 
@@ -316,5 +318,45 @@ theorem exponent_ideleClassConductor_le_iff {U : OpenSubgroup (IdeleClassGroup (
       (raySubgroup_ideleClassConductor_le U (mem_raySubgroup_iff.2 ⟨_, hy, rfl⟩))
     rwa [map_mul, map_inv, QuotientGroup.mk'_apply, mul_inv_cancel_left] at hmem
   exact hv ▸ Modulus.exponent_mono (ideleClassConductor_dvd_iff.2 hray) v
+
+/-- **The infinite places of the conductor are local.** A real place `v` of `K` lies in the
+infinite part of the conductor of `U` exactly when the class of the idele that is `-1` at `v` and
+`1` everywhere else does not belong to `U`. -/
+theorem mem_ideleClassConductor_infinitePart_iff {U : OpenSubgroup (IdeleClassGroup (𝓞 K) K)}
+    {v : {w : InfinitePlace K // w.IsReal}} :
+    v ∈ U.ideleClassConductor.infinitePart ↔
+      IdeleClassGroup.ofCompletion (𝓞 K) K v.1 (-1) ∉ U := by
+  classical
+  rw [← not_iff_not, not_not]
+  refine ⟨fun hv ↦ raySubgroup_ideleClassConductor_le U <|
+    ofCompletion_mem_raySubgroup (fun v' hv' heq ↦ hv (by rwa [← Subtype.ext heq])) (-1),
+    fun hU ↦ ?_⟩
+  set 𝔪 := U.ideleClassConductor
+  let 𝔫 : Modulus K := ⟨𝔪.finitePart, 𝔪.finitePart_ne_bot, 𝔪.infinitePart.erase v⟩
+  have hexp (v' : HeightOneSpectrum (𝓞 K)) : 𝔫.exponent v' = 𝔪.exponent v' := by
+    rw [Modulus.exponent_def, Modulus.exponent_def]
+  have hray : raySubgroup 𝔫 ≤ U.toSubgroup := fun c hc ↦ by
+    obtain ⟨x, hx, rfl⟩ := mem_raySubgroup_iff.1 hc
+    have hne0 : InfinitePlace.Completion.extensionEmbeddingOfIsReal v.2
+        (v.1.ideleInfiniteCoord x : v.1.Completion) ≠ 0 :=
+      (map_ne_zero _).2 (v.1.ideleInfiniteCoord x).ne_zero
+    rcases hne0.lt_or_gt with hneg | hpos
+    · have hy : IdeleGroup.ofCompletion (𝓞 K) K v.1 (-1) * x ∈ ideleCongruenceSubgroup 𝔪 :=
+        ideleCongruenceSubgroup.ofCompletion_neg_one_mul_mem (𝔪 := 𝔪) (𝔫 := 𝔫)
+          (fun v' ↦ (hexp v').ge) (fun _ hw' hne ↦ Finset.mem_erase.2 ⟨hne, hw'⟩) hx hneg
+      have hmem := U.mul_mem (U.inv_mem hU)
+        (raySubgroup_ideleClassConductor_le U (mem_raySubgroup_iff.2 ⟨_, hy, rfl⟩))
+      rwa [IdeleClassGroup.ofCompletion_apply, ← QuotientGroup.mk'_apply, ← map_inv, ← map_mul,
+        inv_mul_cancel_left] at hmem
+    · refine raySubgroup_ideleClassConductor_le U (mem_raySubgroup_iff.2 ⟨x, ?_, rfl⟩)
+      refine mem_ideleCongruenceSubgroup_iff.2
+        ⟨(mem_ideleCongruenceSubgroup_iff.1 hx).1,
+          fun v' hv' ↦ hexp v' ▸ (mem_ideleCongruenceSubgroup_iff.1 hx).2.1 v' hv',
+          fun w' hw' ↦ ?_⟩
+      rcases eq_or_ne w' v with rfl | hne
+      · exact hpos
+      · exact (mem_ideleCongruenceSubgroup_iff.1 hx).2.2 w' (Finset.mem_erase.2 ⟨hne, hw'⟩)
+  exact fun hv ↦ (Finset.notMem_erase v 𝔪.infinitePart)
+    ((Modulus.dvd_iff.1 (ideleClassConductor_dvd_iff.2 hray)).2 hv)
 
 end OpenSubgroup

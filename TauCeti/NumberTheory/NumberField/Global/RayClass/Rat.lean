@@ -65,6 +65,11 @@ and a class with positive sign is determined by its residue.
   the absolute norm of its finite part divides `n`.
 * `TauCeti.GlobalNumberFields.dvd_ratModulus_absNorm`: every modulus of `ℚ` divides `(N)·∞`,
   where `N` is the absolute norm of its finite part.
+* `TauCeti.GlobalNumberFields.ratModulus_exponent`,
+  `TauCeti.GlobalNumberFields.ratFiniteModulus_exponent`,
+  `TauCeti.GlobalNumberFields.eq_ratModulus_iff`, and
+  `TauCeti.GlobalNumberFields.eq_ratFiniteModulus_iff`: the prime exponents of `(n)·∞` and `(n)`,
+  and characterizations of a modulus of `ℚ` as `(n)·∞` or `(n)` by its norm and infinite part.
 * `TauCeti.GlobalNumberFields.ratFiniteModulusEquivZMod_classMap`: the transition map from
   `(n)·∞` to `(d)` is reduction modulo `d` followed by the quotient by `±1`.
 * `TauCeti.GlobalNumberFields.ratFiniteModulusEquivZMod_idealClass`: the ray class modulo `(n)` of
@@ -315,6 +320,50 @@ theorem ratFiniteModulus_dvd_ratModulus_iff {d : ℕ} {hd : d ≠ 0} :
 /-- The modulus `(n)` divides `(n)·∞`. -/
 theorem ratFiniteModulus_dvd_ratModulus : ratFiniteModulus n hn ∣ ratModulus n hn :=
   ratFiniteModulus_dvd_ratModulus_iff.mpr dvd_rfl
+
+/-- The exponent of `(n)·∞` at a rational prime `v` is the multiplicity of its prime norm in `n`. -/
+@[simp] theorem ratModulus_exponent (v : HeightOneSpectrum (𝓞 ℚ)) :
+    (ratModulus n hn).exponent v = multiplicity (Ideal.absNorm v.asIdeal) n := by
+  rw [Modulus.exponent_eq_multiplicity, Rat.HeightOneSpectrum.multiplicity_asIdeal,
+    ratModulus_finitePart, Rat.RingOfIntegers.absNorm_span_natCast]
+
+/-- The exponent of `(n)` at a rational prime `v` is the multiplicity of its prime norm in `n`. -/
+@[simp] theorem ratFiniteModulus_exponent (v : HeightOneSpectrum (𝓞 ℚ)) :
+    (ratFiniteModulus n hn).exponent v = multiplicity (Ideal.absNorm v.asIdeal) n := by
+  rw [Modulus.exponent_eq_multiplicity, Rat.HeightOneSpectrum.multiplicity_asIdeal,
+    ratFiniteModulus_finitePart, Rat.RingOfIntegers.absNorm_span_natCast]
+
+/-- The modulus `(1)·∞` of `ℚ` is the narrow modulus of `ℚ`. -/
+theorem ratModulus_one : ratModulus 1 one_ne_zero = narrowModulus ℚ := by
+  apply Modulus.ext
+  · simp
+  · ext w
+    simp [Subsingleton.elim w ⟨Rat.infinitePlace, Rat.isReal_infinitePlace⟩]
+
+/-- The modulus `(1)` of `ℚ` without the real place is the trivial modulus `Modulus.one ℚ`. -/
+theorem ratFiniteModulus_one : ratFiniteModulus 1 one_ne_zero = Modulus.one ℚ := by
+  apply Modulus.ext <;> simp
+
+/-- **A modulus of `ℚ` equals `(n)` iff its finite part has norm `n` and its infinite part is
+empty.** -/
+theorem eq_ratFiniteModulus_iff {𝔪 : Modulus ℚ} :
+    𝔪 = ratFiniteModulus n hn ↔ Ideal.absNorm 𝔪.finitePart = n ∧ 𝔪.infinitePart = ∅ := by
+  refine ⟨fun h ↦ h ▸ ⟨Rat.RingOfIntegers.absNorm_span_natCast n, rfl⟩,
+    fun ⟨hfin, hinf⟩ ↦ Modulus.ext ?_ hinf⟩
+  rw [← Rat.RingOfIntegers.ideal_span_absNorm_eq_self 𝔪.finitePart, hfin,
+    ratFiniteModulus_finitePart]
+
+/-- **A modulus of `ℚ` equals `(n)·∞` iff its finite part has norm `n` and the real place of `ℚ`
+lies in its infinite part.** -/
+theorem eq_ratModulus_iff {𝔪 : Modulus ℚ} :
+    𝔪 = ratModulus n hn ↔ Ideal.absNorm 𝔪.finitePart = n ∧
+      ⟨Rat.infinitePlace, Rat.isReal_infinitePlace⟩ ∈ 𝔪.infinitePart := by
+  refine ⟨fun h ↦ h ▸ ⟨Rat.RingOfIntegers.absNorm_span_natCast n, by simp⟩,
+    fun ⟨hfin, hinf⟩ ↦ Modulus.ext ?_ ?_⟩
+  · rw [← Rat.RingOfIntegers.ideal_span_absNorm_eq_self 𝔪.finitePart, hfin, ratModulus_finitePart]
+  · ext w
+    rw [Subsingleton.elim w ⟨Rat.infinitePlace, Rat.isReal_infinitePlace⟩]
+    simp [hinf]
 
 /-! ### The ray class group of `ℚ` modulo `(n)` -/
 

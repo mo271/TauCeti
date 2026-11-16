@@ -38,6 +38,9 @@ trivial for `n ≤ 2` (`abelianConductor_cyclotomic_eq_one_of_le_two`), `(n)·�
   finite part of the conductor is the least cyclotomic level of `E`.
 * `TauCeti.ClassFieldTheory.absNorm_abelianConductor_finitePart_mod_four_ne_two`: the least
   cyclotomic level is not `2` modulo `4`.
+* `TauCeti.ClassFieldTheory.abelianConductor_rat_eq_ratFiniteModulus_iff` and
+  `TauCeti.ClassFieldTheory.abelianConductor_rat_eq_ratModulus_iff`: the full conductor of an
+  abelian extension `E/ℚ` is `(f)` when `E` is totally real and `(f)·∞` otherwise.
 * `TauCeti.ClassFieldTheory.abelianConductor_cyclotomic_eq_rayClassConductor_bot`: the conductor of
   `ℚ(ζ_n)/ℚ` is the conductor of the trivial subgroup of the ray class group modulo `(n)·∞`.
 * `TauCeti.ClassFieldTheory.abelianConductor_cyclotomic_eq_cyclotomicConductor`: the conductor of
@@ -98,6 +101,54 @@ theorem absNorm_abelianConductor_finitePart_mod_four_ne_two :
     (CyclotomicField f ℚ)).mp hE
   rw [hf] at hdvd
   exact absurd (Nat.le_of_dvd (by omega) hdvd) (by omega)
+
+/-- **The conductor of a finite abelian extension `E/ℚ` is `(n)` iff its least cyclotomic level is
+`n` and `E` is totally real.** -/
+theorem abelianConductor_rat_eq_ratFiniteModulus_iff {E : Type} [Field E] [NumberField E]
+    [IsAbelianGalois ℚ E] {n : ℕ} {hn : n ≠ 0} :
+    abelianConductor ℚ E = ratFiniteModulus n hn ↔
+      Ideal.absNorm (abelianConductor ℚ E).finitePart = n ∧ IsTotallyReal E := by
+  rw [eq_ratFiniteModulus_iff, abelianConductor_infinitePart_eq_empty_iff,
+    isUnramifiedAtInfinitePlaces_iff_isTotallyReal]
+
+/-- **A totally real finite abelian extension of `ℚ` has conductor `(f)`**, where `f` is the
+absolute norm of the finite part of its conductor. -/
+theorem abelianConductor_rat_eq_ratFiniteModulus (E : Type) [Field E] [NumberField E]
+    [IsAbelianGalois ℚ E] [IsTotallyReal E] :
+    abelianConductor ℚ E =
+      ratFiniteModulus (Ideal.absNorm (abelianConductor ℚ E).finitePart)
+        (Ideal.absNorm_eq_zero_iff.not.mpr (abelianConductor ℚ E).finitePart_ne_bot) :=
+  abelianConductor_rat_eq_ratFiniteModulus_iff.mpr ⟨rfl, inferInstance⟩
+
+/-- **The conductor of a finite abelian extension `E/ℚ` is `(n)·∞` iff its least cyclotomic level
+is `n` and `E` is not totally real.** -/
+theorem abelianConductor_rat_eq_ratModulus_iff {E : Type} [Field E] [NumberField E]
+    [IsAbelianGalois ℚ E] {n : ℕ} {hn : n ≠ 0} :
+    abelianConductor ℚ E = ratModulus n hn ↔
+      Ideal.absNorm (abelianConductor ℚ E).finitePart = n ∧ ¬ IsTotallyReal E := by
+  rw [eq_ratModulus_iff, ← isUnramifiedAtInfinitePlaces_iff_isTotallyReal (k := ℚ),
+    ← abelianConductor_infinitePart_eq_empty_iff]
+  refine and_congr_right' ⟨fun h h0 ↦ Finset.notMem_empty _ (h0 ▸ h), fun hne ↦ ?_⟩
+  obtain ⟨w, hw⟩ := Finset.nonempty_iff_ne_empty.mpr hne
+  exact Subsingleton.elim w ⟨Rat.infinitePlace, Rat.isReal_infinitePlace⟩ ▸ hw
+
+/-- **A non-totally-real finite abelian extension of `ℚ` has conductor `(f)·∞`**, where `f` is the
+absolute norm of the finite part of its conductor. -/
+theorem abelianConductor_rat_eq_ratModulus_of_not_isTotallyReal (E : Type) [Field E]
+    [NumberField E] [IsAbelianGalois ℚ E] (hE : ¬ IsTotallyReal E) :
+    abelianConductor ℚ E =
+      ratModulus (Ideal.absNorm (abelianConductor ℚ E).finitePart)
+        (Ideal.absNorm_eq_zero_iff.not.mpr (abelianConductor ℚ E).finitePart_ne_bot) :=
+  abelianConductor_rat_eq_ratModulus_iff.mpr ⟨rfl, hE⟩
+
+/-- **A totally complex finite abelian extension of `ℚ` has conductor `(f)·∞`**, where `f` is the
+absolute norm of the finite part of its conductor. -/
+theorem abelianConductor_rat_eq_ratModulus (E : Type) [Field E] [NumberField E]
+    [IsAbelianGalois ℚ E] [IsTotallyComplex E] :
+    abelianConductor ℚ E =
+      ratModulus (Ideal.absNorm (abelianConductor ℚ E).finitePart)
+        (Ideal.absNorm_eq_zero_iff.not.mpr (abelianConductor ℚ E).finitePart_ne_bot) :=
+  abelianConductor_rat_eq_ratModulus_of_not_isTotallyReal E IsTotallyComplex.not_isTotallyReal
 
 end LeastLevel
 

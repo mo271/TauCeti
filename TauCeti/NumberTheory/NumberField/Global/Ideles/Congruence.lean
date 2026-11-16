@@ -68,6 +68,8 @@ subgroups, since an idele can be split placewise into two factors.
 * `TauCeti.GlobalNumberFields.ideleCongruenceSubgroup.inv_ofAdicCompletion_mul_mem`: removing its
   component at one place from a congruence idele leaves a congruence idele for any modulus that
   imposes no further conditions away from that place.
+* `TauCeti.GlobalNumberFields.ideleCongruenceSubgroup.ofCompletion_neg_one_mul_mem`: flipping the
+  sign at one negative real place makes a congruence idele positive at that place.
 * `TauCeti.GlobalNumberFields.isOpen_ideleCongruenceSubgroup`: the congruence subgroup is open.
 * `TauCeti.GlobalNumberFields.unitEmbedding_mem_ideleCongruenceSubgroup_iff`: the principal
   ideles lying in the congruence subgroup are the images of the units of `𝓞 K` congruent to one
@@ -357,6 +359,36 @@ theorem ideleCongruenceSubgroup.inv_ofAdicCompletion_mul_mem {𝔪 𝔫 : Modulu
         (hexp v' hne) (ideleCongruenceSubgroup.ideleFiniteCoord_mem_unitFiltration hx v'))).2
   · rw [map_mul, map_inv, InfinitePlace.ideleInfiniteCoord_ofAdicCompletion, inv_one, one_mul]
     exact ideleCongruenceSubgroup.extensionEmbeddingOfIsReal_pos hx (hinf hw)
+
+/-- **Flipping the sign at one real place.** Let `w` be a real place of `K`, and let `𝔪` impose no
+larger finite exponents than `𝔫` and no real-place sign condition away from `w` that `𝔫` does not.
+If an idele `x` of `ideleCongruenceSubgroup 𝔫` is negative at `w`, multiplying it by `-1` at `w`
+produces an idele of `ideleCongruenceSubgroup 𝔪`. -/
+theorem ideleCongruenceSubgroup.ofCompletion_neg_one_mul_mem {𝔪 𝔫 : Modulus K}
+    {w : {w : InfinitePlace K // w.IsReal}}
+    (hexp : ∀ v : HeightOneSpectrum (𝓞 K), 𝔪.exponent v ≤ 𝔫.exponent v)
+    (hinf : ∀ w' ∈ 𝔪.infinitePart, w' ≠ w → w' ∈ 𝔫.infinitePart)
+    {x : IdeleGroup (𝓞 K) K} (hx : x ∈ ideleCongruenceSubgroup 𝔫)
+    (hw : InfinitePlace.Completion.extensionEmbeddingOfIsReal w.2
+      (w.1.ideleInfiniteCoord x : w.1.Completion) < 0) :
+    IdeleGroup.ofCompletion (𝓞 K) K w.1 (-1) * x ∈ ideleCongruenceSubgroup 𝔪 := by
+  have hfin (v : HeightOneSpectrum (𝓞 K)) :
+      v.ideleFiniteCoord (IdeleGroup.ofCompletion (𝓞 K) K w.1 (-1) * x) =
+        v.ideleFiniteCoord x := by
+    rw [map_mul, ideleFiniteCoord_ofCompletion, one_mul]
+  refine mem_ideleCongruenceSubgroup_iff.2 ⟨fun v _ ↦ ?_, fun v _ ↦ ?_, fun w' hw' ↦ ?_⟩
+  · rw [hfin v]
+    exact ideleCongruenceSubgroup.valued_ideleFiniteCoord_eq_one hx v
+  · rw [hfin v]
+    exact ((mem_unitFiltration_adicCompletion_iff v).1 (TauCeti.unitFiltration_antitone
+      (hexp v) (ideleCongruenceSubgroup.ideleFiniteCoord_mem_unitFiltration hx v))).2
+  · rcases eq_or_ne w' w with rfl | hne
+    · rw [map_mul, InfinitePlace.ideleInfiniteCoord_ofCompletion_self, Units.val_mul,
+        Units.val_neg, Units.val_one, map_mul, map_neg, map_one, neg_one_mul, neg_pos]
+      exact hw
+    · rw [map_mul, InfinitePlace.ideleInfiniteCoord_ofCompletion_of_ne _ (mt Subtype.ext hne),
+        one_mul]
+      exact ideleCongruenceSubgroup.extensionEmbeddingOfIsReal_pos hx (hinf w' hw' hne)
 
 /-! ### Openness -/
 

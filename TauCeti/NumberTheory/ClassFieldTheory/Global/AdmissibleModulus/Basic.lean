@@ -62,11 +62,13 @@ the real place of `ℚ` in that of `ℚ(i)/ℚ` (`mem_abelianConductor_infiniteP
 
 * `TauCeti.ClassFieldTheory.isAdmissibleModulus_iff_abelianConductor_dvd`: a modulus is
   admissible exactly when the conductor divides it.
-* `TauCeti.ClassFieldTheory.exponent_abelianConductor_le_iff`: the exponent of a finite place
-  `v` in the conductor is at most `n` exactly when the classes of the ideles concentrated at `v`
-  with component in `U(K_v, n)` are norms from `L`.
-* `TauCeti.ClassFieldTheory.abelianConductor_dvd_abelianConductor`: in a tower `K ⊆ L ⊆ M`, the
-  conductor of `L/K` divides that of `M/K`.
+* `TauCeti.ClassFieldTheory.exponent_abelianConductor_le_iff` and
+  `TauCeti.ClassFieldTheory.mem_abelianConductor_infinitePart_iff_notMem_range`: the finite
+  exponents and real places of `abelianConductor K L` are detected locally by norms of ideles
+  concentrated at one place.
+* `TauCeti.ClassFieldTheory.abelianConductor_congr` and
+  `TauCeti.ClassFieldTheory.abelianConductor_dvd_abelianConductor`: `K`-isomorphic extensions have
+  the same conductor, and in a tower `K ⊆ L ⊆ M` the conductor of `L/K` divides that of `M/K`.
 * `TauCeti.ClassFieldTheory.ofCompletion_neg_one_notMem_range_ideleClassNormMap`: if `L` contains a
   primitive `pⁿ`-th root of unity with `pⁿ > 2`, the class of `-1` at a real place of `K` is not
   a norm from `L`.
@@ -239,10 +241,31 @@ theorem exponent_abelianConductor_le_iff (v : HeightOneSpectrum (𝓞 K)) {n : �
   -- The open subgroup `⟨N_{L/K}(C_L), _⟩` coerces to `N_{L/K}(C_L)` by projection.
   exact OpenSubgroup.exponent_ideleClassConductor_le_iff
 
+/-- **The infinite places of the conductor are local.** A real place `v` of `K` lies in the
+infinite part of `abelianConductor K L` exactly when the idele class that is `-1` at `v` and `1`
+everywhere else is not a norm from `L`. -/
+theorem mem_abelianConductor_infinitePart_iff_notMem_range (v : {w : InfinitePlace K // w.IsReal}) :
+    v ∈ (abelianConductor K L).infinitePart ↔
+      IdeleClassGroup.ofCompletion (𝓞 K) K v.1 (-1) ∉
+        (ideleClassNormMap K L : IdeleClassGroup (𝓞 L) L →* IdeleClassGroup (𝓞 K) K).range := by
+  rw [abelianConductor]
+  exact OpenSubgroup.mem_ideleClassConductor_infinitePart_iff
+
 variable (K L) in
 /-- The conductor of `L/K` is admissible for `L/K`. -/
 theorem isAdmissibleModulus_abelianConductor : IsAdmissibleModulus K L (abelianConductor K L) :=
   (isAdmissibleModulus_iff_abelianConductor_dvd _).mpr (Modulus.dvd_refl _)
+
+/-- **`K`-isomorphic extensions have the same conductor.** -/
+theorem abelianConductor_congr {L' : Type} [Field L'] [NumberField L'] [Algebra K L']
+    (e : L ≃ₐ[K] L') : abelianConductor K L = abelianConductor K L' :=
+  Modulus.dvd_antisymm
+    ((isAdmissibleModulus_iff_abelianConductor_dvd _).mp
+      ((isAdmissibleModulus_abelianConductor K L').trans
+        (range_ideleClassNormMap_le_of_algHom e.toAlgHom)))
+    ((isAdmissibleModulus_iff_abelianConductor_dvd _).mp
+      ((isAdmissibleModulus_abelianConductor K L).trans
+        (range_ideleClassNormMap_le_of_algHom e.symm.toAlgHom)))
 
 variable (K) in
 /-- The trivial extension has the trivial conductor. -/
@@ -252,6 +275,20 @@ theorem abelianConductor_self : abelianConductor K K = Modulus.one K :=
     ⟨ideleClassExtension K K c, by
       simpa only [MonoidHom.coe_ofClass, Module.finrank_self, pow_one] using
         ideleClassNormMap_ideleClassExtension K K c⟩
+
+variable (K L) in
+/-- The bottom intermediate field `⊥ : IntermediateField K L` has the trivial conductor. -/
+@[simp]
+theorem abelianConductor_bot :
+    abelianConductor K (⊥ : IntermediateField K L) = Modulus.one K :=
+  (abelianConductor_congr (IntermediateField.botEquiv K L)).trans (abelianConductor_self K)
+
+variable (K L) in
+/-- The top intermediate field `⊤ : IntermediateField K L` has the conductor of `L/K`. -/
+@[simp]
+theorem abelianConductor_top :
+    abelianConductor K (⊤ : IntermediateField K L) = abelianConductor K L :=
+  abelianConductor_congr IntermediateField.topEquiv
 
 variable (M : Type) [Field M] [NumberField M] [Algebra L M] [Algebra K M] [IsScalarTower K L M] in
 /-- **The conductor of a subextension divides the conductor of the extension**: for a tower

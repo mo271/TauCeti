@@ -110,6 +110,16 @@ whole idele class group, so the trivial modulus is admissible for it, although `
   support of `L/K` is contained in the support of every admissible modulus.
 * `TauCeti.ClassFieldTheory.IsAdmissibleModulus.isUnramified_of_forall_ne`: an infinite place of
   `L` over an infinite place outside the real places of an admissible modulus is unramified.
+* `TauCeti.ClassFieldTheory.abelianConductor_support_eq_ramifiedSupport`: the support of
+  `abelianConductor K L` is `ramifiedSupport K L`.
+* `TauCeti.ClassFieldTheory.ofCompletion_mem_range_ideleClassNormMap_iff`,
+  `TauCeti.ClassFieldTheory.mem_abelianConductor_infinitePart_iff`, and
+  `TauCeti.ClassFieldTheory.abelianConductor_infinitePart_eq_empty_iff`: the infinite places of
+  `abelianConductor K L` are the real places of `K` ramified in `L`.
+* `TauCeti.ClassFieldTheory.mem_abelianConductor_infinitePart_fixedField_iff` and
+  `TauCeti.ClassFieldTheory.mem_abelianConductor_infinitePart_fixedField_ker_iff`: a real place
+  `v` divides the conductor of `fixedField H` (or `fixedField χ.ker`) iff `w` above `v` ramifies
+  and its complex conjugation lies outside `H` (or is sent away from `1` by `χ`).
 * `TauCeti.ClassFieldTheory.isAdmissibleModulus_of_isUnramifiedAt`: an extension unramified at
   every finite prime admits every modulus carrying its ramified real places.
 * `TauCeti.ClassFieldTheory.isAdmissibleModulus_one_iff`: the trivial modulus is admissible
@@ -308,6 +318,109 @@ theorem isUnramified_of_forall_ne (h : IsAdmissibleModulus K L 𝔪) {v : Infini
   norm_num at hArt
 
 end IsAdmissibleModulus
+
+/-! ### Support and infinite places of the conductor -/
+
+attribute [local instance] AbsoluteValue.Completion.algebraOfLiesOver
+
+/-- **The support of the conductor of an abelian extension is its ramified support.** A finite
+prime of `K` divides `(abelianConductor K L).finitePart` exactly when it ramifies in `L`. -/
+@[simp]
+theorem abelianConductor_support_eq_ramifiedSupport :
+    (abelianConductor K L).support = TauCeti.NumberField.ramifiedSupport K L := by
+  refine Finset.Subset.antisymm (fun v hv ↦ ?_)
+    (isAdmissibleModulus_abelianConductor K L).ramifiedSupport_subset_support
+  by_contra hnr
+  rw [TauCeti.NumberField.mem_ramifiedSupport,
+    dvd_relDiscr_iff_exists_not_isUnramifiedAt, not_exists] at hnr
+  obtain ⟨w, hw⟩ := HeightOneSpectrum.under_surjective (𝓞 K) (𝓞 L) v
+  have : w.asIdeal.LiesOver v.asIdeal := ⟨congrArg HeightOneSpectrum.asIdeal hw.symm⟩
+  have hunr : Algebra.IsUnramifiedAt (𝓞 K) w.asIdeal :=
+    not_not.mp (hnr ⟨w.asIdeal, w.isPrime, inferInstance⟩)
+  have hc : conductorExponent (v.adicCompletion K) (w.adicCompletion L) = 0 := by
+    rw [conductorExponent_eq_zero_iff, isUnramified_iff_ramificationIndex_eq_one,
+      HeightOneSpectrum.ramificationIndex_adicCompletion]
+    exact Ideal.ramificationIdx_eq_one_iff.mpr hunr
+  exact (Modulus.mem_support_iff_exponent_ne_zero _ v).mp hv
+    ((exponent_abelianConductor v w).trans hc)
+
+/-- **Idele classes concentrated at one infinite place that are norms.** For an abelian extension
+`L/K`, an infinite place `v` of `K` and a place `w` of `L` above it, the class of the idele
+concentrated at `v` with component `u` is a norm from `L` exactly when `u` is a norm from `L_w`. -/
+theorem ofCompletion_mem_range_ideleClassNormMap_iff (v : InfinitePlace K) (w : InfinitePlace L)
+    [w.LiesOver v] (u : v.Completionˣ) :
+    IdeleClassGroup.ofCompletion (𝓞 K) K v u ∈
+        (ideleClassNormMap K L : IdeleClassGroup (𝓞 L) L →* IdeleClassGroup (𝓞 K) K).range ↔
+      u ∈ TauCeti.normGroup v.Completion w.Completion := by
+  rw [IdeleClassGroup.ofCompletion_apply, ← globalArtinMap_eq_zero_iff K L IsSepClosed.lift,
+    globalArtinMap_infiniteLocal, ofMul_eq_zero, infiniteLocalArtinAt_eq_one_iff_mem_normGroup v w]
+
+/-- **The infinite places of the conductor are the ramified real places.** For an abelian extension
+`L/K`, a real place `v` of `K` and a place `w` of `L` above `v`, `v` lies in the infinite part of
+`abelianConductor K L` exactly when `w` is ramified over `K` (that is, complex). -/
+theorem mem_abelianConductor_infinitePart_iff (v : {v : InfinitePlace K // v.IsReal})
+    (w : InfinitePlace L) [w.LiesOver v.1] :
+    v ∈ (abelianConductor K L).infinitePart ↔ w.IsRamified K := by
+  rw [mem_abelianConductor_infinitePart_iff_notMem_range, IdeleClassGroup.ofCompletion_apply,
+    ← globalArtinMap_eq_zero_iff K L IsSepClosed.lift, globalArtinMap_infiniteLocal, ofMul_eq_zero]
+  rcases w.isUnramified_or_isRamified K with h | h
+  · have hnr : ¬ w.IsRamified K := not_not.mpr h
+    simp [hnr, infiniteLocalArtinAt_eq_one_of_isUnramified v.1 w h]
+  · rw [infiniteLocalArtinAt_eq_one_iff_mem_normGroup v.1 w,
+      InfinitePlace.Completion.mem_normGroup_iff_of_isRamified h v.2]
+    exact ⟨fun _ ↦ h, fun _ ↦ by norm_num⟩
+
+/-- **The infinite part of the conductor vanishes iff the extension is unramified at infinity.** -/
+theorem abelianConductor_infinitePart_eq_empty_iff :
+    (abelianConductor K L).infinitePart = ∅ ↔ IsUnramifiedAtInfinitePlaces K L := by
+  refine ⟨fun h ↦ ⟨fun w ↦ (isAdmissibleModulus_abelianConductor K L).isUnramified_of_forall_ne
+    (v := w.comap (algebraMap K L)) (by simp [h]) w⟩,
+    fun h ↦ Finset.eq_empty_iff_forall_notMem.mpr fun v hv ↦ ?_⟩
+  obtain ⟨w, hw⟩ := InfinitePlace.comap_surjective (K := L) v.1
+  have : w.LiesOver v.1 := InfinitePlace.liesOver_iff_comap_eq.mpr hw
+  exact ((mem_abelianConductor_infinitePart_iff v w).mp hv) (h.isUnramified w)
+
+/-- An abelian extension unramified at every infinite place has no infinite places in its
+conductor. -/
+@[simp]
+theorem abelianConductor_infinitePart_eq_empty [IsUnramifiedAtInfinitePlaces K L] :
+    (abelianConductor K L).infinitePart = ∅ :=
+  abelianConductor_infinitePart_eq_empty_iff.mpr inferInstance
+
+/-- **The infinite places of the conductor of a subextension.** Let `L/K` be abelian, `H` a
+subgroup of `Gal(L/K)`, `v` a real place of `K` and `w` a place of `L` above `v`. Then `v` lies in
+the infinite part of `abelianConductor K (fixedField H)` iff `w` ramifies over `K` and its complex
+conjugation does not belong to `H`. -/
+theorem mem_abelianConductor_infinitePart_fixedField_iff (v : {v : InfinitePlace K // v.IsReal})
+    (w : InfinitePlace L) [w.LiesOver v.1] (H : Subgroup Gal(L/K)) :
+    v ∈ (abelianConductor K (IntermediateField.fixedField H)).infinitePart ↔
+      ∃ hw : w.IsRamified K, NumberField.complexConjugationAt K w hw ∉ H := by
+  have := IsAbelianGalois.tower_bot K (IntermediateField.fixedField H) L
+  rw [mem_abelianConductor_infinitePart_iff_notMem_range, IdeleClassGroup.ofCompletion_apply,
+    ← globalArtinMap_eq_zero_iff K _ IsSepClosed.lift, globalArtinMap_infiniteLocal,
+    ofMul_eq_zero, ← infiniteLocalArtinAt_comp v.1 (IntermediateField.fixedField H).val,
+    MonoidHom.comp_apply]
+  rcases w.isUnramified_or_isRamified K with h | hw
+  · have hnr : ¬ w.IsRamified K := not_not.mpr h
+    simp [hnr, infiniteLocalArtinAt_eq_one_of_isUnramified v.1 w h]
+  · have hneg : InfinitePlace.Completion.extensionEmbeddingOfIsReal
+        (hw.liesOver_isReal_under w v.1) ((-1 : v.1.Completionˣ) : v.1.Completion) < 0 := by
+      simp
+    rw [infiniteLocalArtinAt_eq_complexConjugationAt v.1 w hw hneg,
+      Group.Abelianization.map_of, IntermediateField.restrictNormalHom_val,
+      abelianization_of_restrictNormalHom_fixedField_eq_one_iff]
+    exact ⟨fun hnot ↦ ⟨hw, hnot⟩, fun ⟨_, hnot⟩ ↦ hnot⟩
+
+/-- **The infinite places of a character's conductor detect oddness at complex conjugation.** Let
+`L/K` be abelian, `χ` a homomorphism on `Gal(L/K)`, `v` a real place of `K` and `w` a place of `L`
+above `v`. Then `v` lies in `(abelianConductor K (fixedField χ.ker)).infinitePart` iff `w` ramifies
+over `K` and `χ` is nontrivial on the complex conjugation at `w`. -/
+theorem mem_abelianConductor_infinitePart_fixedField_ker_iff
+    (v : {v : InfinitePlace K // v.IsReal}) (w : InfinitePlace L) [w.LiesOver v.1]
+    {A : Type*} [MulOneClass A] (χ : Gal(L/K) →* A) :
+    v ∈ (abelianConductor K (IntermediateField.fixedField χ.ker)).infinitePart ↔
+      ∃ hw : w.IsRamified K, χ (NumberField.complexConjugationAt K w hw) ≠ 1 := by
+  simp [mem_abelianConductor_infinitePart_fixedField_iff v w χ.ker]
 
 /-! ### Unramified extensions -/
 

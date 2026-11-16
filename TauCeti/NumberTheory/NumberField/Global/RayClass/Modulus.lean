@@ -55,7 +55,8 @@ away from a finite set of primes.
 * `TauCeti.GlobalNumberFields.Modulus.wellFounded_dvd_and_ne`: strict divisibility of moduli is
   well founded.
 * `TauCeti.GlobalNumberFields.Modulus.mem_support_iff`: membership in the support is divisibility
-  of the finite part.  `Modulus.support_one` and `Modulus.support_mono` are consequences.
+  of the finite part.  `Modulus.support_one`, `Modulus.one_exponent`, `narrowModulus_exponent`, and
+  `Modulus.support_mono` are consequences.
 * `TauCeti.GlobalNumberFields.Modulus.pow_exponent_dvd_finitePart` and
   `TauCeti.GlobalNumberFields.Modulus.mem_finitePart_of_forall_mem_pow_exponent`: the prime power
   prescribed by the exponent divides the finite part, and membership in the finite part is
@@ -322,6 +323,11 @@ def one (K : Type*) [Field K] [NumberField K] : Modulus K where
   rw [mem_support_iff, one_finitePart]
   simpa only [Finset.notMem_empty, iff_false, ← Ideal.one_eq_top] using v.prime.not_dvd_one
 
+/-- Every finite place has exponent `0` in the trivial modulus. -/
+@[simp] theorem one_exponent (v : HeightOneSpectrum (𝓞 K)) : (one K).exponent v = 0 := by
+  rw [← not_ne_iff, ← mem_support_iff_exponent_ne_zero, support_one]
+  exact Finset.notMem_empty v
+
 theorem one_dvd (𝔪 : Modulus K) : one K ∣ 𝔪 :=
   dvd_iff.mpr ⟨by rw [one_finitePart, ← Ideal.one_eq_top]; exact _root_.one_dvd _, by simp⟩
 
@@ -349,6 +355,12 @@ noncomputable def narrowModulus (K : Type*) [Field K] [NumberField K] : Modulus 
   ext v
   rw [Modulus.mem_support_iff, Modulus.mem_support_iff, narrowModulus_finitePart,
     Modulus.one_finitePart]
+
+/-- Every finite place has exponent `0` in the narrow modulus. -/
+@[simp] theorem narrowModulus_exponent (v : HeightOneSpectrum (𝓞 K)) :
+    (narrowModulus K).exponent v = 0 := by
+  rw [← not_ne_iff, ← Modulus.mem_support_iff_exponent_ne_zero, narrowModulus_support]
+  exact Finset.notMem_empty v
 
 /-! ### Multiplicative congruence -/
 
