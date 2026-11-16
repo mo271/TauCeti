@@ -63,6 +63,8 @@ isolated, fixed points is finite.
 
 * `TauCeti.mem_periodicSolutions_const_iff`: the periodic solutions of an autonomous field are its
   periodic integral curves.
+* `TauCeti.mem_periodicSolutions_comp_neg_iff`: reversing time identifies the `T`-periodic
+  solutions of `(t, x) ↦ -X (-t) x` with those of `X`.
 * `TauCeti.timeDependentFlowOf_add_period_of_mem`: translating both times by a period of the field
   preserves the domain and the flow.
 * `TauCeti.mem_timeDependentFlowDomain_of_isFixedPt`: for `T ≠ 0`, the trajectory of a fixed point
@@ -70,6 +72,9 @@ isolated, fixed points is finite.
 * `TauCeti.timeDependentFlowOf_add_period` and `TauCeti.timeDependentFlowOf_add_period_eq_iff`:
   for a complete suspension, the flow over one more period is the return map followed by the flow,
   so points at times `t + T` and `t` match exactly across the inverse return map.
+* `TauCeti.eventually_eq_of_mem_periodicSolutions_of_isNondegenerateFixedPt`: a `T`-periodic
+  solution whose value at `s` is a nondegenerate fixed point of the return map is isolated among
+  `T`-periodic solutions.
 * `TauCeti.finite_periodicSolutions`: on a compact boundaryless finite-dimensional manifold, a
   field whose periodic solutions are all nondegenerate has finitely many of them.
 * `TauCeti.finite_contractiblePeriodicSolutions`: the same for the contractible periodic solutions,
@@ -88,8 +93,8 @@ public section
 
 noncomputable section
 
-open Function Set
-open scoped Manifold
+open Filter Function Set
+open scoped Manifold Topology
 
 namespace TauCeti
 
@@ -120,6 +125,33 @@ theorem mem_periodicSolutions_const_iff {Y : (x : M) → TangentSpace I x} {γ :
 theorem continuous_of_mem_periodicSolutions {γ : ℝ → M} (hγ : γ ∈ periodicSolutions X T) :
     Continuous γ :=
   continuous_iff_continuousAt.2 fun t ↦ (hγ.1 t).continuousAt
+
+/-- Reversing time carries a `T`-periodic solution of `(t, x) ↦ -X (-t) x` to a `T`-periodic
+solution of `X`. -/
+theorem mem_periodicSolutions_comp_neg {γ : ℝ → M}
+    (hγ : γ ∈ periodicSolutions (fun t x ↦ -X (-t) x) T) :
+    (fun t ↦ γ (-t)) ∈ periodicSolutions X T := by
+  have hper : Periodic γ T := hγ.2
+  refine ⟨fun t ↦ ?_, fun t ↦ by
+    dsimp only
+    rw [neg_add_rev, add_comm (-T), ← sub_eq_add_neg]
+    exact hper.sub_eq (-t)⟩
+  have hd := hγ.1 (-t)
+  dsimp only at hd
+  rw [neg_neg] at hd
+  have hneg : HasMFDerivAt 𝓘(ℝ, ℝ) 𝓘(ℝ, ℝ) (fun r : ℝ ↦ -r) t (-ContinuousLinearMap.id ℝ ℝ) :=
+    hasMFDerivAt_iff_hasFDerivAt.2 (hasFDerivAt_id t).neg
+  exact (hd.comp t hneg).congr_mfderiv (ContinuousLinearMap.ext fun r : ℝ ↦ neg_smul_neg r _)
+
+/-- Reversing time identifies the `T`-periodic solutions of `(t, x) ↦ -X (-t) x` with the
+`T`-periodic solutions of `X`. -/
+theorem mem_periodicSolutions_comp_neg_iff {γ : ℝ → M} :
+    (fun t ↦ γ (-t)) ∈ periodicSolutions X T ↔
+      γ ∈ periodicSolutions (fun t x ↦ -X (-t) x) T := by
+  refine ⟨fun h ↦ ?_, mem_periodicSolutions_comp_neg⟩
+  simpa only [neg_neg] using
+    mem_periodicSolutions_comp_neg (X := fun t x ↦ -X (-t) x) (γ := fun t ↦ γ (-t))
+      (by simpa only [neg_neg] using h)
 
 /-- The **contractible** `T`-periodic solutions of `X`: the `T`-periodic solutions `γ` whose loop
 `ℝ ⧸ Tℤ → M`, `t ↦ γ t`, is null-homotopic. -/
@@ -309,6 +341,25 @@ theorem timeDependentFlowOf_add_period_eq_iff (hT : Periodic X T) (s t : ℝ) (x
 end Complete
 
 end Flow
+
+/-- **Nondegenerate periodic solutions are isolated.** Let `X` be a jointly `C¹` time-dependent
+vector field on a Hausdorff boundaryless manifold modelled on a finite-dimensional space,
+`T`-periodic in time with `T ≠ 0`. If `γ` is a `T`-periodic solution whose value at `s` is a
+nondegenerate fixed point of the return map `timeDependentFlowOf X s (s + T)`, then for every
+point `y` sufficiently close to `γ s`, the only `T`-periodic solution passing through `y` at time
+`s` is `γ`. No compactness of `M` or completeness of `X` is needed. -/
+theorem eventually_eq_of_mem_periodicSolutions_of_isNondegenerateFixedPt [FiniteDimensional ℝ E]
+    [T2Space M] [IsManifold I 1 M] [BoundarylessManifold I M]
+    (hX : ContMDiff (𝓘(ℝ, ℝ).prod I) I.tangent 1
+      (fun p : ℝ × M ↦ (⟨p.2, X p.1 p.2⟩ : TangentBundle I M)))
+    (hT : Periodic X T) (hT0 : T ≠ 0) {γ : ℝ → M} (hγ : γ ∈ periodicSolutions X T)
+    (hnd : IsNondegenerateFixedPt I (timeDependentFlowOf X s (s + T)) (γ s)) :
+    ∀ᶠ y in 𝓝 (γ s), ∀ η ∈ periodicSolutions X T, η s = y → η = γ := by
+  let e := periodicSolutionsEquivFixedPoints hX hT hT0 s
+  -- Near `γ s`, no other point is fixed by the return map.
+  filter_upwards [eventually_nhdsWithin_iff.1 hnd.eventually_not_isFixedPt] with y hy η hη rfl
+  have hys : η s = γ s := by_contra fun hne ↦ hy hne (e ⟨η, hη⟩).2.2
+  exact congrArg Subtype.val (e.injective (a₁ := ⟨η, hη⟩) (a₂ := ⟨γ, hγ⟩) (Subtype.ext hys))
 
 /-- **Finiteness of nondegenerate periodic solutions.** Let `X` be a jointly `C¹` time-dependent
 vector field on a compact boundaryless manifold modelled on a finite-dimensional space, `T`-periodic
