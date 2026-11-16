@@ -28,7 +28,7 @@ The same bidual extraction yields the Kaplansky–Šmulian sequential-closure th
 subset `A` whose weak closure is weakly compact (in particular, any subset of a weakly compact
 set), the weak closure of `A` coincides with its weak sequential closure. Consequently every
 weakly compact subset of a normed space is a Fréchet–Urysohn space in the induced weak
-topology, and weak closedness agrees with weak sequential closedness on relatively weakly
+topology, and weak sequential closedness agrees with weak closedness on relatively weakly
 compact sets.
 
 ## References
@@ -273,20 +273,20 @@ theorem frechetUrysohnSpace_toWeakSpace_of_subset_isCompact {S K : Set E}
   let := frechetUrysohnSpace_toWeakSpace_of_isCompact hK
   exact (Topology.IsEmbedding.inclusion (image_mono hSK)).isInducing.frechetUrysohnSpace
 
-/-- For a relatively weakly compact subset `S`, weak closedness is equivalent to weak
-sequential closedness. -/
-theorem isClosed_toWeakSpace_iff_isSeqClosed_of_isCompact_closure {S : Set E}
+/-- For a relatively weakly compact subset `S`, weak sequential closedness is equivalent to weak
+closedness. -/
+theorem isSeqClosed_toWeakSpace_iff_isClosed_of_isCompact_closure {S : Set E}
     (hS : IsCompact (closure (toWeakSpace 𝕜 E '' S))) :
-    IsClosed (toWeakSpace 𝕜 E '' S) ↔ IsSeqClosed (toWeakSpace 𝕜 E '' S) := by
-  rw [← closure_eq_iff_isClosed, ← seqClosure_toWeakSpace_eq_closure_of_isCompact_closure hS,
-    isSeqClosed_iff]
+    IsSeqClosed (toWeakSpace 𝕜 E '' S) ↔ IsClosed (toWeakSpace 𝕜 E '' S) := by
+  rw [isSeqClosed_iff, seqClosure_toWeakSpace_eq_closure_of_isCompact_closure hS,
+    closure_eq_iff_isClosed]
 
-/-- For a subset `S` of a weakly compact set `K`, weak closedness is equivalent to weak
-sequential closedness. -/
-theorem isClosed_toWeakSpace_iff_isSeqClosed_of_subset_isCompact {S K : Set E}
+/-- For a subset `S` of a weakly compact set `K`, weak sequential closedness is equivalent to weak
+closedness. -/
+theorem isSeqClosed_toWeakSpace_iff_isClosed_of_subset_isCompact {S K : Set E}
     (hK : IsCompact (toWeakSpace 𝕜 E '' K)) (hSK : S ⊆ K) :
-    IsClosed (toWeakSpace 𝕜 E '' S) ↔ IsSeqClosed (toWeakSpace 𝕜 E '' S) := by
-  rw [← closure_eq_iff_isClosed, ← seqClosure_toWeakSpace_eq_closure_of_subset_isCompact hK hSK,
-    isSeqClosed_iff]
+    IsSeqClosed (toWeakSpace 𝕜 E '' S) ↔ IsClosed (toWeakSpace 𝕜 E '' S) := by
+  rw [isSeqClosed_iff, seqClosure_toWeakSpace_eq_closure_of_subset_isCompact hK hSK,
+    closure_eq_iff_isClosed]
 
 end TauCeti

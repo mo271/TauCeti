@@ -13,10 +13,9 @@ public import TauCeti.Topology.Semicontinuity.Sequential
 # Topological and sequential weak lower semicontinuity
 
 Following Mathlib's `WeakSpace` design, weak lower semicontinuity and weak sequential lower
-semicontinuity of a functional `E : V → β` on an admissible set `S : Set V` are expressed
-directly as `LowerSemicontinuousOn` and `TauCeti.SeqLowerSemicontinuousOn` of the transported
-functional `w ↦ E ((toWeakSpace 𝕜 V).symm w)` on `toWeakSpace 𝕜 V '' S`, without wrapper
-predicates.
+semicontinuity of a functional `E : V → β` on a set `S : Set V` are expressed directly as
+`LowerSemicontinuousOn` and `TauCeti.SeqLowerSemicontinuousOn` of the transported functional
+`w ↦ E ((toWeakSpace 𝕜 V).symm w)` on `toWeakSpace 𝕜 V '' S`, without wrapper predicates.
 
 This file provides the bridge between those `WeakSpace` formulations and concrete statements
 on `V`:
@@ -51,7 +50,8 @@ variable {𝕜 V : Type*} [CommSemiring 𝕜] [TopologicalSpace 𝕜] [Continuou
   [ContinuousConstSMul 𝕜 𝕜] [AddCommMonoid V] [Module 𝕜 V] [TopologicalSpace V]
 
 /-- Transporting the restricted sublevel `{u ∈ S | E u ≤ b}` to `WeakSpace 𝕜 V` gives the
-intersection of `toWeakSpace 𝕜 V '' S` with the `Iic b` preimage of the transported energy. -/
+intersection of `toWeakSpace 𝕜 V '' S` with the `Iic b` preimage of the transported
+functional. -/
 theorem toWeakSpace_sublevel_eq {β : Type*} [Preorder β] (E : V → β) (S : Set V) (b : β) :
     toWeakSpace 𝕜 V '' {u ∈ S | E u ≤ b} =
       (toWeakSpace 𝕜 V '' S) ∩

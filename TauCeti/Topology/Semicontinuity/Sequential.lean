@@ -7,10 +7,10 @@ module
 
 public import Mathlib.Topology.ContinuousOn
 public import Mathlib.Topology.Instances.EReal.Lemmas
-public import Mathlib.Topology.Order.IsLUB
 public import Mathlib.Topology.Sequences
 public import Mathlib.Topology.Semicontinuity.Basic
 public import TauCeti.Order.Filter.Extr
+public import TauCeti.Topology.Order.IsLUB
 
 /-!
 # Sequential lower semicontinuity
@@ -33,7 +33,10 @@ topology, sequential lower semicontinuity passes inequalities through convergent
 values (`f x ≤ b` whenever `u → x` and `f ∘ u → b`), and on bounded-below sets in a
 first-countable order topology with compact closed intervals that finite-limit property is
 again equivalent to sequential lower semicontinuity. Finally, on a nonempty sequentially
-compact set, sequential lower semicontinuity yields existence of a minimizer.
+compact set, sequential lower semicontinuity yields a minimizer for functions bounded below in
+a first-countable conditionally complete linear order topology (hence unconditionally in a
+first-countable complete linear order topology), as well as for real-valued functions without
+assuming a lower bound in advance.
 
 ## References
 
@@ -199,7 +202,7 @@ theorem seqLowerSemicontinuous_iff_isSeqClosed_preimage :
     SeqLowerSemicontinuous f ↔ ∀ b, IsSeqClosed (f ⁻¹' Iic b) := by
   constructor
   · intro hf b u x hu hux
-    change f x ≤ b
+    simp only [mem_preimage, mem_Iic] at hu ⊢
     by_contra! hlt
     obtain ⟨n, hn⟩ := (hf hux b hlt).exists
     exact hn.not_ge (hu n)
@@ -441,13 +444,10 @@ theorem SeqLowerSemicontinuousOn.exists_isMinOn_of_bddBelow {β : Type*}
     (hs_ne : s.Nonempty) (hs : IsSeqCompact s)
     (hf : SeqLowerSemicontinuousOn f s) (hbdd : BddBelow (f '' s)) :
     ∃ x ∈ s, IsMinOn f s x := by
-  obtain ⟨y, _, hy_lim, hy_mem⟩ := exists_seq_tendsto_sInf (hs_ne.image f) hbdd
-  choose u hu hfu using hy_mem
+  obtain ⟨u, hu, -, hy_lim⟩ := exists_antitone_minimizing_seq hs_ne hbdd
   obtain ⟨x, hx, φ, hφ, hux⟩ := hs hu
-  have hlim : Tendsto (f ∘ (u ∘ φ)) atTop (𝓝 (sInf (f '' s))) := by
-    simpa only [Function.comp_def, hfu] using hy_lim.comp hφ.tendsto_atTop
   exact ⟨x, hx, (isMinOn_iff_le_csInf_image hs_ne hbdd).2
-    (hf.le_of_tendsto hx (fun n ↦ hu (φ n)) hux hlim)⟩
+    (hf.le_of_tendsto hx (fun n ↦ hu (φ n)) hux (hy_lim.comp hφ.tendsto_atTop))⟩
 
 /-- On a nonempty sequentially compact set, a sequentially lower semicontinuous function into a
 first-countable complete linear order topology attains its minimum. -/

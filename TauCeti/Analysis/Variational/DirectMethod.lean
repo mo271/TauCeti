@@ -7,8 +7,8 @@ module
 
 public import Mathlib.Topology.Semicontinuity.Basic
 public import TauCeti.Analysis.Normed.Module.DoubleDual
+public import TauCeti.Analysis.Normed.Module.WeakSpace.Semicontinuity
 public import TauCeti.Analysis.Variational.BoundedSublevels
-public import TauCeti.Analysis.Variational.WeakLowerSemicontinuous
 public import TauCeti.Order.Filter.Extr
 
 /-!
@@ -24,20 +24,18 @@ separability.
   seminormed space `V`, a weakly lower semicontinuous energy into a linear order on a nonempty
   weakly closed set with norm-bounded sublevels attains its minimum, and both its sublevels and
   its full set of minimizers are weakly compact.
-* **Minimizing sequences** (`exists_seq_mem_lt_csInf_add_one_div`,
-  `exists_antitone_minimizing_seq`, `HasBoundedSublevelsOn.isBounded_range_of_tendsto`):
-  existence of admissible sequences approaching `sInf (E '' S)` (with quantitative `1 / (n + 1)`
-  error for real energies, or monotonically decreasing energies in first-countable conditionally
-  complete linear order topologies), and boundedness of their ranges under bounded sublevels.
 * **Sequential direct method** (`exists_tendsto_subseq_isMinOn_of_bounded_minimizing_sequence`,
   `exists_isMinOn_of_bounded_minimizing_sequence`, `tendsto_toWeakSpace_of_unique_isMinOn`,
   `exists_isMinOn_of_isSeqClosed`, `isCompact_toWeakSpace_minimizers_of_isSeqClosed`): over a
   real or complex normed space `V` with surjective canonical bidual map, every norm-bounded
   minimizing sequence in a weakly sequentially closed set for a weakly sequentially lower
   semicontinuous energy admits a subsequence converging weakly to a minimizer realizing
-  `sInf (E '' S)` (with full weak convergence when the minimizer is unique). Combining weak
-  sequential hypotheses with the Kaplansky–Šmulian theorem upgrades bounded sublevels directly
-  to weak compactness for energies into any linear order without assuming `BddBelow`.
+  `sInf (E '' S)` (with full weak convergence when the minimizer is unique). Existence of
+  minimizing sequences and norm boundedness of their ranges under `HasBoundedSublevelsOn` are
+  supplied by `TauCeti.Topology.Order.IsLUB` and `TauCeti.Analysis.Variational.BoundedSublevels`.
+  Combining weak sequential hypotheses with the Kaplansky–Šmulian theorem upgrades bounded
+  sublevels directly to weak compactness for energies into any linear order without assuming
+  `BddBelow`.
 
 ## References
 
@@ -131,51 +129,6 @@ theorem isCompact_toWeakSpace_minimizers
   isCompact_toWeakSpace_minimizers_of_isBounded hV hS hE hb.isBounded_minimizers
 
 end TopologicalDirectMethod
-
-section MinimizingSequences
-
-/-- For any real-valued energy bounded below on a nonempty set `S`, there exists a minimizing
-sequence `u` in `S` satisfying `E (u n) < sInf (E '' S) + 1 / (n + 1)` and
-`E (u n) → sInf (E '' S)`. -/
-theorem exists_seq_mem_lt_csInf_add_one_div {X : Type*} {E : X → ℝ} {S : Set X}
-    (hne : S.Nonempty) (hbdd : BddBelow (E '' S)) :
-    ∃ u : ℕ → X, (∀ n, u n ∈ S) ∧
-      (∀ n, E (u n) < sInf (E '' S) + 1 / ((n : ℝ) + 1)) ∧
-      Tendsto (E ∘ u) atTop (𝓝 (sInf (E '' S))) := by
-  have hex (n : ℕ) : ∃ x ∈ S, E x < sInf (E '' S) + 1 / ((n : ℝ) + 1) := by
-    obtain ⟨_, ⟨x, hx, rfl⟩, hlt⟩ := exists_lt_of_csInf_lt (hne.image E)
-      (lt_add_of_pos_right _ (one_div_pos.2 (Nat.cast_add_one_pos n)))
-    exact ⟨x, hx, hlt⟩
-  choose u hu hlt using hex
-  refine ⟨u, hu, hlt, tendsto_of_tendsto_of_tendsto_of_le_of_le tendsto_const_nhds ?_
-    (fun n ↦ csInf_le hbdd (mem_image_of_mem E (hu n))) (fun n ↦ (hlt n).le)⟩
-  simpa only [add_zero] using
-    (tendsto_const_nhds (x := sInf (E '' S))).add tendsto_one_div_add_atTop_nhds_zero_nat
-
-/-- In a first-countable conditionally complete linear order topology, any energy bounded below
-on a nonempty set `S` admits an admissible minimizing sequence with antitone energy values
-converging to `sInf (E '' S)`. -/
-theorem exists_antitone_minimizing_seq {X β : Type*}
-    [ConditionallyCompleteLinearOrder β] [TopologicalSpace β] [OrderTopology β]
-    [FirstCountableTopology β] {E : X → β} {S : Set X}
-    (hne : S.Nonempty) (hbdd : BddBelow (E '' S)) :
-    ∃ u : ℕ → X, (∀ n, u n ∈ S) ∧ Antitone (E ∘ u) ∧
-      Tendsto (E ∘ u) atTop (𝓝 (sInf (E '' S))) := by
-  obtain ⟨y, hanti, hlim, hmem⟩ := exists_seq_tendsto_sInf (hne.image E) hbdd
-  choose u hu hEu using hmem
-  have hcomp : E ∘ u = y := funext hEu
-  exact ⟨u, hu, hcomp ▸ hanti, hcomp ▸ hlim⟩
-
-/-- Under `HasBoundedSublevelsOn E S`, any admissible sequence whose energies converge in a
-linear order topology has bounded range. -/
-theorem HasBoundedSublevelsOn.isBounded_range_of_tendsto {X β : Type*} [Bornology X]
-    [LinearOrder β] [TopologicalSpace β] [OrderTopology β] {E : X → β} {S : Set X}
-    (h : HasBoundedSublevelsOn E S) {u : ℕ → X} {b : β}
-    (hu : ∀ n, u n ∈ S) (hEu : Tendsto (E ∘ u) atTop (𝓝 b)) :
-    IsBounded (range u) :=
-  h.isBounded_range hu hEu.bddAbove_range
-
-end MinimizingSequences
 
 section SequentialDirectMethod
 
@@ -311,7 +264,7 @@ theorem isCompact_toWeakSpace_sublevel_of_isSeqClosed
   have hseq : IsSeqClosed (toWeakSpace 𝕜 V '' {u ∈ S | E u ≤ b}) :=
     (seqLowerSemicontinuousOn_toWeakSpace_iff_isSeqClosed_sublevel hS).1 hE b
   have hclosed : IsClosed (toWeakSpace 𝕜 V '' {u ∈ S | E u ≤ b}) :=
-    (isClosed_toWeakSpace_iff_isSeqClosed_of_isCompact_closure hcompact_cl).2 hseq
+    (isSeqClosed_toWeakSpace_iff_isClosed_of_isCompact_closure hcompact_cl).1 hseq
   simpa only [hclosed.closure_eq] using hcompact_cl
 
 /-- A single nonempty bounded sublevel suffices for the sequential direct method on a weakly

@@ -20,7 +20,7 @@ of every admissible sequence whose energies are bounded above.
 
 public section
 
-open Set Bornology Filter
+open Set Bornology Filter Topology
 
 namespace TauCeti
 
@@ -131,6 +131,14 @@ theorem isBounded_range [Preorder β] (h : HasBoundedSublevelsOn E S) {ι : Sort
     (hu : ∀ n, u n ∈ S) (hE : BddAbove (range (E ∘ u))) : IsBounded (range u) := by
   obtain ⟨b, hb⟩ := hE
   exact (h b).subset (range_subset_iff.2 fun n ↦ ⟨hu n, hb (mem_range_self n)⟩)
+
+/-- Under `HasBoundedSublevelsOn E S`, any admissible sequence whose energies converge in a
+linear order topology has bounded range. -/
+theorem isBounded_range_of_tendsto [LinearOrder β] [TopologicalSpace β] [OrderTopology β]
+    (h : HasBoundedSublevelsOn E S) {u : ℕ → X} {b : β}
+    (hu : ∀ n, u n ∈ S) (hEu : Tendsto (E ∘ u) atTop (𝓝 b)) :
+    IsBounded (range u) :=
+  h.isBounded_range hu hEu.bddAbove_range
 
 /-- The minimizers of an energy with bounded sublevels form a bounded set. -/
 theorem isBounded_minimizers [Preorder β] (h : HasBoundedSublevelsOn E S) :
