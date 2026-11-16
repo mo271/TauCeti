@@ -5,29 +5,46 @@ Authors: The Tau Ceti contributors
 -/
 module
 
+public import Mathlib.Algebra.Group.Equiv.TypeTags
 public import Mathlib.Algebra.Group.Subgroup.ZPowers.Lemmas
+public import Mathlib.GroupTheory.Finiteness
 public import Mathlib.GroupTheory.NoncommPiCoprod
 
 /-!
 # Homomorphisms out of `ℤ^ι`
 
-A homomorphism out of the free abelian group `ι → Multiplicative ℤ` on a finite type `ι` is
-determined by the images of the standard generators `Pi.mulSingle i (ofAdd 1)`
-(`MonoidHom.pi_ext_mint`), and any family of pairwise commuting elements `τ i` of a group `K` is
-the image of the standard generators under `TauCeti.zpowersPiHom τ`, built from Mathlib's
-`MonoidHom.noncommPiCoprod` and `zpowersHom`.
+A homomorphism out of the free abelian group `ι → ℤ` (or, multiplicatively,
+`ι → Multiplicative ℤ`) on a finite type `ι` is determined by the images of the standard
+generators `Pi.single i 1` (`AddMonoidHom.pi_ext_int`, `MonoidHom.pi_ext_mint`). Conversely, any
+family of pairwise commuting elements `τ i` of a group is the image of the standard generators
+under `TauCeti.zmultiplesPiHom τ` (or `TauCeti.zpowersPiHom τ`), built from Mathlib's
+`AddMonoidHom.noncommPiCoprod` / `MonoidHom.noncommPiCoprod` and `zmultiplesHom` / `zpowersHom`.
+
+Evaluating at the standard generators gives the universal-property equivalences
+`TauCeti.zmultiplesPiHomEquiv` and `TauCeti.zpowersPiHomEquiv`. The homomorphism is surjective
+precisely when the `τ i` generate the target, so every finitely generated commutative group is a
+surjective image of a finite power `Fin n → ℤ` (or `Fin n → Multiplicative ℤ`). Explicit transport
+lemmas relate `zmultiplesPiHom` and `zpowersPiHom` across `Multiplicative`.
 
 ## Main declarations
 
-* `MonoidHom.pi_ext_mint`: homomorphisms out of `ι → Multiplicative ℤ` agreeing on the standard
-  generators are equal.
-* `TauCeti.zpowersPiHom τ`: the homomorphism `(ι → Multiplicative ℤ) →* K` sending the `i`-th
-  standard generator to `τ i`.
-* `TauCeti.commute_zpowersPiHom`: an element commuting with every `τ i` commutes with the image of
-  `zpowersPiHom τ`.
+* `MonoidHom.pi_ext_mint`, `AddMonoidHom.pi_ext_int`: homomorphisms out of `ι → Multiplicative ℤ`
+  or `ι → ℤ` agreeing on the standard generators are equal.
+* `TauCeti.zpowersPiHom τ`, `TauCeti.zmultiplesPiHom τ`: the homomorphism out of
+  `ι → Multiplicative ℤ` or `ι → ℤ` sending the `i`-th standard generator to `τ i`.
+* `TauCeti.zpowersPiHomEquiv`, `TauCeti.zmultiplesPiHomEquiv`: the universal property, identifying
+  homomorphisms out of `ℤ^ι` with pairwise commuting families in the target.
+* `TauCeti.surjective_zpowersPiHom_iff`, `TauCeti.surjective_zmultiplesPiHom_iff`: surjectivity
+  when the `τ i` generate the target.
+* `TauCeti.exists_fin_surjective_zpowersPiHom`, `TauCeti.exists_fin_surjective_zmultiplesPiHom`:
+  every finitely generated commutative group is a surjective image of `Fin n → ℤ`.
+* `TauCeti.toMultiplicative_zmultiplesPiHom`, `TauCeti.toAdd_zpowersPiHom`: compatibility between
+  `zmultiplesPiHom` and `zpowersPiHom`.
 -/
 
 public section
+
+open scoped BigOperators
 
 variable {ι : Type*}
 
@@ -45,7 +62,22 @@ theorem pi_ext_mint [Finite ι] [DecidableEq ι] {M : Type*} [Monoid M]
 
 end MonoidHom
 
+namespace AddMonoidHom
+
+/-- Additive homomorphisms out of `ι → ℤ` agree when they agree on the standard generators. -/
+theorem pi_ext_int [Finite ι] [DecidableEq ι] {M : Type*} [AddMonoid M]
+    {f g : (ι → ℤ) →+ M}
+    (h : ∀ i, f (Pi.single i 1) = g (Pi.single i 1)) : f = g :=
+  pi_ext fun i x => by
+    simpa using DFunLike.congr_fun
+      (ext_int (f := f.comp (single (fun _ => ℤ) i))
+        (g := g.comp (single (fun _ => ℤ) i)) (h i)) x
+
+end AddMonoidHom
+
 namespace TauCeti
+
+section Multiplicative
 
 variable [Fintype ι] {K : Type*} [Group K]
 
@@ -57,6 +89,7 @@ def zpowersPiHom (τ : ι → K) (hτ : ∀ i j, Commute (τ i) (τ j)) :
     intro i j _ x y
     simpa only [zpowersHom_apply] using (hτ i j).zpow_zpow x.toAdd y.toAdd
 
+/-- `zpowersPiHom τ` sends the `i`-th standard generator to `τ i`. -/
 @[simp] theorem zpowersPiHom_mulSingle [DecidableEq ι] (τ : ι → K)
     (hτ : ∀ i j, Commute (τ i) (τ j)) (i : ι) :
     zpowersPiHom τ hτ (Pi.mulSingle i (.ofAdd 1)) = τ i :=
@@ -70,11 +103,165 @@ theorem range_zpowersPiHom (τ : ι → K) (hτ : ∀ i j, Commute (τ i) (τ j)
   refine (MonoidHom.noncommPiCoprod_range _).trans ?_
   simp [Subgroup.range_zpowersHom, Subgroup.zpowers_eq_closure, ← Subgroup.closure_iUnion]
 
+/-- `zpowersPiHom τ` is surjective if and only if the `τ i` generate `K`. -/
+theorem surjective_zpowersPiHom_iff (τ : ι → K) (hτ : ∀ i j, Commute (τ i) (τ j)) :
+    Function.Surjective (zpowersPiHom τ hτ) ↔ Subgroup.closure (Set.range τ) = ⊤ := by
+  rw [← MonoidHom.range_eq_top, range_zpowersPiHom]
+
 /-- An element commuting with every `τ i` commutes with the whole image of `zpowersPiHom τ`. -/
 theorem commute_zpowersPiHom {τ : ι → K} {hτ : ∀ i j, Commute (τ i) (τ j)} {x : K}
     (hx : ∀ i, Commute x (τ i)) (v : ι → Multiplicative ℤ) :
     Commute x (zpowersPiHom τ hτ v) :=
   MonoidHom.commute_noncommPiCoprod _ (fun i k => by
     simpa only [zpowersHom_apply] using (hx i).zpow_right k.toAdd) v
+
+/-- Homomorphisms `(ι → Multiplicative ℤ) →* K` correspond bijectively to pairwise commuting
+`ι`-tuples in `K`, via evaluation at the standard generators. -/
+def zpowersPiHomEquiv [DecidableEq ι] :
+    {τ : ι → K // ∀ i j, Commute (τ i) (τ j)} ≃ ((ι → Multiplicative ℤ) →* K) where
+  toFun τ := zpowersPiHom τ.1 τ.2
+  invFun f := ⟨fun i => f (Pi.mulSingle i (.ofAdd 1)), fun _ _ => (Commute.all _ _).map f⟩
+  left_inv τ := Subtype.ext <| funext fun i => zpowersPiHom_mulSingle τ.1 τ.2 i
+  right_inv _ := MonoidHom.pi_ext_mint fun i => zpowersPiHom_mulSingle _ _ i
+
+/-- Applying `zpowersPiHomEquiv` constructs `zpowersPiHom`. -/
+@[simp] theorem zpowersPiHomEquiv_apply [DecidableEq ι]
+    (τ : {τ : ι → K // ∀ i j, Commute (τ i) (τ j)}) :
+    zpowersPiHomEquiv τ = zpowersPiHom τ.1 τ.2 :=
+  (rfl)
+
+/-- The inverse of `zpowersPiHomEquiv` evaluates a homomorphism at the `i`-th standard
+generator. -/
+@[simp] theorem zpowersPiHomEquiv_symm_apply [DecidableEq ι]
+    (f : (ι → Multiplicative ℤ) →* K) (i : ι) :
+    (zpowersPiHomEquiv.symm f : ι → K) i = f (Pi.mulSingle i (.ofAdd 1)) :=
+  (rfl)
+
+end Multiplicative
+
+/-- Every finitely generated commutative group is a surjective image of `Fin n → Multiplicative ℤ`
+for some `n : ℕ`. -/
+theorem exists_fin_surjective_zpowersPiHom (G : Type*) [CommGroup G] [Group.FG G] :
+    ∃ (n : ℕ) (τ : Fin n → G), Function.Surjective (zpowersPiHom τ fun _ _ => .all _ _) := by
+  obtain ⟨S, hS, hfin⟩ := Group.fg_iff.1 ‹_›
+  obtain ⟨n, ⟨e⟩⟩ := hfin.exists_equiv_fin S
+  refine ⟨n, Subtype.val ∘ e.symm, (surjective_zpowersPiHom_iff _ _).2 ?_⟩
+  rwa [Set.range_comp, Equiv.range_eq_univ, Set.image_univ, Subtype.range_coe]
+
+section Additive
+
+variable [Fintype ι] {A : Type*} [AddGroup A]
+
+/-- The additive homomorphism `(ι → ℤ) →+ A` sending the `i`-th standard generator `Pi.single i 1`
+to `τ i`, for pairwise additively commuting `τ i`. -/
+def zmultiplesPiHom (τ : ι → A) (hτ : ∀ i j, AddCommute (τ i) (τ j)) :
+    (ι → ℤ) →+ A :=
+  AddMonoidHom.noncommPiCoprod (fun i => zmultiplesHom A (τ i)) <| by
+    intro i j _ x y
+    simpa only [zmultiplesHom_apply] using (hτ i j).zsmul_zsmul x y
+
+/-- `zmultiplesPiHom τ` sends the `i`-th standard generator to `τ i`. -/
+@[simp] theorem zmultiplesPiHom_single [DecidableEq ι] (τ : ι → A)
+    (hτ : ∀ i j, AddCommute (τ i) (τ j)) (i : ι) :
+    zmultiplesPiHom τ hτ (Pi.single i 1) = τ i :=
+  (AddMonoidHom.noncommPiCoprod_single _ i _).trans (by simp)
+
+/-- The image of `zmultiplesPiHom τ` is the additive subgroup generated by the `τ i`. -/
+theorem range_zmultiplesPiHom (τ : ι → A) (hτ : ∀ i j, AddCommute (τ i) (τ j)) :
+    (zmultiplesPiHom τ hτ).range = AddSubgroup.closure (Set.range τ) := by
+  refine (AddMonoidHom.noncommPiCoprod_range _).trans ?_
+  simp [AddSubgroup.range_zmultiplesHom, AddSubgroup.zmultiples_eq_closure,
+    ← AddSubgroup.closure_iUnion]
+
+/-- `zmultiplesPiHom τ` is surjective if and only if the `τ i` generate `A`. -/
+theorem surjective_zmultiplesPiHom_iff (τ : ι → A) (hτ : ∀ i j, AddCommute (τ i) (τ j)) :
+    Function.Surjective (zmultiplesPiHom τ hτ) ↔ AddSubgroup.closure (Set.range τ) = ⊤ := by
+  rw [← AddMonoidHom.range_eq_top, range_zmultiplesPiHom]
+
+/-- An element additively commuting with every `τ i` commutes with the whole image of
+`zmultiplesPiHom τ`. -/
+theorem addCommute_zmultiplesPiHom {τ : ι → A} {hτ : ∀ i j, AddCommute (τ i) (τ j)} {x : A}
+    (hx : ∀ i, AddCommute x (τ i)) (v : ι → ℤ) :
+    AddCommute x (zmultiplesPiHom τ hτ v) :=
+  AddMonoidHom.addCommute_noncommPiCoprod _ (fun i k => by
+    simpa only [zmultiplesHom_apply] using (hx i).zsmul_right k) v
+
+/-- Additive homomorphisms `(ι → ℤ) →+ A` correspond bijectively to pairwise additively commuting
+`ι`-tuples in `A`, via evaluation at the standard generators. -/
+def zmultiplesPiHomEquiv [DecidableEq ι] :
+    {τ : ι → A // ∀ i j, AddCommute (τ i) (τ j)} ≃ ((ι → ℤ) →+ A) where
+  toFun τ := zmultiplesPiHom τ.1 τ.2
+  invFun f := ⟨fun i => f (Pi.single i 1), fun _ _ => (AddCommute.all _ _).map f⟩
+  left_inv τ := Subtype.ext <| funext fun i => zmultiplesPiHom_single τ.1 τ.2 i
+  right_inv _ := AddMonoidHom.pi_ext_int fun i => zmultiplesPiHom_single _ _ i
+
+/-- Applying `zmultiplesPiHomEquiv` constructs `zmultiplesPiHom`. -/
+@[simp] theorem zmultiplesPiHomEquiv_apply [DecidableEq ι]
+    (τ : {τ : ι → A // ∀ i j, AddCommute (τ i) (τ j)}) :
+    zmultiplesPiHomEquiv τ = zmultiplesPiHom τ.1 τ.2 :=
+  (rfl)
+
+/-- The inverse of `zmultiplesPiHomEquiv` evaluates an additive homomorphism at the `i`-th
+standard generator. -/
+@[simp] theorem zmultiplesPiHomEquiv_symm_apply [DecidableEq ι]
+    (f : (ι → ℤ) →+ A) (i : ι) :
+    (zmultiplesPiHomEquiv.symm f : ι → A) i = f (Pi.single i 1) :=
+  (rfl)
+
+/-- In an additive commutative group, `zmultiplesPiHom τ` sends `v` to `∑ i, v i • τ i`. -/
+theorem zmultiplesPiHom_apply {B : Type*} [AddCommGroup B] (τ : ι → B)
+    (hτ : ∀ i j, AddCommute (τ i) (τ j)) (v : ι → ℤ) :
+    zmultiplesPiHom τ hτ v = ∑ i, v i • τ i :=
+  (AddMonoidHom.noncommPiCoprod_apply _ v).trans (by simp [Finset.noncommSum_eq_sum])
+
+end Additive
+
+/-- Every finitely generated additive commutative group is a surjective image of `Fin n → ℤ` for
+some `n : ℕ`. -/
+theorem exists_fin_surjective_zmultiplesPiHom (B : Type*) [AddCommGroup B] [AddGroup.FG B] :
+    ∃ (n : ℕ) (τ : Fin n → B), Function.Surjective (zmultiplesPiHom τ fun _ _ => .all _ _) := by
+  obtain ⟨S, hS, hfin⟩ := AddGroup.fg_iff.1 ‹_›
+  obtain ⟨n, ⟨e⟩⟩ := hfin.exists_equiv_fin S
+  refine ⟨n, Subtype.val ∘ e.symm, (surjective_zmultiplesPiHom_iff _ _).2 ?_⟩
+  rwa [Set.range_comp, Equiv.range_eq_univ, Set.image_univ, Subtype.range_coe]
+
+section Transport
+
+variable [Fintype ι]
+
+/-- Under `MulEquiv.funMultiplicative`, the multiplicative transport of `zmultiplesPiHom τ` is
+`zpowersPiHom (Multiplicative.ofAdd ∘ τ)`. -/
+theorem toMultiplicative_zmultiplesPiHom {A : Type*} [AddGroup A] (τ : ι → A)
+    (hτ : ∀ i j, AddCommute (τ i) (τ j))
+    (hτ' : ∀ i j, Commute (Multiplicative.ofAdd (τ i)) (Multiplicative.ofAdd (τ j))) :
+    (zmultiplesPiHom τ hτ).toMultiplicative =
+      (zpowersPiHom (fun i => Multiplicative.ofAdd (τ i)) hτ').comp
+        (MulEquiv.funMultiplicative ι ℤ).toMonoidHom := by
+  classical
+  have hcomp : (zmultiplesPiHom τ hτ).toMultiplicative.comp
+      (MulEquiv.funMultiplicative ι ℤ).symm.toMonoidHom =
+        zpowersPiHom (fun i => Multiplicative.ofAdd (τ i)) hτ' :=
+    MonoidHom.pi_ext_mint fun i => by
+      have hsingle : (fun j => (Pi.mulSingle (M := fun _ => Multiplicative ℤ) i
+          (Multiplicative.ofAdd 1) j).toAdd) = Pi.single (M := fun _ => ℤ) i 1 := by
+        ext j
+        by_cases hij : j = i <;> simp [hij]
+      simp [AddMonoidHom.coe_toMultiplicative, hsingle]
+  refine MonoidHom.ext fun v => ?_
+  simpa using DFunLike.congr_fun hcomp (MulEquiv.funMultiplicative ι ℤ v)
+
+/-- Evaluating `zpowersPiHom` in `Multiplicative A` computes `zmultiplesPiHom` in `A`. -/
+theorem toAdd_zpowersPiHom {A : Type*} [AddGroup A] (τ : ι → A)
+    (hτ : ∀ i j, AddCommute (τ i) (τ j))
+    (hτ' : ∀ i j, Commute (Multiplicative.ofAdd (τ i)) (Multiplicative.ofAdd (τ j)))
+    (v : ι → Multiplicative ℤ) :
+    (zpowersPiHom (fun i => Multiplicative.ofAdd (τ i)) hτ' v).toAdd =
+      zmultiplesPiHom τ hτ (fun i => (v i).toAdd) := by
+  have h := DFunLike.congr_fun (toMultiplicative_zmultiplesPiHom τ hτ hτ')
+    ((MulEquiv.funMultiplicative ι ℤ).symm v)
+  rw [MonoidHom.comp_apply, MulEquiv.coe_toMonoidHom, MulEquiv.apply_symm_apply] at h
+  simpa [AddMonoidHom.coe_toMultiplicative] using (congrArg Multiplicative.toAdd h).symm
+
+end Transport
 
 end TauCeti

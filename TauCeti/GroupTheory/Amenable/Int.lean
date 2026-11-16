@@ -5,19 +5,25 @@ Authors: The Tau Ceti contributors
 -/
 module
 
-public import TauCeti.GroupTheory.Amenable.Average
+public import TauCeti.GroupTheory.Amenable.Add
 public import TauCeti.MeasureTheory.Group.Foelner.Int
 
 /-!
-# Amenability of the integer group
+# Amenability of the integers
 
-Transport the intervals `{0, …, n}` through `Multiplicative.ofAdd`. Their relative
-translation boundaries tend to zero by the additive interval estimates, so the averaging
-criterion gives a left-invariant mean on the integer group.
+The intervals `{0, …, n}` form a counting-measure additive Følner sequence on `ℤ`
+(`TauCeti.isAddFoelner_int_Icc`), so `ℤ` has additive Følner sets (`TauCeti.hasAddFoelnerSets_int`)
+and is an amenable topological additive group for every additive group topology
+(`TauCeti.AddAmenable.int`). Transporting along `Multiplicative` gives Følner sets and amenability
+for `Multiplicative ℤ` (`TauCeti.hasFoelnerSets_multiplicative_int`,
+`TauCeti.Amenable.multiplicative_int`).
 
-Amenability of the integers is the starting example for proving amenability of finitely
-generated abelian groups using products and quotients. The final instance allows any group
-topology on `Multiplicative ℤ`.
+## Main results
+
+* `TauCeti.hasAddFoelnerSets_int`: `ℤ` has additive Følner sets.
+* `TauCeti.AddAmenable.int`: `ℤ` is additively amenable for every additive group topology.
+* `TauCeti.hasFoelnerSets_multiplicative_int`: `Multiplicative ℤ` has Følner sets.
+* `TauCeti.Amenable.multiplicative_int`: `Multiplicative ℤ` is amenable for every group topology.
 
 ## References
 
@@ -27,30 +33,24 @@ topology on `Multiplicative ℤ`.
 
 public section
 
-open Filter Finset Topology
-open scoped Pointwise symmDiff
-
 namespace TauCeti
 
-/-- The integer group has Følner sets, viewed multiplicatively through `Multiplicative.ofAdd`.
-The translation of an interval is the image of its additive translate. -/
-theorem hasFoelnerSets_multiplicative_int : HasFoelnerSets (Multiplicative ℤ) := by
-  let F (n : ℕ) : Finset (Multiplicative ℤ) := (Icc 0 (n : ℤ)).image Multiplicative.ofAdd
-  have hne (n : ℕ) : (F n).Nonempty :=
-    (nonempty_Icc.mpr (Int.natCast_nonneg n)).image _
-  have htranslate (g : Multiplicative ℤ) (n : ℕ) :
-      g • F n = ((Icc 0 (n : ℤ)).image (g.toAdd + ·)).image Multiplicative.ofAdd := by
-    simp only [F, smul_finset_def, image_image, smul_eq_mul]
-    exact congrArg (fun f : ℤ → Multiplicative ℤ => (Icc 0 (n : ℤ)).image f)
-      (funext fun x => by simp only [Function.comp_apply, ofAdd_add, ofAdd_toAdd])
-  have hlimit (g : Multiplicative ℤ) :
-      Tendsto (fun n => (#((g • F n) ∆ F n) : ℝ) / #(F n)) atTop (𝓝 0) := by
-    simpa only [htranslate, F, ← image_symmDiff _ _ Multiplicative.ofAdd.injective,
-      card_image_of_injective _ Multiplicative.ofAdd.injective] using
-      Int.tendsto_card_image_add_left_Icc_symmDiff_div_card g.toAdd
-  exact .of_tendsto_card_smul_symmDiff_div_card (Eventually.of_forall hne) hlimit
+/-- The integers have additive Følner sets, witnessed by the intervals `{0, …, n}`. -/
+theorem hasAddFoelnerSets_int : HasAddFoelnerSets ℤ :=
+  .of_isAddFoelner isAddFoelner_int_Icc
 
-/-- The integer group is amenable for every group topology. -/
+/-- The integers are additively amenable for every additive group topology. -/
+instance AddAmenable.int {integerTopology : TopologicalSpace ℤ}
+    [hTopology : letI := integerTopology; IsTopologicalAddGroup ℤ] :
+    letI := integerTopology; AddAmenable ℤ := by
+  let := integerTopology
+  exact .of_hasAddFoelnerSets hasAddFoelnerSets_int
+
+/-- The integer group `Multiplicative ℤ` has Følner sets. -/
+theorem hasFoelnerSets_multiplicative_int : HasFoelnerSets (Multiplicative ℤ) :=
+  hasFoelnerSets_multiplicative_iff.2 hasAddFoelnerSets_int
+
+/-- The integer group `Multiplicative ℤ` is amenable for every group topology. -/
 instance Amenable.multiplicative_int
     {integerTopology : TopologicalSpace (Multiplicative ℤ)}
     [hTopology : letI := integerTopology; IsTopologicalGroup (Multiplicative ℤ)] :
