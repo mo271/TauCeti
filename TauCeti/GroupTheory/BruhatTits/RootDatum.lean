@@ -241,7 +241,7 @@ theorem inv_mul_mul_mem_U {i : ι} {t u : G} (ht : t ∈ D.T) (hu : u ∈ D.U i)
 
 /-- Multiplying an element of `U a * M a * U a` on both sides by elements of `U a` stays in
 `U a * M a * U a`. -/
-private theorem mul_mul_mem_mul {i : ι} {g x y : G} (hx : x ∈ D.U i) (hy : y ∈ D.U i)
+theorem mul_mul_mem_mul {i : ι} {g x y : G} (hx : x ∈ D.U i) (hy : y ∈ D.U i)
     (hg : g ∈ (D.U i : Set G) * D.reflectionCoset i * D.U i) :
     x * g * y ∈ (D.U i : Set G) * D.reflectionCoset i * D.U i := by
   obtain ⟨_, ⟨x', hx', m, hm, rfl⟩, y', hy', rfl⟩ := hg
@@ -249,7 +249,7 @@ private theorem mul_mul_mem_mul {i : ι} {g x y : G} (hx : x ∈ D.U i) (hy : y 
 
 /-- Some nontrivial element of `U (-a)` decomposes as `x * m * y` with `x, y ∈ U a` and
 `m ∈ M a`. -/
-private theorem exists_mem_bruhat (i : ι) :
+theorem exists_mem_bruhat (i : ι) :
     ∃ u ∈ D.U (P.reflectionPerm i i), u ≠ 1 ∧ ∃ x ∈ D.U i, ∃ m ∈ D.reflectionCoset i,
       ∃ y ∈ D.U i, u = x * m * y := by
   obtain ⟨⟨u, hu⟩, hne⟩ := Subgroup.ne_bot_iff_exists_ne_one.mp (D.U_ne_bot (P.reflectionPerm i i))
@@ -297,7 +297,7 @@ theorem eq_one_of_mem_normalizer {i : ι} {g : G} (hg : g ∈ D.U i)
 
 /-- An element of `U a * M a * U a` that exchanges `U a` and `U (-a)` by conjugation lies in
 `M a`. -/
-private theorem mem_reflectionCoset_of_mem_mul {i : ι} {g : G}
+theorem mem_reflectionCoset_of_mem_mul {i : ι} {g : G}
     (hg : g ∈ (D.U i : Set G) * D.reflectionCoset i * D.U i)
     (h₁ : ConjAct.toConjAct g • D.U i = D.U (P.reflectionPerm i i))
     (h₂ : ConjAct.toConjAct g • D.U (P.reflectionPerm i i) = D.U i) :
