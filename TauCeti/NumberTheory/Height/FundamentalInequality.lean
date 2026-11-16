@@ -38,6 +38,9 @@ can only increase it. At a single place the two bounds read
   halves of the fundamental inequality.
 * `NumberField.one_le_prod_apply_of_forall_le_one`: the product over all infinite places and a
   finite set of finite places is at least one for a nonzero element integral outside that set.
+* `NumberField.one_le_of_forall_apply_le` and `NumberField.zero_le_sum_log_of_forall_apply_le`:
+  product-formula comparison over all infinite places and all finite places against local upper
+  bounds with finite multiplicative support, in multiplicative and logarithmic form.
 * `NumberField.prod_max_apply_one_le_mulHeight₁`: the upper bound with every local factor
   truncated to `max |x|_v 1`.
 * `NumberField.prod_min_one_apply_eq_inv_mulHeight₁`: over all places the truncated local factors
@@ -120,6 +123,47 @@ theorem one_le_prod_apply_of_forall_le_one {x : K} (hx : x ≠ 0)
     (Finset.finprod_le_prod_of_le_one₀ Sfin (FinitePlace.hasFiniteMulSupport hx)
       (fun v ↦ apply_nonneg v x) h)
     (Finset.prod_nonneg fun v _ ↦ pow_nonneg (apply_nonneg v x) _)
+
+/-- **Global product-formula comparison**: if `x ≠ 0` is bounded by `Binf v` at every infinite
+place and by `Bfin v` at every finite place, where `Bfin` has finite multiplicative support, then
+`(∏ v, Binf v ^ v.mult) * ∏ᶠ v, Bfin v` is at least `1`. Unlike
+`NumberField.one_le_prod_apply_of_forall_le_one`, every finite place may carry a nontrivial bound,
+as when local value bounds include the local sup norm of the coefficients of a polynomial. -/
+theorem one_le_of_forall_apply_le {x : K} (hx : x ≠ 0)
+    {Binf : InfinitePlace K → ℝ} {Bfin : FinitePlace K → ℝ}
+    (hsupp : Bfin.HasFiniteMulSupport)
+    (hinf : ∀ v : InfinitePlace K, v x ≤ Binf v)
+    (hfin : ∀ v : FinitePlace K, v x ≤ Bfin v) :
+    1 ≤ (∏ v : InfinitePlace K, Binf v ^ v.mult) * ∏ᶠ v : FinitePlace K, Bfin v := by
+  rw [← prod_abs_eq_one hx]
+  refine mul_le_mul ?_ ?_ (finprod_nonneg fun v ↦ apply_nonneg v x)
+    (Finset.prod_nonneg fun v _ ↦ pow_nonneg ((apply_nonneg v x).trans (hinf v)) _)
+  · gcongr
+    exact hinf _
+  · exact finprod_le_finprod₀ (FinitePlace.hasFiniteMulSupport hx)
+      (fun v ↦ apply_nonneg v x) hsupp hfin
+
+/-- **Logarithmic global product-formula comparison**: under the hypotheses of
+`NumberField.one_le_of_forall_apply_le`, the weighted sum of `log (Binf v)` over the infinite
+places plus `∑ᶠ v, log (Bfin v)` over the finite places is nonnegative. Positivity of `Binf v` and
+`Bfin v` follows from `x ≠ 0`. -/
+theorem zero_le_sum_log_of_forall_apply_le {x : K} (hx : x ≠ 0)
+    {Binf : InfinitePlace K → ℝ} {Bfin : FinitePlace K → ℝ}
+    (hsupp : Bfin.HasFiniteMulSupport)
+    (hinf : ∀ v : InfinitePlace K, v x ≤ Binf v)
+    (hfin : ∀ v : FinitePlace K, v x ≤ Bfin v) :
+    0 ≤ (∑ v : InfinitePlace K, v.mult * Real.log (Binf v)) +
+      ∑ᶠ v : FinitePlace K, Real.log (Bfin v) := by
+  have hinf_pos (v : InfinitePlace K) : 0 < Binf v :=
+    (InfinitePlace.pos_iff.mpr hx).trans_le (hinf v)
+  have hfin_pos (v : FinitePlace K) : 0 < Bfin v :=
+    (FinitePlace.pos_iff.mpr hx).trans_le (hfin v)
+  have h1 := Real.log_nonneg (one_le_of_forall_apply_le hx hsupp hinf hfin)
+  rwa [Real.log_mul (Finset.prod_pos fun v _ ↦ pow_pos (hinf_pos v) _).ne'
+    (finprod_ne_zero fun v ↦ (hfin_pos v).ne'),
+    Real.log_prod fun v _ ↦ (pow_pos (hinf_pos v) _).ne',
+    Real.log_finprod hfin_pos,
+    Finset.sum_congr rfl fun v _ ↦ Real.log_pow (Binf v) v.mult] at h1
 
 /-! ### The truncated product -/
 
@@ -209,5 +253,36 @@ example (v : InfinitePlace K) :
     ¬(mulHeight₁ (0 : K))⁻¹ ≤ (∏ w ∈ {v}, w (0 : K) ^ w.mult) *
       ∏ w ∈ (∅ : Finset (FinitePlace K)), w (0 : K) := by
   simp
+
+/-- `Bfin.HasFiniteMulSupport` cannot be dropped in `NumberField.one_le_of_forall_apply_le`: for
+`x = 2⁻¹`, every infinite place takes value `2⁻¹` while the constant upper bound
+`Bfin _ = max 2 (mulHeight₁ (2⁻¹ : K))` holds at every finite place, has infinite multiplicative
+support (so `∏ᶠ v, Bfin v = 1`), and leaves the global product equal to
+`(2⁻¹) ^ [K : ℚ] < 1`. -/
+example :
+    let x : K := (2 : K)⁻¹
+    let Binf : InfinitePlace K → ℝ := fun _ ↦ 2⁻¹
+    let Bfin : FinitePlace K → ℝ := fun _ ↦ max 2 (mulHeight₁ x)
+    x ≠ 0 ∧ (∀ v : InfinitePlace K, v x ≤ Binf v) ∧ (∀ v : FinitePlace K, v x ≤ Bfin v) ∧
+      ¬ 1 ≤ (∏ v : InfinitePlace K, Binf v ^ v.mult) * ∏ᶠ v : FinitePlace K, Bfin v := by
+  intro x Binf Bfin
+  refine ⟨inv_ne_zero two_ne_zero, fun v ↦ ?_, fun v ↦ ?_, ?_⟩
+  · have h2 : v (2 : K) = 2 := by
+      rw [← v.norm_embedding_eq, map_ofNat]
+      norm_num
+    simp [x, Binf, map_inv₀, h2]
+  · exact ((le_max_left _ (1 : ℝ)).trans (v.max_apply_one_le_mulHeight₁ x)).trans
+      (le_max_right 2 _)
+  · have hsupp : (Function.mulSupport Bfin).Infinite := by
+      have hne1 : max 2 (mulHeight₁ x) ≠ 1 :=
+        ((by norm_num : (1 : ℝ) < 2).trans_le (le_max_left _ _)).ne'
+      have huniv : Function.mulSupport Bfin = Set.univ :=
+        Set.eq_univ_of_forall fun _ ↦ hne1
+      rw [huniv]
+      exact Set.infinite_univ
+    rw [finprod_of_infinite_mulSupport hsupp, mul_one, Finset.prod_pow_eq_pow_sum,
+      InfinitePlace.sum_mult_eq]
+    exact not_le_of_gt (pow_lt_one₀ (by positivity) (by norm_num)
+      (Module.finrank_pos (R := ℚ) (M := K)).ne')
 
 end NumberField
