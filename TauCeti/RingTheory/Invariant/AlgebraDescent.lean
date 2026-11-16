@@ -38,14 +38,25 @@ the affine case of descent along a finite étale Galois cover, for instance the 
 affine scheme with a free action of a finite group to its invariant quotient.
 
 The effectivity statement is the module form `TauCeti.MulSemiringAction.baseChangeInvariantsEquiv`
-applied to `C`, whose invariant submodule is the fixed-point subalgebra.
+applied to `C`, whose invariant submodule is the fixed-point subalgebra. Complementarily, when
+`A → B` is injective and `B` admits an element of trace `1` (requiring neither freeness nor étale
+hypotheses), `TauCeti.MulSemiringAction.invariantsBaseChangeEquiv` shows that for any `A`-algebra
+`T` the right inclusion `T →ₐ[A] B ⊗[A] T` is injective onto the `G`-invariant tensors
+(`includeRight_injective_of_exists_trace_one`, `mem_range_includeRight_of_forall_rTensor_eq`), so
+any `A`-algebra map `D →ₐ[A] B ⊗[A] T` landing in the left-factor `G`-invariants retracts uniquely
+to `D →ₐ[A] T` (`retractToBaseAlgHom`).
 
-## Main results
+## Main definitions and results
 
 * `TauCeti.MulSemiringAction.isPushout_fixedPoints`: `C = B ⊗[A] Cᴳ`.
 * `TauCeti.MulSemiringAction.algHom_ext_fixedPoints`: `B`-algebra maps out of `C` agreeing on
   `Cᴳ` are equal.
 * `TauCeti.MulSemiringAction.existsUnique_algHom_extend_fixedPoints`: descent of morphisms.
+* `TauCeti.MulSemiringAction.includeRight_injective_of_exists_trace_one` and
+  `TauCeti.MulSemiringAction.mem_range_includeRight_of_forall_rTensor_eq`: injectivity and image
+  of `Algebra.TensorProduct.includeRight : T →ₐ[A] B ⊗[A] T` under a trace-one element.
+* `TauCeti.MulSemiringAction.retractToBaseAlgHom`: retraction of a left-factor `G`-invariant
+  algebra homomorphism `D →ₐ[A] B ⊗[A] T` to `D →ₐ[A] T`.
 
 ## References
 
@@ -131,5 +142,95 @@ theorem existsUnique_algHom_extend_fixedPoints
     simp [Algebra.algebraMap_eq_smul_one, smul_distrib_smul]
 
 end Morphisms
+
+section BaseChangeRetract
+
+variable (A B G)
+
+/-- When a finite group `G` acts on `B` with invariant ring `A ⊆ B` and `B` admits an element of
+trace `1`, the right inclusion `Algebra.TensorProduct.includeRight : T →ₐ[A] B ⊗[A] T` is injective
+for every `A`-algebra `T`. -/
+theorem includeRight_injective_of_exists_trace_one {T : Type*} [Ring T] [Algebra A T]
+    [Fintype G] [Algebra.IsInvariant A B G] [FaithfulSMul A B]
+    (hc : ∃ c : B, ∑ g : G, g • c = 1) :
+    Function.Injective (Algebra.TensorProduct.includeRight : T →ₐ[A] B ⊗[A] T) := by
+  have : SMulCommClass A G B := SMulCommClass.symm G A B
+  intro t₁ t₂ h
+  have h' : ((invariantsBaseChangeEquiv A B G T hc t₁ : _) : B ⊗[A] T) =
+      invariantsBaseChangeEquiv A B G T hc t₂ := by
+    simpa [coe_invariantsBaseChangeEquiv_apply] using h
+  exact (invariantsBaseChangeEquiv A B G T hc).injective (Subtype.ext h')
+
+/-- When a finite group `G` acts on `B` with invariant ring `A ⊆ B` and `B` admits an element of
+trace `1`, an element of `B ⊗[A] T` fixed by `g ⊗ id` for every `g : G` lies in the range of
+`Algebra.TensorProduct.includeRight : T →ₐ[A] B ⊗[A] T`. -/
+theorem mem_range_includeRight_of_forall_rTensor_eq {T : Type*} [Ring T] [Algebra A T]
+    [Fintype G] [Algebra.IsInvariant A B G] [FaithfulSMul A B]
+    (hc : ∃ c : B, ∑ g : G, g • c = 1) {z : B ⊗[A] T}
+    (hz : ∀ g : G, Algebra.TensorProduct.rTensor T (MulSemiringAction.toAlgHom A B g) z = z) :
+    z ∈ (Algebra.TensorProduct.includeRight : T →ₐ[A] B ⊗[A] T).range := by
+  have : SMulCommClass A G B := SMulCommClass.symm G A B
+  have hrTensor (g : G) (w : B ⊗[A] T) :
+      g • w = Algebra.TensorProduct.rTensor T (MulSemiringAction.toAlgHom A B g) w := by
+    induction w using TensorProduct.inductionOn with
+    | tmul b t => simp [TensorProduct.smul_tmul']
+    | add x y hx hy => rw [smul_add, map_add, hx, hy]
+  let z' : (Representation.ofDistribMulAction A G (B ⊗[A] T)).invariants :=
+    ⟨z, (Representation.mem_invariants _ _).mpr fun g ↦ (hrTensor g z).trans (hz g)⟩
+  let e := invariantsBaseChangeEquiv A B G T hc
+  have he : (e (e.symm z') : B ⊗[A] T) = z := congrArg Subtype.val (e.apply_symm_apply z')
+  rw [coe_invariantsBaseChangeEquiv_apply] at he
+  exact ⟨e.symm z', he⟩
+
+/-- When `G` acts on `B` with invariant ring `A ⊆ B` and `B` admits an element of trace `1`, any
+`A`-algebra homomorphism `u : D →ₐ[A] B ⊗[A] T` whose values are fixed by the left-factor `G`-action
+retracts uniquely along `Algebra.TensorProduct.includeRight` to an `A`-algebra homomorphism
+`D →ₐ[A] T`. -/
+noncomputable def retractToBaseAlgHom {D T : Type*} [Semiring D] [Algebra A D] [Ring T]
+    [Algebra A T] [Fintype G] [Algebra.IsInvariant A B G] [FaithfulSMul A B]
+    (hc : ∃ c : B, ∑ g : G, g • c = 1) (u : D →ₐ[A] B ⊗[A] T)
+    (hu : ∀ (g : G) (d : D),
+      Algebra.TensorProduct.rTensor T (MulSemiringAction.toAlgHom A B g) (u d) = u d) :
+    D →ₐ[A] T :=
+  (AlgEquiv.ofInjective (Algebra.TensorProduct.includeRight : T →ₐ[A] B ⊗[A] T)
+    (includeRight_injective_of_exists_trace_one A B G hc)).symm.toAlgHom.comp
+      (u.codRestrict _ fun d ↦
+        mem_range_includeRight_of_forall_rTensor_eq A B G hc (hu · d))
+
+/-- Applying `Algebra.TensorProduct.includeRight` to `retractToBaseAlgHom A B G hc u hu d` recovers
+`u d`. -/
+theorem includeRight_retractToBaseAlgHom_apply {D T : Type*} [Semiring D] [Algebra A D]
+    [Ring T] [Algebra A T] [Fintype G] [Algebra.IsInvariant A B G] [FaithfulSMul A B]
+    (hc : ∃ c : B, ∑ g : G, g • c = 1) (u : D →ₐ[A] B ⊗[A] T)
+    (hu : ∀ (g : G) (d : D),
+      Algebra.TensorProduct.rTensor T (MulSemiringAction.toAlgHom A B g) (u d) = u d) (d : D) :
+    (Algebra.TensorProduct.includeRight : T →ₐ[A] B ⊗[A] T)
+      (retractToBaseAlgHom A B G hc u hu d) = u d := by
+  let e := AlgEquiv.ofInjective (Algebra.TensorProduct.includeRight : T →ₐ[A] B ⊗[A] T)
+    (includeRight_injective_of_exists_trace_one A B G hc)
+  exact congrArg Subtype.val
+    (e.apply_symm_apply (u.codRestrict _
+      (fun d ↦ mem_range_includeRight_of_forall_rTensor_eq A B G hc (hu · d)) d))
+
+@[simp]
+theorem one_tmul_retractToBaseAlgHom_apply {D T : Type*} [Semiring D] [Algebra A D]
+    [Ring T] [Algebra A T] [Fintype G] [Algebra.IsInvariant A B G] [FaithfulSMul A B]
+    (hc : ∃ c : B, ∑ g : G, g • c = 1) (u : D →ₐ[A] B ⊗[A] T)
+    (hu : ∀ (g : G) (d : D),
+      Algebra.TensorProduct.rTensor T (MulSemiringAction.toAlgHom A B g) (u d) = u d) (d : D) :
+    (1 : B) ⊗ₜ[A] retractToBaseAlgHom A B G hc u hu d = u d :=
+  includeRight_retractToBaseAlgHom_apply A B G hc u hu d
+
+@[simp]
+theorem includeRight_comp_retractToBaseAlgHom {D T : Type*} [Semiring D] [Algebra A D]
+    [Ring T] [Algebra A T] [Fintype G] [Algebra.IsInvariant A B G] [FaithfulSMul A B]
+    (hc : ∃ c : B, ∑ g : G, g • c = 1) (u : D →ₐ[A] B ⊗[A] T)
+    (hu : ∀ (g : G) (d : D),
+      Algebra.TensorProduct.rTensor T (MulSemiringAction.toAlgHom A B g) (u d) = u d) :
+    (Algebra.TensorProduct.includeRight : T →ₐ[A] B ⊗[A] T).comp
+      (retractToBaseAlgHom A B G hc u hu) = u :=
+  AlgHom.ext (includeRight_retractToBaseAlgHom_apply A B G hc u hu)
+
+end BaseChangeRetract
 
 end TauCeti.MulSemiringAction

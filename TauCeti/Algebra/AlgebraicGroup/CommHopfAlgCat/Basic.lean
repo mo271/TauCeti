@@ -39,6 +39,9 @@ by pre-composition.
   Hopf-algebra morphisms.
 * `CommHopfAlgCat.coe_ofIso`: the bialgebra equivalence of an isomorphism has the forward
   morphism as its underlying bialgebra morphism.
+* `CommHopfAlgCat.autToAlgEquivHom`: the covariant monoid homomorphism
+  `CategoryTheory.Aut H →* (H ≃ₐ[R] H)` sending a Hopf-algebra automorphism to its underlying
+  `R`-algebra equivalence.
 
 ## See also
 
@@ -124,6 +127,35 @@ forward morphism of the isomorphism as its underlying bialgebra morphism. -/
 theorem coe_ofIso {H K : _root_.CommHopfAlgCat.{u} R} (e : H ≅ K) :
     ((_root_.CommHopfAlgCat.ofIso e : H ≃ₐc[R] K) : H →ₐc[R] K) = e.hom.hom :=
   (rfl)
+
+/-- An automorphism `e : CategoryTheory.Aut H` in `CommHopfAlgCat R` acts on elements by an
+`R`-algebra equivalence; because `(e₁ * e₂).asIso = e₂.asIso ≪≫ e₁.asIso` and multiplication in
+`H ≃ₐ[R] H` is composition of maps, this is a covariant monoid homomorphism
+`CategoryTheory.Aut H →* (H ≃ₐ[R] H)`. -/
+noncomputable def _root_.CommHopfAlgCat.autToAlgEquivHom (H : _root_.CommHopfAlgCat.{v} R) :
+    CategoryTheory.Aut H →* (H ≃ₐ[R] H) where
+  toFun e := (_root_.CommHopfAlgCat.ofIso e.asIso).toAlgEquiv
+  map_one' := AlgEquiv.ext fun a ↦ by
+    simp [_root_.CommHopfAlgCat.ofIso_apply]
+  map_mul' e₁ e₂ := AlgEquiv.ext fun a ↦ by
+    simp [_root_.CommHopfAlgCat.ofIso_apply, CategoryTheory.Aut.mul_asIso]
+
+/-- Evaluating `H.autToAlgEquivHom e` on `a : H` applies the forward morphism of `e.asIso`. -/
+@[simp]
+theorem _root_.CommHopfAlgCat.autToAlgEquivHom_apply (H : _root_.CommHopfAlgCat.{v} R)
+    (e : CategoryTheory.Aut H) (a : H) :
+    H.autToAlgEquivHom e a = e.asIso.hom.hom a := by
+  simp [_root_.CommHopfAlgCat.autToAlgEquivHom, _root_.CommHopfAlgCat.ofIso_apply]
+
+/-- Evaluating `(H.autToAlgEquivHom e).symm` on `a : H` applies the inverse morphism of
+`e.asIso`. -/
+@[simp]
+theorem _root_.CommHopfAlgCat.autToAlgEquivHom_symm_apply (H : _root_.CommHopfAlgCat.{v} R)
+    (e : CategoryTheory.Aut H) (a : H) :
+    (H.autToAlgEquivHom e).symm a = e.asIso.inv.hom a := by
+  apply (H.autToAlgEquivHom e).injective
+  rw [AlgEquiv.apply_symm_apply, _root_.CommHopfAlgCat.autToAlgEquivHom_apply,
+    ← _root_.CommHopfAlgCat.comp_apply, e.asIso.inv_hom_id, _root_.CommHopfAlgCat.id_apply]
 
 /-- A morphism represented by a commutative Hopf-algebra morphism preserves the group-object
 multiplication. -/

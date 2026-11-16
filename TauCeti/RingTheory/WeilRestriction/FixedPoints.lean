@@ -6,7 +6,9 @@ Authors: The Tau Ceti contributors
 module
 
 public import Mathlib.RingTheory.PolynomialAlgebra
-public import TauCeti.RingTheory.Invariant.ModuleDescent
+public import TauCeti.Algebra.TensorProduct.BaseChange
+public import TauCeti.RingTheory.Etale.FixedPoints
+public import TauCeti.RingTheory.Invariant.AlgebraDescent
 public import TauCeti.RingTheory.Smooth.FixedPoints
 public import TauCeti.RingTheory.WeilRestriction.Etale
 public import TauCeti.RingTheory.WeilRestriction.Semilinear
@@ -42,7 +44,9 @@ quotient `WeilRestriction A B C ⧸ fixedPointIdeal ρB ρC h`, which represents
   canonically isomorphic as an `A`-algebra to `D`
   (`quotientFixedPointIdealBaseChangeAlgEquivOfExistsTraceOne`,
   `quotientFixedPointIdealBaseChangeAlgEquiv`). Specializing to `D = A[X]` identifies the `Γ`-fixed
-  quotient of `WeilRestriction A B B[X]` with `A[X]` (`quotientFixedPointIdealPolynomialAlgEquiv`).
+  quotient of `WeilRestriction A B B[X]` with `A[X]`
+  (`quotientFixedPointIdealPolynomialAlgEquivOfExistsTraceOne`,
+  `quotientFixedPointIdealPolynomialAlgEquiv`).
 
 ## Main definitions
 
@@ -53,8 +57,11 @@ quotient `WeilRestriction A B C ⧸ fixedPointIdeal ρB ρC h`, which represents
   `C →ₐ[B] B ⊗[A] T`.
 * `TauCeti.Algebra.WeilRestriction.quotientFixedPointIdealAlgEquivOfEquiv`: functoriality of the
   fixed-point quotient under `Γ`-equivariant `B`-algebra isomorphisms.
+* `TauCeti.MulSemiringAction.baseChangeRingAutHom`: the left-factor action `Γ →* RingAut (B ⊗[A] D)`
+  induced by an `A`-linear `MulSemiringAction Γ B`.
 * `TauCeti.Algebra.WeilRestriction.quotientFixedPointIdealBaseChangeAlgEquivOfExistsTraceOne`,
-  `TauCeti.Algebra.WeilRestriction.quotientFixedPointIdealBaseChangeAlgEquiv`, and
+  `TauCeti.Algebra.WeilRestriction.quotientFixedPointIdealBaseChangeAlgEquiv`,
+  `TauCeti.Algebra.WeilRestriction.quotientFixedPointIdealPolynomialAlgEquivOfExistsTraceOne`, and
   `TauCeti.Algebra.WeilRestriction.quotientFixedPointIdealPolynomialAlgEquiv`: descent of
   `(Res_{B/A}(B ⊗[A] D))^Γ ≃ₐ[A] D` and `(Res_{B/A} B[X])^Γ ≃ₐ[A] A[X]`.
 
@@ -79,6 +86,52 @@ public noncomputable section
 
 open Algebra TensorProduct Polynomial
 
+namespace TauCeti.MulSemiringAction
+
+variable (A B : Type*) [CommSemiring A] [CommSemiring B] [Algebra A B]
+  (Γ : Type*) [Group Γ] [MulSemiringAction Γ B] [SMulCommClass Γ A B]
+
+/-- The induced action `Γ →* RingAut (B ⊗[A] D)` acting on the left factor `B` via `Γ` and
+trivially on `D`. -/
+def baseChangeRingAutHom (D : Type*) [Semiring D] [Algebra A D] :
+    Γ →* RingAut (B ⊗[A] D) :=
+  letI : MulSemiringAction Γ (B ⊗[A] D) :=
+    MulSemiringAction.compHom (B ⊗[A] D)
+      ((TauCeti.ScalarAut.toAlgAut (A := D)).comp (MulSemiringAction.toAlgAut Γ A B))
+  MulSemiringAction.toRingAut Γ (B ⊗[A] D)
+
+@[simp]
+theorem baseChangeRingAutHom_tmul (D : Type*) [Semiring D] [Algebra A D] (γ : Γ) (b : B) (d : D) :
+    baseChangeRingAutHom A B Γ D γ (b ⊗ₜ[A] d) = (γ • b) ⊗ₜ[A] d := by
+  rw [baseChangeRingAutHom, MulSemiringAction.toRingAut_apply,
+    MulSemiringAction.toRingEquiv_apply_apply, MulAction.compHom_smul_def, MonoidHom.comp_apply,
+    AlgEquiv.smul_def, TauCeti.ScalarAut.toAlgAut_tmul, MulSemiringAction.toAlgAut_apply,
+    MulSemiringAction.toAlgEquiv_apply]
+
+/-- On `B ⊗[A] D`, `baseChangeRingAutHom A B Γ D γ` agrees with `Algebra.TensorProduct.rTensor` of
+`MulSemiringAction.toAlgHom A B γ`. -/
+theorem baseChangeRingAutHom_apply (D : Type*) [Semiring D] [Algebra A D] (γ : Γ) (z : B ⊗[A] D) :
+    baseChangeRingAutHom A B Γ D γ z =
+      Algebra.TensorProduct.rTensor D (MulSemiringAction.toAlgHom A B γ) z := by
+  induction z using TensorProduct.inductionOn with
+  | tmul b d => simp
+  | add x y hx hy => rw [map_add, map_add, hx, hy]
+
+/-- Semilinearity of `baseChangeRingAutHom` over `MulSemiringAction.toAlgAut Γ A B` along
+`algebraMap B (B ⊗[A] D)`. -/
+theorem baseChangeRingAutHom_algebraMap (D : Type*) [Semiring D] [Algebra A D] (γ : Γ) (b : B) :
+    baseChangeRingAutHom A B Γ D γ (algebraMap B (B ⊗[A] D) b) =
+      algebraMap B (B ⊗[A] D) (MulSemiringAction.toAlgAut Γ A B γ b) := by
+  simp [Algebra.TensorProduct.algebraMap_apply]
+
+/-- Compatibility of the coefficientwise `Γ`-action on `B[X]` with `algebraMap B B[X]`. -/
+theorem toRingAut_polynomial_algebraMap (γ : Γ) (b : B) :
+    MulSemiringAction.toRingAut Γ B[X] γ (algebraMap B B[X] b) =
+      algebraMap B B[X] (MulSemiringAction.toAlgAut Γ A B γ b) :=
+  Polynomial.smul_C γ b
+
+end TauCeti.MulSemiringAction
+
 namespace TauCeti.Algebra.WeilRestriction
 
 section General
@@ -89,30 +142,52 @@ variable {A B C : Type*} [CommRing A] [CommRing B] [CommRing C]
   {Γ : Type*} [Monoid Γ] (ρB : Γ →* (B ≃ₐ[A] B)) (ρC : Γ →* RingAut C)
   (h : ∀ γ b, ρC γ (algebraMap B C b) = algebraMap B C (ρB γ b))
 
+private abbrev inducedMulSemiringAction : MulSemiringAction Γ (WeilRestriction A B C) :=
+  MulSemiringAction.compHom (WeilRestriction A B C) (inducedAction ρB ρC h)
+
+private theorem inducedMulSemiringAction_smul (γ : Γ) (x : WeilRestriction A B C) :
+    @HSMul.hSMul _ _ _ (@instHSMul _ _ (inducedMulSemiringAction ρB ρC h).toSMul) γ x =
+      inducedAction ρB ρC h γ x := by
+  let _ := inducedMulSemiringAction ρB ρC h
+  exact (MulAction.compHom_smul_def (inducedAction ρB ρC h) γ x).trans
+    (AlgEquiv.smul_def (inducedAction ρB ρC h γ) x)
+
+private theorem inducedSMulCommClass :
+    @SMulCommClass Γ A (WeilRestriction A B C)
+      (inducedMulSemiringAction ρB ρC h).toSMul Algebra.toSMul := by
+  let _ := inducedMulSemiringAction ρB ρC h
+  exact ⟨fun γ a x ↦ by
+    rw [inducedMulSemiringAction_smul ρB ρC h, inducedMulSemiringAction_smul ρB ρC h, map_smul]⟩
+
 /-- The **fixed-point ideal** of `WeilRestriction.inducedAction ρB ρC h` inside
 `WeilRestriction A B C`: the ideal generated by all displacements
 `inducedAction ρB ρC h γ x - x`. Its quotient represents the closed subscheme of `Γ`-fixed points
 of `Res_{B/A}(Spec C)`. -/
 def fixedPointIdeal : Ideal (WeilRestriction A B C) :=
-  Ideal.span {y : WeilRestriction A B C |
-    ∃ (γ : Γ) (x : WeilRestriction A B C), inducedAction ρB ρC h γ x - x = y}
+  @MulSemiringAction.fixedPointIdeal Γ (WeilRestriction A B C)
+    (inducedMulSemiringAction ρB ρC h).toSMul _
 
 theorem fixedPointIdeal_def :
     fixedPointIdeal ρB ρC h = Ideal.span {y : WeilRestriction A B C |
-      ∃ (γ : Γ) (x : WeilRestriction A B C), inducedAction ρB ρC h γ x - x = y} :=
-  (rfl)
+      ∃ (γ : Γ) (x : WeilRestriction A B C), inducedAction ρB ρC h γ x - x = y} := by
+  let _ := inducedMulSemiringAction ρB ρC h
+  rw [fixedPointIdeal, MulSemiringAction.fixedPointIdeal_def]
+  simp_rw [inducedMulSemiringAction_smul ρB ρC h]
 
 /-- Every displacement `inducedAction ρB ρC h γ x - x` belongs to `fixedPointIdeal ρB ρC h`. -/
 theorem inducedAction_sub_mem_fixedPointIdeal (γ : Γ) (x : WeilRestriction A B C) :
-    inducedAction ρB ρC h γ x - x ∈ fixedPointIdeal ρB ρC h :=
-  Ideal.subset_span ⟨γ, x, rfl⟩
+    inducedAction ρB ρC h γ x - x ∈ fixedPointIdeal ρB ρC h := by
+  let _ := inducedMulSemiringAction ρB ρC h
+  rw [fixedPointIdeal, ← inducedMulSemiringAction_smul ρB ρC h]
+  exact MulSemiringAction.smul_sub_mem_fixedPointIdeal γ x
 
 /-- Universal property of `fixedPointIdeal ρB ρC h` among ideals of `WeilRestriction A B C`. -/
 theorem fixedPointIdeal_le_iff {J : Ideal (WeilRestriction A B C)} :
     fixedPointIdeal ρB ρC h ≤ J ↔
       ∀ (γ : Γ) (x : WeilRestriction A B C), inducedAction ρB ρC h γ x - x ∈ J := by
-  rw [fixedPointIdeal_def, Ideal.span_le]
-  exact ⟨fun hJ γ x ↦ hJ ⟨γ, x, rfl⟩, by rintro hJ _ ⟨γ, x, rfl⟩; exact hJ γ x⟩
+  let _ := inducedMulSemiringAction ρB ρC h
+  simp_rw [fixedPointIdeal, MulSemiringAction.fixedPointIdeal_le_iff,
+    inducedMulSemiringAction_smul ρB ρC h]
 
 /-- A ring homomorphism out of `WeilRestriction A B C` vanishes on `fixedPointIdeal ρB ρC h` if and
 only if it is invariant under `inducedAction ρB ρC h`. -/
@@ -120,27 +195,27 @@ theorem fixedPointIdeal_le_ker_iff {F R' : Type*} [Ring R']
     [FunLike F (WeilRestriction A B C) R'] [RingHomClass F (WeilRestriction A B C) R'] (φ : F) :
     fixedPointIdeal ρB ρC h ≤ RingHom.ker φ ↔
       ∀ (γ : Γ) (x : WeilRestriction A B C), φ (inducedAction ρB ρC h γ x) = φ x := by
-  rw [fixedPointIdeal_le_iff]
-  simp only [RingHom.mem_ker, map_sub, sub_eq_zero]
+  let _ := inducedMulSemiringAction ρB ρC h
+  simp_rw [fixedPointIdeal, MulSemiringAction.fixedPointIdeal_le_ker_iff,
+    inducedMulSemiringAction_smul ρB ρC h]
 
 /-- `fixedPointIdeal ρB ρC h` vanishes if and only if the induced action on `WeilRestriction A B C`
 is trivial. -/
 @[simp]
 theorem fixedPointIdeal_eq_bot_iff :
     fixedPointIdeal ρB ρC h = ⊥ ↔ inducedAction ρB ρC h = 1 := by
-  rw [eq_bot_iff, fixedPointIdeal_le_iff]
-  constructor
-  · intro htriv
-    ext γ x
-    exact sub_eq_zero.mp (htriv γ x)
-  · intro hone γ x
-    exact sub_eq_zero.mpr congr($hone γ x)
+  let _ := inducedMulSemiringAction ρB ρC h
+  rw [fixedPointIdeal, MulSemiringAction.fixedPointIdeal_eq_bot_iff]
+  simp_rw [inducedMulSemiringAction_smul ρB ρC h, DFunLike.ext_iff, MonoidHom.one_apply,
+    AlgEquiv.one_apply]
 
 /-- Modulo `fixedPointIdeal ρB ρC h`, `inducedAction ρB ρC h γ x` equals `x`. -/
-theorem mk_inducedAction_eq (γ : Γ) (x : WeilRestriction A B C) :
+theorem mk_fixedPointIdeal_inducedAction (γ : Γ) (x : WeilRestriction A B C) :
     Ideal.Quotient.mk (fixedPointIdeal ρB ρC h) (inducedAction ρB ρC h γ x) =
-      Ideal.Quotient.mk (fixedPointIdeal ρB ρC h) x :=
-  Ideal.Quotient.eq.mpr (inducedAction_sub_mem_fixedPointIdeal ρB ρC h γ x)
+      Ideal.Quotient.mk (fixedPointIdeal ρB ρC h) x := by
+  let _ := inducedMulSemiringAction ρB ρC h
+  rw [fixedPointIdeal, ← inducedMulSemiringAction_smul ρB ρC h,
+    MulSemiringAction.mk_fixedPointIdeal_smul]
 
 /-- **Functor of points of the fixed-point scheme of a Weil restriction.** For every commutative
 `A`-algebra `T`, `A`-algebra homomorphisms
@@ -149,40 +224,40 @@ theorem mk_inducedAction_eq (γ : Γ) (x : WeilRestriction A B C) :
 def fixedPointsHomEquiv (T : Type*) [CommRing T] [Algebra A T] :
     ((WeilRestriction A B C ⧸ fixedPointIdeal ρB ρC h) →ₐ[A] T) ≃
       {y : C →ₐ[B] B ⊗[A] T // ∀ (γ : Γ) (c : C),
-        y (ρC γ c) = Algebra.TensorProduct.rTensor T (ρB γ : B →ₐ[A] B) (y c)} where
-  toFun φ :=
-    ⟨homEquiv A B C T (φ.comp (Ideal.Quotient.mkₐ A (fixedPointIdeal ρB ρC h))), fun γ ↦
-      (comp_inducedAction_eq_iff ρB ρC h γ _).mp
-        (AlgHom.ext fun x ↦ by
-          simp only [AlgHom.comp_apply, AlgEquiv.coe_toAlgHom, Ideal.Quotient.mkₐ_eq_mk,
-            mk_inducedAction_eq])⟩
-  invFun y := Ideal.Quotient.liftₐ (fixedPointIdeal ρB ρC h) ((homEquiv A B C T).symm y.1)
-    fun z hz ↦ by
-      rw [← RingHom.mem_ker]
-      refine (fixedPointIdeal_le_ker_iff ρB ρC h ((homEquiv A B C T).symm y.1)).mpr ?_ hz
-      intro γ x
-      have hcomp : ((homEquiv A B C T).symm y.1).comp
-          (inducedAction ρB ρC h γ : _ →ₐ[A] _) = (homEquiv A B C T).symm y.1 := by
-        rw [comp_inducedAction_eq_iff, Equiv.apply_symm_apply]
-        exact y.2 γ
-      exact congr($hcomp x)
-  left_inv φ := by
-    apply AlgHom.ext
-    rintro ⟨x⟩
-    change ((homEquiv A B C T).symm (homEquiv A B C T _)) x = φ (Ideal.Quotient.mk _ x)
-    rw [(homEquiv A B C T).symm_apply_apply]
-    rfl
-  right_inv y := Subtype.ext <| by
-    dsimp only
-    exact (congrArg (homEquiv A B C T) (AlgHom.ext fun _ ↦ rfl)).trans
-      ((homEquiv A B C T).apply_symm_apply y.1)
+        y (ρC γ c) = Algebra.TensorProduct.rTensor T (ρB γ : B →ₐ[A] B) (y c)} :=
+  let _ := inducedMulSemiringAction ρB ρC h
+  (MulSemiringAction.quotientFixedPointIdealAlgHomEquiv A Γ (WeilRestriction A B C) T).trans <|
+    (homEquiv A B C T).subtypeEquiv fun g ↦ by
+      refine forall_congr' fun γ ↦ ?_
+      rw [← comp_inducedAction_eq_iff ρB ρC h γ g, AlgHom.ext_iff]
+      simp_rw [inducedMulSemiringAction_smul ρB ρC h, AlgHom.comp_apply, AlgEquiv.coe_toAlgHom]
 
 @[simp]
 theorem fixedPointsHomEquiv_apply {T : Type*} [CommRing T] [Algebra A T]
     (φ : (WeilRestriction A B C ⧸ fixedPointIdeal ρB ρC h) →ₐ[A] T) :
     (fixedPointsHomEquiv ρB ρC h T φ).1 =
-      homEquiv A B C T (φ.comp (Ideal.Quotient.mkₐ A (fixedPointIdeal ρB ρC h))) :=
-  (rfl)
+      homEquiv A B C T (φ.comp (Ideal.Quotient.mkₐ A (fixedPointIdeal ρB ρC h))) := by
+  let _ := inducedMulSemiringAction ρB ρC h
+  revert φ
+  unfold fixedPointsHomEquiv fixedPointIdeal
+  intro φ
+  simp only [Equiv.trans_apply, Equiv.subtypeEquiv_apply]
+  exact congrArg (homEquiv A B C T) <| AlgHom.ext fun x ↦ by
+    rw [MulSemiringAction.quotientFixedPointIdealAlgHomEquiv_apply, AlgHom.comp_apply,
+      Ideal.Quotient.mkₐ_eq_mk]
+
+@[simp]
+theorem fixedPointsHomEquiv_symm_apply_mk {T : Type*} [CommRing T] [Algebra A T]
+    (y : {y : C →ₐ[B] B ⊗[A] T // ∀ (γ : Γ) (c : C),
+      y (ρC γ c) = Algebra.TensorProduct.rTensor T (ρB γ : B →ₐ[A] B) (y c)})
+    (x : WeilRestriction A B C) :
+    (fixedPointsHomEquiv ρB ρC h T).symm y (Ideal.Quotient.mk (fixedPointIdeal ρB ρC h) x) =
+      (homEquiv A B C T).symm y.1 x := by
+  let _ := inducedMulSemiringAction ρB ρC h
+  unfold fixedPointsHomEquiv fixedPointIdeal
+  simp only [Equiv.symm_trans_apply,
+    MulSemiringAction.quotientFixedPointIdealAlgHomEquiv_symm_apply_mk,
+    Equiv.subtypeEquiv_symm, Equiv.subtypeEquiv_apply]
 
 /-- Naturality of `fixedPointsHomEquiv` in the target `A`-algebra `T`. -/
 theorem fixedPointsHomEquiv_comp {T T' : Type*} [CommRing T] [Algebra A T] [CommRing T']
@@ -207,45 +282,76 @@ def quotientFixedPointIdealAlgEquivOfEquiv {D : Type*} [CommRing D] [Algebra B D
     (hD : ∀ γ b, ρD γ (algebraMap B D b) = algebraMap B D (ρB γ b))
     (e : C ≃ₐ[B] D) (he : ∀ (γ : Γ) (c : C), ρD γ (e c) = e (ρC γ c)) :
     (WeilRestriction A B C ⧸ fixedPointIdeal ρB ρC h) ≃ₐ[A]
-      (WeilRestriction A B D ⧸ fixedPointIdeal ρB ρD hD) := by
-  let Q₁ := WeilRestriction A B C ⧸ fixedPointIdeal ρB ρC h
-  let Q₂ := WeilRestriction A B D ⧸ fixedPointIdeal ρB ρD hD
-  let u₁ := fixedPointsHomEquiv ρB ρC h Q₁ (AlgHom.id A Q₁)
-  let u₂ := fixedPointsHomEquiv ρB ρD hD Q₂ (AlgHom.id A Q₂)
-  have he_symm (γ : Γ) (d : D) : ρC γ (e.symm d) = e.symm (ρD γ d) := by
-    apply e.injective
-    rw [e.apply_symm_apply, ← he, e.apply_symm_apply]
-  let y₂ : {y : C →ₐ[B] B ⊗[A] Q₂ // ∀ (γ : Γ) (c : C),
-      y (ρC γ c) = Algebra.TensorProduct.rTensor Q₂ (ρB γ : B →ₐ[A] B) (y c)} :=
-    ⟨u₂.1.comp e.toAlgHom, fun γ c ↦ by
-      change u₂.1 (e (ρC γ c)) =
-        Algebra.TensorProduct.rTensor Q₂ (ρB γ : B →ₐ[A] B) (u₂.1 (e c))
-      rw [← he, u₂.2]⟩
-  let y₁ : {y : D →ₐ[B] B ⊗[A] Q₁ // ∀ (γ : Γ) (d : D),
-      y (ρD γ d) = Algebra.TensorProduct.rTensor Q₁ (ρB γ : B →ₐ[A] B) (y d)} :=
-    ⟨u₁.1.comp e.symm.toAlgHom, fun γ d ↦ by
-      change u₁.1 (e.symm (ρD γ d)) =
-        Algebra.TensorProduct.rTensor Q₁ (ρB γ : B →ₐ[A] B) (u₁.1 (e.symm d))
-      rw [← he_symm, u₁.2]⟩
-  let fwd : Q₁ →ₐ[A] Q₂ := (fixedPointsHomEquiv ρB ρC h Q₂).symm y₂
-  let bwd : Q₂ →ₐ[A] Q₁ := (fixedPointsHomEquiv ρB ρD hD Q₁).symm y₁
-  have hfwd_u₁ : (Algebra.TensorProduct.lTensor B fwd).comp u₁.1 = y₂.1 := by
-    rw [← fixedPointsHomEquiv_comp, AlgHom.comp_id]
-    exact congrArg Subtype.val ((fixedPointsHomEquiv ρB ρC h Q₂).apply_symm_apply y₂)
-  have hbwd_u₂ : (Algebra.TensorProduct.lTensor B bwd).comp u₂.1 = y₁.1 := by
-    rw [← fixedPointsHomEquiv_comp, AlgHom.comp_id]
-    exact congrArg Subtype.val ((fixedPointsHomEquiv ρB ρD hD Q₁).apply_symm_apply y₁)
-  refine AlgEquiv.ofAlgHom fwd bwd ?_ ?_
-  · apply fixedPoints_hom_ext ρB ρD hD
-    rw [fixedPointsHomEquiv_comp, (fixedPointsHomEquiv ρB ρD hD Q₁).apply_symm_apply]
-    change (Algebra.TensorProduct.lTensor B fwd).comp (u₁.1.comp e.symm.toAlgHom) = u₂.1
-    rw [← AlgHom.comp_assoc, hfwd_u₁]
-    exact AlgHom.ext fun d ↦ by simp [y₂]
-  · apply fixedPoints_hom_ext ρB ρC h
-    rw [fixedPointsHomEquiv_comp, (fixedPointsHomEquiv ρB ρC h Q₂).apply_symm_apply]
-    change (Algebra.TensorProduct.lTensor B bwd).comp (u₂.1.comp e.toAlgHom) = u₁.1
-    rw [← AlgHom.comp_assoc, hbwd_u₂]
-    exact AlgHom.ext fun c ↦ by simp [y₁]
+      (WeilRestriction A B D ⧸ fixedPointIdeal ρB ρD hD) :=
+  let _ := inducedMulSemiringAction ρB ρC h
+  let _ := inducedMulSemiringAction ρB ρD hD
+  MulSemiringAction.quotientFixedPointIdealAlgEquivOfEquiv A
+    (AlgEquiv.ofAlgHom (map A B e.toAlgHom) (map A B e.symm.toAlgHom)
+      (by rw [← map_comp]; simp) (by rw [← map_comp]; simp))
+    fun γ x ↦ by
+      rw [inducedMulSemiringAction_smul ρB ρC h, inducedMulSemiringAction_smul ρB ρD hD,
+        AlgEquiv.ofAlgHom_apply, AlgEquiv.ofAlgHom_apply]
+      have hcomm :
+          (map A B e.toAlgHom).comp (inducedAction ρB ρC h γ : _ →ₐ[A] _) =
+            (inducedAction ρB ρD hD γ : _ →ₐ[A] _).comp (map A B e.toAlgHom) := by
+        apply (homEquiv A B C (WeilRestriction A B D)).injective
+        ext c
+        rw [homEquiv_comp_inducedAction_apply, homEquiv_map, AlgHom.comp_apply,
+          AlgEquiv.coe_toAlgHom, homEquiv_comp_map, AlgHom.comp_apply, AlgEquiv.coe_toAlgHom,
+          ← AlgHom.id_comp
+            (inducedAction ρB ρD hD γ : WeilRestriction A B D →ₐ[A] WeilRestriction A B D),
+          homEquiv_comp_inducedAction_apply]
+        simp [he]
+      exact congr($hcomm x)
+
+@[simp]
+theorem quotientFixedPointIdealAlgEquivOfEquiv_mk {D : Type*} [CommRing D] [Algebra B D]
+    [FinitePresentation B D] (ρD : Γ →* RingAut D)
+    (hD : ∀ γ b, ρD γ (algebraMap B D b) = algebraMap B D (ρB γ b))
+    (e : C ≃ₐ[B] D) (he : ∀ (γ : Γ) (c : C), ρD γ (e c) = e (ρC γ c))
+    (x : WeilRestriction A B C) :
+    quotientFixedPointIdealAlgEquivOfEquiv ρB ρC h ρD hD e he
+        (Ideal.Quotient.mk (fixedPointIdeal ρB ρC h) x) =
+      Ideal.Quotient.mk (fixedPointIdeal ρB ρD hD) (map A B e.toAlgHom x) := by
+  let _ := inducedMulSemiringAction ρB ρC h
+  let _ := inducedMulSemiringAction ρB ρD hD
+  unfold quotientFixedPointIdealAlgEquivOfEquiv fixedPointIdeal
+  simp only [MulSemiringAction.quotientFixedPointIdealAlgEquivOfEquiv_mk, AlgEquiv.ofAlgHom_apply]
+
+@[simp]
+theorem quotientFixedPointIdealAlgEquivOfEquiv_symm_mk {D : Type*} [CommRing D] [Algebra B D]
+    [FinitePresentation B D] (ρD : Γ →* RingAut D)
+    (hD : ∀ γ b, ρD γ (algebraMap B D b) = algebraMap B D (ρB γ b))
+    (e : C ≃ₐ[B] D) (he : ∀ (γ : Γ) (c : C), ρD γ (e c) = e (ρC γ c))
+    (y : WeilRestriction A B D) :
+    (quotientFixedPointIdealAlgEquivOfEquiv ρB ρC h ρD hD e he).symm
+        (Ideal.Quotient.mk (fixedPointIdeal ρB ρD hD) y) =
+      Ideal.Quotient.mk (fixedPointIdeal ρB ρC h) (map A B e.symm.toAlgHom y) := by
+  let _ := inducedMulSemiringAction ρB ρC h
+  let _ := inducedMulSemiringAction ρB ρD hD
+  unfold quotientFixedPointIdealAlgEquivOfEquiv fixedPointIdeal
+  simp only [MulSemiringAction.quotientFixedPointIdealAlgEquivOfEquiv_symm_mk,
+    AlgEquiv.ofAlgHom_symm_apply]
+
+/-- Naturality of `fixedPointsHomEquiv` along `quotientFixedPointIdealAlgEquivOfEquiv`. -/
+theorem fixedPointsHomEquiv_comp_quotientFixedPointIdealAlgEquivOfEquiv
+    {D : Type*} [CommRing D] [Algebra B D] [FinitePresentation B D]
+    (ρD : Γ →* RingAut D) (hD : ∀ γ b, ρD γ (algebraMap B D b) = algebraMap B D (ρB γ b))
+    (e : C ≃ₐ[B] D) (he : ∀ (γ : Γ) (c : C), ρD γ (e c) = e (ρC γ c))
+    {T : Type*} [CommRing T] [Algebra A T]
+    (φ : (WeilRestriction A B D ⧸ fixedPointIdeal ρB ρD hD) →ₐ[A] T) :
+    (fixedPointsHomEquiv ρB ρC h T
+        (φ.comp (quotientFixedPointIdealAlgEquivOfEquiv ρB ρC h ρD hD e he).toAlgHom)).1 =
+      (fixedPointsHomEquiv ρB ρD hD T φ).1.comp e.toAlgHom := by
+  have hcomp :
+      (quotientFixedPointIdealAlgEquivOfEquiv ρB ρC h ρD hD e he).toAlgHom.comp
+          (Ideal.Quotient.mkₐ A (fixedPointIdeal ρB ρC h)) =
+        (Ideal.Quotient.mkₐ A (fixedPointIdeal ρB ρD hD)).comp (map A B e.toAlgHom) := by
+    apply AlgHom.ext
+    intro x
+    simp
+  rw [fixedPointsHomEquiv_apply, fixedPointsHomEquiv_apply, AlgHom.comp_assoc, hcomp,
+    ← AlgHom.comp_assoc, homEquiv_comp_map]
 
 /-- When `Γ` acts trivially on both `B` and `C`, `fixedPointIdeal ρB ρC h` vanishes. -/
 theorem fixedPointIdeal_eq_bot_of_eq_one (hB : ρB = 1) (hC : ρC = 1) :
@@ -256,51 +362,57 @@ theorem fixedPointIdeal_eq_bot_of_eq_one (hB : ρB = 1) (hC : ρC = 1) :
 isomorphic as an `A`-algebra to `WeilRestriction A B C`. -/
 def quotientFixedPointIdealAlgEquivOfEqOne (hB : ρB = 1) (hC : ρC = 1) :
     (WeilRestriction A B C ⧸ fixedPointIdeal ρB ρC h) ≃ₐ[A] WeilRestriction A B C :=
-  (Ideal.quotientEquivAlgOfEq A (fixedPointIdeal_eq_bot_of_eq_one ρB ρC h hB hC)).trans
-    (AlgEquiv.quotientBot A (WeilRestriction A B C))
+  let _ := inducedMulSemiringAction ρB ρC h
+  MulSemiringAction.quotientFixedPointIdealAlgEquivOfTrivial A
+    ((MulSemiringAction.fixedPointIdeal_eq_bot_iff).mp
+      (fixedPointIdeal_eq_bot_of_eq_one ρB ρC h hB hC))
+
+@[simp]
+theorem quotientFixedPointIdealAlgEquivOfEqOne_mk (hB : ρB = 1) (hC : ρC = 1)
+    (x : WeilRestriction A B C) :
+    quotientFixedPointIdealAlgEquivOfEqOne ρB ρC h hB hC
+        (Ideal.Quotient.mk (fixedPointIdeal ρB ρC h) x) = x := by
+  let _ := inducedMulSemiringAction ρB ρC h
+  exact MulSemiringAction.quotientFixedPointIdealAlgEquivOfTrivial_mk A _ x
+
+@[simp]
+theorem quotientFixedPointIdealAlgEquivOfEqOne_symm_apply (hB : ρB = 1) (hC : ρC = 1)
+    (x : WeilRestriction A B C) :
+    (quotientFixedPointIdealAlgEquivOfEqOne ρB ρC h hB hC).symm x =
+      Ideal.Quotient.mk (fixedPointIdeal ρB ρC h) x := by
+  let _ := inducedMulSemiringAction ρB ρC h
+  exact MulSemiringAction.quotientFixedPointIdealAlgEquivOfTrivial_symm_apply A _ x
 
 /-- When `Γ` is finite, `fixedPointIdeal ρB ρC h` is finitely generated. -/
 theorem fg_fixedPointIdeal [Finite Γ] : (fixedPointIdeal ρB ρC h).FG := by
-  let _ : MulSemiringAction Γ (WeilRestriction A B C) :=
-    MulSemiringAction.compHom (WeilRestriction A B C) (inducedAction ρB ρC h)
-  have : SMulCommClass Γ A (WeilRestriction A B C) :=
-    ⟨fun γ a x ↦ map_smul (inducedAction ρB ρC h γ) a x⟩
-  have hI : fixedPointIdeal ρB ρC h =
-      MulSemiringAction.fixedPointIdeal Γ (WeilRestriction A B C) := by
-    rw [fixedPointIdeal_def, MulSemiringAction.fixedPointIdeal_def]
-    rfl
-  rw [hI]
+  let _ := inducedMulSemiringAction ρB ρC h
+  have := inducedSMulCommClass ρB ρC h
   exact MulSemiringAction.fg_fixedPointIdeal (R := A)
 
 /-- When `Γ` is finite, `WeilRestriction A B C ⧸ fixedPointIdeal ρB ρC h` is finitely presented
 over `A`. -/
-theorem finitePresentation_quotient_fixedPointIdeal [Finite Γ] :
-    FinitePresentation A (WeilRestriction A B C ⧸ fixedPointIdeal ρB ρC h) :=
-  FinitePresentation.quotient (fg_fixedPointIdeal ρB ρC h)
+instance finitePresentation_quotient_fixedPointIdeal [Finite Γ] :
+    FinitePresentation A (WeilRestriction A B C ⧸ fixedPointIdeal ρB ρC h) := by
+  let _ := inducedMulSemiringAction ρB ρC h
+  have := inducedSMulCommClass ρB ρC h
+  exact MulSemiringAction.finitePresentation_quotient_fixedPointIdeal
 
 /-- **Formal étaleness of fixed points of a Weil restriction.** If `C` is formally étale over `B`,
 then for any monoid `Γ` acting compatibly on `B` and `C`, the fixed-point quotient
 `WeilRestriction A B C ⧸ fixedPointIdeal ρB ρC h` is formally étale over `A`. -/
-theorem formallyEtale_quotient_fixedPointIdeal [FormallyEtale B C] :
+instance formallyEtale_quotient_fixedPointIdeal [FormallyEtale B C] :
     FormallyEtale A (WeilRestriction A B C ⧸ fixedPointIdeal ρB ρC h) := by
-  let _ : MulSemiringAction Γ (WeilRestriction A B C) :=
-    MulSemiringAction.compHom (WeilRestriction A B C) (inducedAction ρB ρC h)
-  have : SMulCommClass Γ A (WeilRestriction A B C) :=
-    ⟨fun γ a x ↦ map_smul (inducedAction ρB ρC h γ) a x⟩
-  have hI : fixedPointIdeal ρB ρC h =
-      MulSemiringAction.fixedPointIdeal Γ (WeilRestriction A B C) := by
-    rw [fixedPointIdeal_def, MulSemiringAction.fixedPointIdeal_def]
-    rfl
-  have := MulSemiringAction.formallyEtale_quotient_fixedPointIdeal
-    (R := A) (M := Γ) (A := WeilRestriction A B C)
-  exact .of_equiv (Ideal.quotientEquivAlgOfEq A hI.symm)
+  let _ := inducedMulSemiringAction ρB ρC h
+  have := inducedSMulCommClass ρB ρC h
+  exact MulSemiringAction.formallyEtale_quotient_fixedPointIdeal
 
 /-- **Étaleness of fixed points of a Weil restriction.** If `Γ` is finite and `C` is étale over
 `B`, then `WeilRestriction A B C ⧸ fixedPointIdeal ρB ρC h` is étale over `A`. -/
-theorem etale_quotient_fixedPointIdeal [Finite Γ] [Etale B C] :
-    Etale A (WeilRestriction A B C ⧸ fixedPointIdeal ρB ρC h) where
-  formallyEtale := formallyEtale_quotient_fixedPointIdeal ρB ρC h
-  finitePresentation := finitePresentation_quotient_fixedPointIdeal ρB ρC h
+instance etale_quotient_fixedPointIdeal [Finite Γ] [Etale B C] :
+    Etale A (WeilRestriction A B C ⧸ fixedPointIdeal ρB ρC h) := by
+  let _ := inducedMulSemiringAction ρB ρC h
+  have := inducedSMulCommClass ρB ρC h
+  exact MulSemiringAction.etale_quotient_fixedPointIdeal
 
 end General
 
@@ -319,17 +431,9 @@ quotient `WeilRestriction A B C ⧸ fixedPointIdeal ρB ρC h` is formally smoot
 theorem formallySmooth_quotient_fixedPointIdeal [FormallySmooth B C]
     (hΓ : IsUnit (Nat.card Γ : A)) :
     FormallySmooth A (WeilRestriction A B C ⧸ fixedPointIdeal ρB ρC h) := by
-  let _ : MulSemiringAction Γ (WeilRestriction A B C) :=
-    MulSemiringAction.compHom (WeilRestriction A B C) (inducedAction ρB ρC h)
-  have : SMulCommClass Γ A (WeilRestriction A B C) :=
-    ⟨fun γ a x ↦ map_smul (inducedAction ρB ρC h γ) a x⟩
-  have hI : fixedPointIdeal ρB ρC h =
-      MulSemiringAction.fixedPointIdeal Γ (WeilRestriction A B C) := by
-    rw [fixedPointIdeal_def, MulSemiringAction.fixedPointIdeal_def]
-    rfl
-  have := MulSemiringAction.formallySmooth_quotient_fixedPointIdeal
-    (R := A) (G := Γ) (A := WeilRestriction A B C) hΓ
-  exact .of_equiv (Ideal.quotientEquivAlgOfEq A hI.symm)
+  let _ := inducedMulSemiringAction ρB ρC h
+  have := inducedSMulCommClass ρB ρC h
+  exact MulSemiringAction.formallySmooth_quotient_fixedPointIdeal hΓ
 
 /-- **Edixhoven's smoothness theorem for Weil restrictions.** Let `B` be finite projective over `A`,
 `C` smooth over `B`, and `Γ` a finite group with `(Nat.card Γ : A)` invertible in `A` acting on `B`
@@ -337,9 +441,10 @@ by `A`-algebra automorphisms and on `C` by compatible semilinear ring automorphi
 fixed-point quotient `WeilRestriction A B C ⧸ fixedPointIdeal ρB ρC h` — the coordinate ring of
 `(Res_{B/A} Spec C)^Γ` — is smooth over `A`. -/
 theorem smooth_quotient_fixedPointIdeal [Smooth B C] (hΓ : IsUnit (Nat.card Γ : A)) :
-    Smooth A (WeilRestriction A B C ⧸ fixedPointIdeal ρB ρC h) where
-  formallySmooth := formallySmooth_quotient_fixedPointIdeal ρB ρC h hΓ
-  finitePresentation := finitePresentation_quotient_fixedPointIdeal ρB ρC h
+    Smooth A (WeilRestriction A B C ⧸ fixedPointIdeal ρB ρC h) := by
+  let _ := inducedMulSemiringAction ρB ρC h
+  have := inducedSMulCommClass ρB ρC h
+  exact MulSemiringAction.smooth_quotient_fixedPointIdeal hΓ
 
 end TameSmooth
 
@@ -348,79 +453,41 @@ section GaloisDescent
 variable (A B : Type*) [CommRing A] [CommRing B] [Algebra A B]
   (Γ : Type*) [Group Γ] [MulSemiringAction Γ B] [SMulCommClass Γ A B]
 
-/-- The induced action `Γ →* RingAut (B ⊗[A] D)` acting on the left factor by `Γ` and trivially on
-`D`. -/
-def baseChangeRingAutHom (D : Type*) [CommRing D] [Algebra A D] :
-    Γ →* RingAut (B ⊗[A] D) where
-  toFun γ :=
-    (Algebra.TensorProduct.congr (MulSemiringAction.toAlgEquiv A B γ)
-      (AlgEquiv.refl : D ≃ₐ[A] D)).toRingEquiv
-  map_one' := RingEquiv.ext fun z ↦ by
-    induction z using TensorProduct.inductionOn with
-    | tmul b d => simp
-    | add x y hx hy => simp [map_add, hx, hy]
-  map_mul' γ δ := RingEquiv.ext fun z ↦ by
-    induction z using TensorProduct.inductionOn with
-    | tmul b d => simp [mul_smul]
-    | add x y hx hy => simp [map_add, hx, hy]
+private def baseChangeUniversalSection
+    [Module.Finite A B] [Module.Projective A B]
+    (D : Type*) [CommRing D] [Algebra A D] [FinitePresentation A D] :
+    D →ₐ[A]
+      B ⊗[A]
+        (WeilRestriction A B (B ⊗[A] D) ⧸
+          fixedPointIdeal (MulSemiringAction.toAlgAut Γ A B)
+            (MulSemiringAction.baseChangeRingAutHom A B Γ D)
+            (MulSemiringAction.baseChangeRingAutHom_algebraMap A B Γ D)) :=
+  ((fixedPointsHomEquiv (MulSemiringAction.toAlgAut Γ A B)
+      (MulSemiringAction.baseChangeRingAutHom A B Γ D)
+      (MulSemiringAction.baseChangeRingAutHom_algebraMap A B Γ D)
+      (WeilRestriction A B (B ⊗[A] D) ⧸
+        fixedPointIdeal (MulSemiringAction.toAlgAut Γ A B)
+          (MulSemiringAction.baseChangeRingAutHom A B Γ D)
+          (MulSemiringAction.baseChangeRingAutHom_algebraMap A B Γ D))
+      (AlgHom.id A _)).1.restrictScalars A).comp
+    (Algebra.TensorProduct.includeRight : D →ₐ[A] B ⊗[A] D)
 
-theorem baseChangeRingAutHom_algebraMap (D : Type*) [CommRing D] [Algebra A D] (γ : Γ) (b : B) :
-    baseChangeRingAutHom A B Γ D γ (algebraMap B (B ⊗[A] D) b) =
-      algebraMap B (B ⊗[A] D) (MulSemiringAction.toAlgAut Γ A B γ b) := by
-  simp [baseChangeRingAutHom, Algebra.TensorProduct.algebraMap_apply]
-
-private theorem includeRight_injective_of_exists_trace_one {T : Type*} [CommRing T] [Algebra A T]
-    [Fintype Γ] [Algebra.IsInvariant A B Γ] [FaithfulSMul A B]
-    (hc : ∃ c : B, ∑ γ : Γ, γ • c = 1) :
-    Function.Injective (Algebra.TensorProduct.includeRight : T →ₐ[A] B ⊗[A] T) := by
-  have : SMulCommClass A Γ B := SMulCommClass.symm Γ A B
-  intro t₁ t₂ h
-  have h' : ((MulSemiringAction.invariantsBaseChangeEquiv A B Γ T hc t₁ : _) : B ⊗[A] T) =
-      MulSemiringAction.invariantsBaseChangeEquiv A B Γ T hc t₂ := by
-    simpa [MulSemiringAction.coe_invariantsBaseChangeEquiv_apply] using h
-  exact (MulSemiringAction.invariantsBaseChangeEquiv A B Γ T hc).injective (Subtype.ext h')
-
-private theorem mem_range_includeRight_of_forall_rTensor_eq {T : Type*} [CommRing T] [Algebra A T]
-    [Fintype Γ] [Algebra.IsInvariant A B Γ] [FaithfulSMul A B]
-    (hc : ∃ c : B, ∑ γ : Γ, γ • c = 1) {z : B ⊗[A] T}
-    (hz : ∀ γ : Γ, Algebra.TensorProduct.rTensor T (MulSemiringAction.toAlgHom A B γ) z = z) :
-    z ∈ (Algebra.TensorProduct.includeRight : T →ₐ[A] B ⊗[A] T).range := by
-  have : SMulCommClass A Γ B := SMulCommClass.symm Γ A B
-  have hrTensor (γ : Γ) (w : B ⊗[A] T) :
-      γ • w = Algebra.TensorProduct.rTensor T (MulSemiringAction.toAlgHom A B γ) w := by
-    induction w using TensorProduct.inductionOn with
-    | tmul b t => simp [TensorProduct.smul_tmul']
-    | add x y hx hy => rw [smul_add, map_add, hx, hy]
-  let z' : (Representation.ofDistribMulAction A Γ (B ⊗[A] T)).invariants :=
-    ⟨z, (Representation.mem_invariants _ _).mpr fun γ ↦ (hrTensor γ z).trans (hz γ)⟩
-  let e := MulSemiringAction.invariantsBaseChangeEquiv A B Γ T hc
-  have he : (e (e.symm z') : B ⊗[A] T) = z := congrArg Subtype.val (e.apply_symm_apply z')
-  rw [MulSemiringAction.coe_invariantsBaseChangeEquiv_apply] at he
-  exact ⟨e.symm z', he⟩
-
-private def retractToBaseAlgHom {D T : Type*} [CommRing D] [Algebra A D] [CommRing T]
-    [Algebra A T] [Fintype Γ] [Algebra.IsInvariant A B Γ] [FaithfulSMul A B]
-    (hc : ∃ c : B, ∑ γ : Γ, γ • c = 1) (u : D →ₐ[A] B ⊗[A] T)
-    (hu : ∀ (γ : Γ) (d : D),
-      Algebra.TensorProduct.rTensor T (MulSemiringAction.toAlgHom A B γ) (u d) = u d) :
-    D →ₐ[A] T :=
-  (AlgEquiv.ofInjective (Algebra.TensorProduct.includeRight : T →ₐ[A] B ⊗[A] T)
-    (includeRight_injective_of_exists_trace_one A B Γ hc)).symm.toAlgHom.comp
-      (u.codRestrict _ fun d ↦
-        mem_range_includeRight_of_forall_rTensor_eq A B Γ hc (hu · d))
-
-private theorem includeRight_retractToBaseAlgHom_apply {D T : Type*} [CommRing D] [Algebra A D]
-    [CommRing T] [Algebra A T] [Fintype Γ] [Algebra.IsInvariant A B Γ] [FaithfulSMul A B]
-    (hc : ∃ c : B, ∑ γ : Γ, γ • c = 1) (u : D →ₐ[A] B ⊗[A] T)
-    (hu : ∀ (γ : Γ) (d : D),
-      Algebra.TensorProduct.rTensor T (MulSemiringAction.toAlgHom A B γ) (u d) = u d) (d : D) :
-    (Algebra.TensorProduct.includeRight : T →ₐ[A] B ⊗[A] T)
-      (retractToBaseAlgHom A B Γ hc u hu d) = u d := by
-  let e := AlgEquiv.ofInjective (Algebra.TensorProduct.includeRight : T →ₐ[A] B ⊗[A] T)
-    (includeRight_injective_of_exists_trace_one A B Γ hc)
-  exact congrArg Subtype.val
-    (e.apply_symm_apply (u.codRestrict _
-      (fun d ↦ mem_range_includeRight_of_forall_rTensor_eq A B Γ hc (hu · d)) d))
+private theorem baseChangeUniversalSection_inv
+    [Module.Finite A B] [Module.Projective A B]
+    (D : Type*) [CommRing D] [Algebra A D] [FinitePresentation A D]
+    (g : Γ) (d : D) :
+    Algebra.TensorProduct.rTensor _ (MulSemiringAction.toAlgHom A B g)
+        (baseChangeUniversalSection A B Γ D d) =
+      baseChangeUniversalSection A B Γ D d := by
+  have h1 := (fixedPointsHomEquiv (MulSemiringAction.toAlgAut Γ A B)
+    (MulSemiringAction.baseChangeRingAutHom A B Γ D)
+    (MulSemiringAction.baseChangeRingAutHom_algebraMap A B Γ D) _
+    (AlgHom.id A _)).2 g ((1 : B) ⊗ₜ[A] d)
+  have hfix1 :
+      MulSemiringAction.baseChangeRingAutHom A B Γ D g ((1 : B) ⊗ₜ[A] d) =
+        (1 : B) ⊗ₜ[A] d := by simp
+  rw [hfix1] at h1
+  exact h1.symm
 
 /-- **Galois descent for constant Weil restrictions.** Let `B` be finite projective over `A`, and
 let a finite group `Γ` act on `B` with invariant ring `A`
@@ -433,47 +500,98 @@ def quotientFixedPointIdealBaseChangeAlgEquivOfExistsTraceOne
     (D : Type*) [CommRing D] [Algebra A D] [FinitePresentation A D]
     (hc : ∃ c : B, ∑ γ : Γ, γ • c = 1) :
     (WeilRestriction A B (B ⊗[A] D) ⧸
-      fixedPointIdeal (MulSemiringAction.toAlgAut Γ A B) (baseChangeRingAutHom A B Γ D)
-        (baseChangeRingAutHom_algebraMap A B Γ D)) ≃ₐ[A] D := by
+      fixedPointIdeal (MulSemiringAction.toAlgAut Γ A B)
+        (MulSemiringAction.baseChangeRingAutHom A B Γ D)
+        (MulSemiringAction.baseChangeRingAutHom_algebraMap A B Γ D)) ≃ₐ[A] D :=
   let ρB : Γ →* (B ≃ₐ[A] B) := MulSemiringAction.toAlgAut Γ A B
-  let ρBD := baseChangeRingAutHom A B Γ D
-  let hBD := baseChangeRingAutHom_algebraMap A B Γ D
+  let ρBD := MulSemiringAction.baseChangeRingAutHom A B Γ D
+  let hBD := MulSemiringAction.baseChangeRingAutHom_algebraMap A B Γ D
   let Q := WeilRestriction A B (B ⊗[A] D) ⧸ fixedPointIdeal ρB ρBD hBD
-  have hid_eqv (γ : Γ) (x : B ⊗[A] D) :
-      AlgHom.id B (B ⊗[A] D) (ρBD γ x) =
-        Algebra.TensorProduct.rTensor D (ρB γ : B →ₐ[A] B) (AlgHom.id B (B ⊗[A] D) x) := by
-    induction x using TensorProduct.inductionOn with
-    | tmul b d => rfl
-    | add x y hx hy => simp [map_add, hx, hy]
-  let fwd : Q →ₐ[A] D := (fixedPointsHomEquiv ρB ρBD hBD D).symm ⟨AlgHom.id B (B ⊗[A] D), hid_eqv⟩
-  let uQ := fixedPointsHomEquiv ρB ρBD hBD Q (AlgHom.id A Q)
-  let uD : D →ₐ[A] B ⊗[A] Q :=
-    (uQ.1.restrictScalars A).comp (Algebra.TensorProduct.includeRight : D →ₐ[A] B ⊗[A] D)
-  have huD (γ : Γ) (d : D) :
-      Algebra.TensorProduct.rTensor Q (MulSemiringAction.toAlgHom A B γ) (uD d) = uD d := by
-    have h1 := uQ.2 γ ((1 : B) ⊗ₜ[A] d)
-    have hfix1 : ρBD γ ((1 : B) ⊗ₜ[A] d) = (1 : B) ⊗ₜ[A] d := by simp [ρBD, baseChangeRingAutHom]
-    rw [hfix1] at h1
-    exact h1.symm
-  let bwd : D →ₐ[A] Q := retractToBaseAlgHom A B Γ hc uD huD
-  refine AlgEquiv.ofAlgHom fwd bwd ?_ ?_
-  · ext d
-    apply includeRight_injective_of_exists_trace_one A B Γ hc
-    have hd := congr($(fixedPointsHomEquiv_comp ρB ρBD hBD (AlgHom.id A Q) fwd) ((1 : B) ⊗ₜ[A] d))
-    rw [AlgHom.comp_id, (fixedPointsHomEquiv ρB ρBD hBD D).apply_symm_apply] at hd
-    calc
-      (Algebra.TensorProduct.includeRight : D →ₐ[A] B ⊗[A] D) (fwd (bwd d))
-          = Algebra.TensorProduct.lTensor (S := B) B fwd
-              ((Algebra.TensorProduct.includeRight : Q →ₐ[A] B ⊗[A] Q) (bwd d)) := by simp
-      _ = Algebra.TensorProduct.lTensor (S := B) B fwd (uD d) := by
-            rw [includeRight_retractToBaseAlgHom_apply]
-      _ = (1 : B) ⊗ₜ[A] d := hd.symm
-  · apply fixedPoints_hom_ext ρB ρBD hBD
-    rw [fixedPointsHomEquiv_comp, (fixedPointsHomEquiv ρB ρBD hBD D).apply_symm_apply]
-    apply Algebra.TensorProduct.ext
-    · ext
-    · ext d
-      simpa [bwd, uD, uQ] using includeRight_retractToBaseAlgHom_apply A B Γ hc uD huD d
+  let fwd : Q →ₐ[A] D := (fixedPointsHomEquiv ρB ρBD hBD D).symm
+    ⟨AlgHom.id B (B ⊗[A] D), fun γ x ↦ MulSemiringAction.baseChangeRingAutHom_apply A B Γ D γ x⟩
+  let bwd : D →ₐ[A] Q := MulSemiringAction.retractToBaseAlgHom A B Γ hc
+    (baseChangeUniversalSection A B Γ D) (baseChangeUniversalSection_inv A B Γ D)
+  AlgEquiv.ofAlgHom fwd bwd
+    (by
+      ext d
+      apply MulSemiringAction.includeRight_injective_of_exists_trace_one A B Γ hc
+      have hd :=
+        congr($(fixedPointsHomEquiv_comp ρB ρBD hBD (AlgHom.id A Q) fwd) ((1 : B) ⊗ₜ[A] d))
+      rw [AlgHom.comp_id, (fixedPointsHomEquiv ρB ρBD hBD D).apply_symm_apply] at hd
+      calc
+        (Algebra.TensorProduct.includeRight : D →ₐ[A] B ⊗[A] D) (fwd (bwd d))
+            = Algebra.TensorProduct.lTensor (S := B) B fwd
+                ((Algebra.TensorProduct.includeRight : Q →ₐ[A] B ⊗[A] Q) (bwd d)) := by simp
+        _ = Algebra.TensorProduct.lTensor (S := B) B fwd
+              (baseChangeUniversalSection A B Γ D d) := by
+              rw [MulSemiringAction.includeRight_retractToBaseAlgHom_apply]
+        _ = (1 : B) ⊗ₜ[A] d := hd.symm)
+    (by
+      apply fixedPoints_hom_ext ρB ρBD hBD
+      rw [fixedPointsHomEquiv_comp, (fixedPointsHomEquiv ρB ρBD hBD D).apply_symm_apply]
+      apply Algebra.TensorProduct.ext
+      · ext
+      · ext d
+        simp [bwd, baseChangeUniversalSection, Q, ρB, ρBD])
+
+@[simp]
+theorem quotientFixedPointIdealBaseChangeAlgEquivOfExistsTraceOne_mk
+    [Module.Finite A B] [Module.Projective A B] [Fintype Γ]
+    [Algebra.IsInvariant A B Γ] [FaithfulSMul A B]
+    (D : Type*) [CommRing D] [Algebra A D] [FinitePresentation A D]
+    (hc : ∃ c : B, ∑ γ : Γ, γ • c = 1)
+    (x : WeilRestriction A B (B ⊗[A] D)) :
+    quotientFixedPointIdealBaseChangeAlgEquivOfExistsTraceOne A B Γ D hc
+        (Ideal.Quotient.mk
+          (fixedPointIdeal (MulSemiringAction.toAlgAut Γ A B)
+            (MulSemiringAction.baseChangeRingAutHom A B Γ D)
+            (MulSemiringAction.baseChangeRingAutHom_algebraMap A B Γ D)) x) =
+      (homEquiv A B (B ⊗[A] D) D).symm (AlgHom.id B (B ⊗[A] D)) x := by
+  rw [quotientFixedPointIdealBaseChangeAlgEquivOfExistsTraceOne, AlgEquiv.ofAlgHom_apply,
+    fixedPointsHomEquiv_symm_apply_mk]
+
+@[simp]
+theorem one_tmul_quotientFixedPointIdealBaseChangeAlgEquivOfExistsTraceOne_symm_apply
+    [Module.Finite A B] [Module.Projective A B] [Fintype Γ]
+    [Algebra.IsInvariant A B Γ] [FaithfulSMul A B]
+    (D : Type*) [CommRing D] [Algebra A D] [FinitePresentation A D]
+    (hc : ∃ c : B, ∑ γ : Γ, γ • c = 1) (d : D) :
+    (1 : B) ⊗ₜ[A]
+        (quotientFixedPointIdealBaseChangeAlgEquivOfExistsTraceOne A B Γ D hc).symm d =
+      Algebra.TensorProduct.lTensor (S := B) B
+        (Ideal.Quotient.mkₐ A
+          (fixedPointIdeal (MulSemiringAction.toAlgAut Γ A B)
+            (MulSemiringAction.baseChangeRingAutHom A B Γ D)
+            (MulSemiringAction.baseChangeRingAutHom_algebraMap A B Γ D)))
+        (universalPoint A B (B ⊗[A] D) ((1 : B) ⊗ₜ[A] d)) := by
+  rw [quotientFixedPointIdealBaseChangeAlgEquivOfExistsTraceOne, AlgEquiv.ofAlgHom_symm_apply,
+    MulSemiringAction.one_tmul_retractToBaseAlgHom_apply]
+  simp [baseChangeUniversalSection]
+
+theorem includeRight_quotientFixedPointIdealBaseChangeAlgEquivOfExistsTraceOne_symm_apply
+    [Module.Finite A B] [Module.Projective A B] [Fintype Γ]
+    [Algebra.IsInvariant A B Γ] [FaithfulSMul A B]
+    (D : Type*) [CommRing D] [Algebra A D] [FinitePresentation A D]
+    (hc : ∃ c : B, ∑ γ : Γ, γ • c = 1) (d : D) :
+    (Algebra.TensorProduct.includeRight : _ →ₐ[A] B ⊗[A] _)
+        ((quotientFixedPointIdealBaseChangeAlgEquivOfExistsTraceOne A B Γ D hc).symm d) =
+      Algebra.TensorProduct.lTensor (S := B) B
+        (Ideal.Quotient.mkₐ A
+          (fixedPointIdeal (MulSemiringAction.toAlgAut Γ A B)
+            (MulSemiringAction.baseChangeRingAutHom A B Γ D)
+            (MulSemiringAction.baseChangeRingAutHom_algebraMap A B Γ D)))
+        (universalPoint A B (B ⊗[A] D) ((1 : B) ⊗ₜ[A] d)) := by
+  simp
+
+private theorem exists_sum_smul_eq_one_of_isUnit_card [Fintype Γ]
+    (hΓ : IsUnit (Nat.card Γ : A)) :
+    ∃ c : B, ∑ γ : Γ, γ • c = 1 := by
+  refine ⟨algebraMap A B ↑hΓ.unit⁻¹, ?_⟩
+  have hmul : (Fintype.card Γ : A) * ↑hΓ.unit⁻¹ = 1 := by
+    rw [← Nat.card_eq_fintype_card]
+    exact Units.mul_inv_eq_one.mpr rfl
+  simp only [smul_algebraMap, Finset.sum_const, Finset.card_univ, ← Nat.cast_smul_eq_nsmul A,
+    Algebra.smul_def, ← map_mul, hmul, map_one]
 
 /-- **Tame Galois descent for constant Weil restrictions.** Let `B` be finite projective over `A`,
 and let a finite group `Γ` with `(Nat.card Γ : A)` invertible act on `B` with invariant ring `A`
@@ -486,24 +604,153 @@ def quotientFixedPointIdealBaseChangeAlgEquiv
     (D : Type*) [CommRing D] [Algebra A D] [FinitePresentation A D]
     (hΓ : IsUnit (Nat.card Γ : A)) :
     (WeilRestriction A B (B ⊗[A] D) ⧸
-      fixedPointIdeal (MulSemiringAction.toAlgAut Γ A B) (baseChangeRingAutHom A B Γ D)
-        (baseChangeRingAutHom_algebraMap A B Γ D)) ≃ₐ[A] D := by
+      fixedPointIdeal (MulSemiringAction.toAlgAut Γ A B)
+        (MulSemiringAction.baseChangeRingAutHom A B Γ D)
+        (MulSemiringAction.baseChangeRingAutHom_algebraMap A B Γ D)) ≃ₐ[A] D := by
   have := Fintype.ofFinite Γ
-  refine quotientFixedPointIdealBaseChangeAlgEquivOfExistsTraceOne A B Γ D
-    ⟨algebraMap A B ↑hΓ.unit⁻¹, ?_⟩
-  have hsmul (γ : Γ) (a : A) : γ • algebraMap A B a = algebraMap A B a := by
-    rw [Algebra.algebraMap_eq_smul_one, smul_comm, smul_one]
-  have hmul : (Fintype.card Γ : A) * ↑hΓ.unit⁻¹ = 1 := by
-    rw [← Nat.card_eq_fintype_card]
-    exact Units.mul_inv_eq_one.mpr rfl
-  simp only [hsmul, Finset.sum_const, Finset.card_univ, ← Nat.cast_smul_eq_nsmul A,
-    Algebra.smul_def, ← map_mul, hmul, map_one]
+  exact quotientFixedPointIdealBaseChangeAlgEquivOfExistsTraceOne A B Γ D
+    (exists_sum_smul_eq_one_of_isUnit_card A B Γ hΓ)
 
-/-- Compatibility of the coefficientwise `Γ`-action on `B[X]` with `algebraMap B B[X]`. -/
-theorem toRingAut_polynomial_algebraMap (γ : Γ) (b : B) :
-    MulSemiringAction.toRingAut Γ B[X] γ (algebraMap B B[X] b) =
-      algebraMap B B[X] (MulSemiringAction.toAlgAut Γ A B γ b) :=
-  Polynomial.smul_C γ b
+@[simp]
+theorem quotientFixedPointIdealBaseChangeAlgEquiv_mk
+    [Module.Finite A B] [Module.Projective A B] [Finite Γ]
+    [Algebra.IsInvariant A B Γ] [FaithfulSMul A B]
+    (D : Type*) [CommRing D] [Algebra A D] [FinitePresentation A D]
+    (hΓ : IsUnit (Nat.card Γ : A))
+    (x : WeilRestriction A B (B ⊗[A] D)) :
+    quotientFixedPointIdealBaseChangeAlgEquiv A B Γ D hΓ
+        (Ideal.Quotient.mk
+          (fixedPointIdeal (MulSemiringAction.toAlgAut Γ A B)
+            (MulSemiringAction.baseChangeRingAutHom A B Γ D)
+            (MulSemiringAction.baseChangeRingAutHom_algebraMap A B Γ D)) x) =
+      (homEquiv A B (B ⊗[A] D) D).symm (AlgHom.id B (B ⊗[A] D)) x := by
+  rw [quotientFixedPointIdealBaseChangeAlgEquiv,
+    quotientFixedPointIdealBaseChangeAlgEquivOfExistsTraceOne_mk]
+
+@[simp]
+theorem one_tmul_quotientFixedPointIdealBaseChangeAlgEquiv_symm_apply
+    [Module.Finite A B] [Module.Projective A B] [Finite Γ]
+    [Algebra.IsInvariant A B Γ] [FaithfulSMul A B]
+    (D : Type*) [CommRing D] [Algebra A D] [FinitePresentation A D]
+    (hΓ : IsUnit (Nat.card Γ : A)) (d : D) :
+    (1 : B) ⊗ₜ[A]
+        (quotientFixedPointIdealBaseChangeAlgEquiv A B Γ D hΓ).symm d =
+      Algebra.TensorProduct.lTensor (S := B) B
+        (Ideal.Quotient.mkₐ A
+          (fixedPointIdeal (MulSemiringAction.toAlgAut Γ A B)
+            (MulSemiringAction.baseChangeRingAutHom A B Γ D)
+            (MulSemiringAction.baseChangeRingAutHom_algebraMap A B Γ D)))
+        (universalPoint A B (B ⊗[A] D) ((1 : B) ⊗ₜ[A] d)) := by
+  rw [quotientFixedPointIdealBaseChangeAlgEquiv,
+    one_tmul_quotientFixedPointIdealBaseChangeAlgEquivOfExistsTraceOne_symm_apply]
+
+theorem includeRight_quotientFixedPointIdealBaseChangeAlgEquiv_symm_apply
+    [Module.Finite A B] [Module.Projective A B] [Finite Γ]
+    [Algebra.IsInvariant A B Γ] [FaithfulSMul A B]
+    (D : Type*) [CommRing D] [Algebra A D] [FinitePresentation A D]
+    (hΓ : IsUnit (Nat.card Γ : A)) (d : D) :
+    (Algebra.TensorProduct.includeRight : _ →ₐ[A] B ⊗[A] _)
+        ((quotientFixedPointIdealBaseChangeAlgEquiv A B Γ D hΓ).symm d) =
+      Algebra.TensorProduct.lTensor (S := B) B
+        (Ideal.Quotient.mkₐ A
+          (fixedPointIdeal (MulSemiringAction.toAlgAut Γ A B)
+            (MulSemiringAction.baseChangeRingAutHom A B Γ D)
+            (MulSemiringAction.baseChangeRingAutHom_algebraMap A B Γ D)))
+        (universalPoint A B (B ⊗[A] D) ((1 : B) ⊗ₜ[A] d)) := by
+  simp
+
+private theorem baseChangeRingAutHom_polyEquivTensor_symm (γ : Γ) (z : B ⊗[A] A[X]) :
+    MulSemiringAction.toRingAut Γ B[X] γ ((polyEquivTensor' A B).symm z) =
+      (polyEquivTensor' A B).symm
+        (MulSemiringAction.baseChangeRingAutHom A B Γ A[X] γ z) := by
+  induction z using TensorProduct.inductionOn with
+  | add x y hx hy => simp only [map_add, hx, hy]
+  | tmul b q =>
+    ext k
+    simp [smul_mul', smul_algebraMap]
+
+/-- **Galois descent of the affine line.** Under the trace-one hypothesis of
+`quotientFixedPointIdealBaseChangeAlgEquivOfExistsTraceOne`, the `Γ`-fixed quotient of
+`WeilRestriction A B B[X]` for the coefficientwise `Γ`-action on `B[X]` is isomorphic as an
+`A`-algebra to `A[X]`. -/
+def quotientFixedPointIdealPolynomialAlgEquivOfExistsTraceOne
+    [Module.Finite A B] [Module.Projective A B] [Fintype Γ]
+    [Algebra.IsInvariant A B Γ] [FaithfulSMul A B]
+    (hc : ∃ c : B, ∑ γ : Γ, γ • c = 1) :
+    (WeilRestriction A B B[X] ⧸
+      fixedPointIdeal (MulSemiringAction.toAlgAut Γ A B) (MulSemiringAction.toRingAut Γ B[X])
+        (MulSemiringAction.toRingAut_polynomial_algebraMap A B Γ)) ≃ₐ[A] A[X] :=
+  (quotientFixedPointIdealAlgEquivOfEquiv
+    (MulSemiringAction.toAlgAut Γ A B)
+    (MulSemiringAction.baseChangeRingAutHom A B Γ A[X])
+    (MulSemiringAction.baseChangeRingAutHom_algebraMap A B Γ A[X])
+    (MulSemiringAction.toRingAut Γ B[X])
+    (MulSemiringAction.toRingAut_polynomial_algebraMap A B Γ)
+    (polyEquivTensor' A B).symm (baseChangeRingAutHom_polyEquivTensor_symm A B Γ)).symm.trans
+      (quotientFixedPointIdealBaseChangeAlgEquivOfExistsTraceOne A B Γ A[X] hc)
+
+@[simp]
+theorem quotientFixedPointIdealPolynomialAlgEquivOfExistsTraceOne_mk
+    [Module.Finite A B] [Module.Projective A B] [Fintype Γ]
+    [Algebra.IsInvariant A B Γ] [FaithfulSMul A B]
+    (hc : ∃ c : B, ∑ γ : Γ, γ • c = 1)
+    (x : WeilRestriction A B B[X]) :
+    quotientFixedPointIdealPolynomialAlgEquivOfExistsTraceOne A B Γ hc
+        (Ideal.Quotient.mk
+          (fixedPointIdeal (MulSemiringAction.toAlgAut Γ A B)
+            (MulSemiringAction.toRingAut Γ B[X])
+            (MulSemiringAction.toRingAut_polynomial_algebraMap A B Γ)) x) =
+      (homEquiv A B B[X] A[X]).symm (polyEquivTensor' A B).toAlgHom x := by
+  rw [quotientFixedPointIdealPolynomialAlgEquivOfExistsTraceOne, AlgEquiv.trans_apply,
+    quotientFixedPointIdealAlgEquivOfEquiv_symm_mk, AlgEquiv.symm_symm,
+    quotientFixedPointIdealBaseChangeAlgEquivOfExistsTraceOne_mk]
+  have hmap :
+      ((homEquiv A B (B ⊗[A] A[X]) A[X]).symm (AlgHom.id B (B ⊗[A] A[X]))).comp
+          (map A B (polyEquivTensor' A B).toAlgHom) =
+        (homEquiv A B B[X] A[X]).symm (polyEquivTensor' A B).toAlgHom := by
+    apply (homEquiv A B B[X] A[X]).injective
+    rw [homEquiv_comp_map, Equiv.apply_symm_apply, Equiv.apply_symm_apply, AlgHom.id_comp]
+  exact congr($hmap x)
+
+@[simp]
+theorem one_tmul_quotientFixedPointIdealPolynomialAlgEquivOfExistsTraceOne_symm_apply
+    [Module.Finite A B] [Module.Projective A B] [Fintype Γ]
+    [Algebra.IsInvariant A B Γ] [FaithfulSMul A B]
+    (hc : ∃ c : B, ∑ γ : Γ, γ • c = 1) (p : A[X]) :
+    (1 : B) ⊗ₜ[A]
+        (quotientFixedPointIdealPolynomialAlgEquivOfExistsTraceOne A B Γ hc).symm p =
+      Algebra.TensorProduct.lTensor (S := B) B
+        (Ideal.Quotient.mkₐ A
+          (fixedPointIdeal (MulSemiringAction.toAlgAut Γ A B)
+            (MulSemiringAction.toRingAut Γ B[X])
+            (MulSemiringAction.toRingAut_polynomial_algebraMap A B Γ)))
+        (universalPoint A B B[X] (p.map (algebraMap A B))) := by
+  rw [quotientFixedPointIdealPolynomialAlgEquivOfExistsTraceOne, AlgEquiv.symm_trans_apply,
+    AlgEquiv.symm_symm]
+  let e := quotientFixedPointIdealAlgEquivOfEquiv
+    (MulSemiringAction.toAlgAut Γ A B)
+    (MulSemiringAction.baseChangeRingAutHom A B Γ A[X])
+    (MulSemiringAction.baseChangeRingAutHom_algebraMap A B Γ A[X])
+    (MulSemiringAction.toRingAut Γ B[X])
+    (MulSemiringAction.toRingAut_polynomial_algebraMap A B Γ)
+    (polyEquivTensor' A B).symm (baseChangeRingAutHom_polyEquivTensor_symm A B Γ)
+  have hlTensor :
+      Algebra.TensorProduct.lTensor (S := B) B e.toAlgHom
+          ((1 : B) ⊗ₜ[A]
+            (quotientFixedPointIdealBaseChangeAlgEquivOfExistsTraceOne A B Γ A[X] hc).symm p) =
+        (1 : B) ⊗ₜ[A]
+          e ((quotientFixedPointIdealBaseChangeAlgEquivOfExistsTraceOne A B Γ A[X] hc).symm p) := by
+    simp only [Algebra.TensorProduct.map_tmul, AlgHom.id_apply, AlgEquiv.coe_toAlgHom]
+  rw [← hlTensor, one_tmul_quotientFixedPointIdealBaseChangeAlgEquivOfExistsTraceOne_symm_apply,
+    ← AlgHom.comp_apply, ← Algebra.TensorProduct.map_id_comp]
+  have hmk :
+      e.toAlgHom.comp (Ideal.Quotient.mkₐ A _) =
+        (Ideal.Quotient.mkₐ A _).comp (map A B (polyEquivTensor' A B).symm.toAlgHom) := by
+    apply AlgHom.ext
+    intro x
+    simp [e]
+  rw [hmk, Algebra.TensorProduct.map_id_comp, AlgHom.comp_apply, lTensor_map_universalPoint]
+  simp
 
 /-- **Tame Galois descent of the affine line.** Under the same hypotheses as
 `quotientFixedPointIdealBaseChangeAlgEquiv`, the `Γ`-fixed quotient of `WeilRestriction A B B[X]`
@@ -514,23 +761,41 @@ def quotientFixedPointIdealPolynomialAlgEquiv
     (hΓ : IsUnit (Nat.card Γ : A)) :
     (WeilRestriction A B B[X] ⧸
       fixedPointIdeal (MulSemiringAction.toAlgAut Γ A B) (MulSemiringAction.toRingAut Γ B[X])
-        (toRingAut_polynomial_algebraMap A B Γ)) ≃ₐ[A] A[X] := by
-  refine (quotientFixedPointIdealAlgEquivOfEquiv
-    (MulSemiringAction.toAlgAut Γ A B)
-    (baseChangeRingAutHom A B Γ A[X]) (baseChangeRingAutHom_algebraMap A B Γ A[X])
-    (MulSemiringAction.toRingAut Γ B[X]) (toRingAut_polynomial_algebraMap A B Γ)
-    (polyEquivTensor' A B).symm ?_).symm.trans
-      (quotientFixedPointIdealBaseChangeAlgEquiv A B Γ A[X] hΓ)
-  intro γ z
-  induction z using TensorProduct.inductionOn with
-  | add x y hx hy => simp only [map_add, hx, hy]
-  | tmul b q =>
-    have hsmul (a : A) : γ • algebraMap A B a = algebraMap A B a := by
-      rw [Algebra.algebraMap_eq_smul_one, smul_comm, smul_one]
-    ext k
-    change (γ • (polyEquivTensor' A B).symm (b ⊗ₜ[A] q)).coeff k =
-      ((polyEquivTensor' A B).symm (baseChangeRingAutHom A B Γ A[X] γ (b ⊗ₜ[A] q))).coeff k
-    simp [baseChangeRingAutHom, smul_mul', hsmul]
+        (MulSemiringAction.toRingAut_polynomial_algebraMap A B Γ)) ≃ₐ[A] A[X] := by
+  have := Fintype.ofFinite Γ
+  exact quotientFixedPointIdealPolynomialAlgEquivOfExistsTraceOne A B Γ
+    (exists_sum_smul_eq_one_of_isUnit_card A B Γ hΓ)
+
+@[simp]
+theorem quotientFixedPointIdealPolynomialAlgEquiv_mk
+    [Module.Finite A B] [Module.Projective A B] [Finite Γ]
+    [Algebra.IsInvariant A B Γ] [FaithfulSMul A B]
+    (hΓ : IsUnit (Nat.card Γ : A))
+    (x : WeilRestriction A B B[X]) :
+    quotientFixedPointIdealPolynomialAlgEquiv A B Γ hΓ
+        (Ideal.Quotient.mk
+          (fixedPointIdeal (MulSemiringAction.toAlgAut Γ A B)
+            (MulSemiringAction.toRingAut Γ B[X])
+            (MulSemiringAction.toRingAut_polynomial_algebraMap A B Γ)) x) =
+      (homEquiv A B B[X] A[X]).symm (polyEquivTensor' A B).toAlgHom x := by
+  rw [quotientFixedPointIdealPolynomialAlgEquiv,
+    quotientFixedPointIdealPolynomialAlgEquivOfExistsTraceOne_mk]
+
+@[simp]
+theorem one_tmul_quotientFixedPointIdealPolynomialAlgEquiv_symm_apply
+    [Module.Finite A B] [Module.Projective A B] [Finite Γ]
+    [Algebra.IsInvariant A B Γ] [FaithfulSMul A B]
+    (hΓ : IsUnit (Nat.card Γ : A)) (p : A[X]) :
+    (1 : B) ⊗ₜ[A]
+        (quotientFixedPointIdealPolynomialAlgEquiv A B Γ hΓ).symm p =
+      Algebra.TensorProduct.lTensor (S := B) B
+        (Ideal.Quotient.mkₐ A
+          (fixedPointIdeal (MulSemiringAction.toAlgAut Γ A B)
+            (MulSemiringAction.toRingAut Γ B[X])
+            (MulSemiringAction.toRingAut_polynomial_algebraMap A B Γ)))
+        (universalPoint A B B[X] (p.map (algebraMap A B))) := by
+  rw [quotientFixedPointIdealPolynomialAlgEquiv,
+    one_tmul_quotientFixedPointIdealPolynomialAlgEquivOfExistsTraceOne_symm_apply]
 
 end GaloisDescent
 

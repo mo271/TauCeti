@@ -42,6 +42,9 @@ every commutative `R`-algebra `A`, multiplication `A ⊗[R] A →ₐ[R] A` ident
   `g • a - a`.
 * `TauCeti.MulSemiringAction.quotientFixedPointIdealAlgHomEquiv`: natural equivalence between
   `(A ⧸ fixedPointIdeal G A) →ₐ[R] B` and `{f : A →ₐ[R] B // ∀ g a, f (g • a) = f a}`.
+* `TauCeti.MulSemiringAction.quotientFixedPointIdealAlgEquivOfEquiv`: isomorphism
+  `(A ⧸ fixedPointIdeal G A) ≃ₐ[R] (B ⧸ fixedPointIdeal G B)` induced by a `G`-equivariant
+  `R`-algebra equivalence `A ≃ₐ[R] B`.
 * `TauCeti.MulSemiringAction.quotientFixedPointIdealAlgEquivOfTrivial`:
   `(A ⧸ fixedPointIdeal G A) ≃ₐ[R] A` when `G` acts trivially on `A`.
 * `TauCeti.MulSemiringAction.quotientSwapFixedPointIdealAlgEquiv`: for the swap action on
@@ -128,6 +131,31 @@ theorem fixedPointIdeal_le_iff {J : Ideal A} :
   · rintro h _ ⟨g, a, rfl⟩
     exact h g a
 
+/-- A ring homomorphism out of `A` kills `fixedPointIdeal G A` if and only if it is constant on
+`G`-orbits. -/
+theorem fixedPointIdeal_le_ker_iff {F B : Type*} [Ring B] [FunLike F A B] [RingHomClass F A B]
+    (φ : F) :
+    fixedPointIdeal G A ≤ RingHom.ker φ ↔ ∀ (g : G) (a : A), φ (g • a) = φ a := by
+  rw [fixedPointIdeal_le_iff]
+  refine forall₂_congr fun g a ↦ ?_
+  rw [RingHom.mem_ker, map_sub, sub_eq_zero]
+
+/-- A surjective `G`-equivariant ring homomorphism pushes `fixedPointIdeal G A` onto
+`fixedPointIdeal G B`. -/
+theorem map_fixedPointIdeal_of_surjective {F B : Type*} [Ring B] [SMul G B]
+    [FunLike F A B] [RingHomClass F A B] (f : F) (hf_surj : Function.Surjective f)
+    (hf : ∀ (g : G) (a : A), f (g • a) = g • f a) :
+    (fixedPointIdeal G A).map f = fixedPointIdeal G B := by
+  rw [fixedPointIdeal_def, fixedPointIdeal_def, Ideal.map_span]
+  congr 1
+  ext y
+  constructor
+  · rintro ⟨x, ⟨g, a, rfl⟩, rfl⟩
+    exact ⟨g, f a, by rw [map_sub, hf]⟩
+  · rintro ⟨g, b, rfl⟩
+    obtain ⟨a, rfl⟩ := hf_surj b
+    exact ⟨g • a - a, ⟨g, a, rfl⟩, by rw [map_sub, hf]⟩
+
 /-- The fixed-point ideal vanishes if and only if `G` fixes every element of `A`. -/
 @[simp]
 theorem fixedPointIdeal_eq_bot_iff :
@@ -184,26 +212,17 @@ variable [CommRing A]
 
 /-- Modulo `fixedPointIdeal G A`, every `g • a` is congruent to `a`. -/
 @[simp]
-theorem mk_smul_eq (g : G) (a : A) :
+theorem mk_fixedPointIdeal_smul (g : G) (a : A) :
     Ideal.Quotient.mk (fixedPointIdeal G A) (g • a) =
       Ideal.Quotient.mk (fixedPointIdeal G A) a :=
   Ideal.Quotient.eq.mpr (smul_sub_mem_fixedPointIdeal g a)
 
 /-- Modulo `fixedPointIdeal G A`, the `R`-algebra quotient map sends `g • a` to the class of `a`. -/
 @[simp]
-theorem mkₐ_smul_eq (R : Type*) [CommSemiring R] [Algebra R A] (g : G) (a : A) :
+theorem mkₐ_fixedPointIdeal_smul (R : Type*) [CommSemiring R] [Algebra R A] (g : G) (a : A) :
     Ideal.Quotient.mkₐ R (fixedPointIdeal G A) (g • a) =
       Ideal.Quotient.mkₐ R (fixedPointIdeal G A) a :=
-  mk_smul_eq g a
-
-/-- A ring homomorphism out of `A` kills `fixedPointIdeal G A` if and only if it is constant on
-`G`-orbits. -/
-theorem fixedPointIdeal_le_ker_iff {F B : Type*} [Ring B] [FunLike F A B] [RingHomClass F A B]
-    (φ : F) :
-    fixedPointIdeal G A ≤ RingHom.ker φ ↔ ∀ (g : G) (a : A), φ (g • a) = φ a := by
-  rw [fixedPointIdeal_le_iff]
-  refine forall₂_congr fun g a ↦ ?_
-  rw [RingHom.mem_ker, map_sub, sub_eq_zero]
+  mk_fixedPointIdeal_smul g a
 
 /-- **Universal property of the fixed-point quotient (Edixhoven, Proposition 3.1).** For every
 `R`-algebra `B`, `R`-algebra homomorphisms `(A ⧸ fixedPointIdeal G A) →ₐ[R] B` correspond
@@ -214,17 +233,11 @@ def quotientFixedPointIdealAlgHomEquiv (R G A B : Type*) [CommSemiring R] [CommR
     ((A ⧸ fixedPointIdeal G A) →ₐ[R] B) ≃
       {f : A →ₐ[R] B // ∀ (g : G) (a : A), f (g • a) = f a} where
   toFun φ := ⟨φ.comp (Ideal.Quotient.mkₐ R (fixedPointIdeal G A)), fun g a ↦ by
-    simp only [AlgHom.comp_apply, mkₐ_smul_eq]⟩
+    simp only [AlgHom.comp_apply, mkₐ_fixedPointIdeal_smul]⟩
   invFun f := Ideal.Quotient.liftₐ (fixedPointIdeal G A) f.1 fun x hx ↦
-    show f.1.toRingHom x = 0 from
-      RingHom.mem_ker.mp (((fixedPointIdeal_le_ker_iff (G := G) f.1).mpr f.2) hx)
-  left_inv φ := by
-    ext x
-    obtain ⟨a, rfl⟩ := Ideal.Quotient.mk_surjective x
-    rfl
-  right_inv f := by
-    ext a
-    rfl
+    RingHom.mem_ker.mp (((fixedPointIdeal_le_ker_iff (G := G) f.1).mpr f.2) hx)
+  left_inv φ := Ideal.Quotient.algHom_ext R (Ideal.Quotient.liftₐ_comp _ _ _)
+  right_inv f := Subtype.ext (Ideal.Quotient.liftₐ_comp _ _ _)
 
 @[simp]
 theorem quotientFixedPointIdealAlgHomEquiv_apply {R B : Type*} [CommSemiring R] [Algebra R A]
@@ -238,8 +251,40 @@ theorem quotientFixedPointIdealAlgHomEquiv_symm_apply_mk {R B : Type*} [CommSemi
     [Algebra R A] [Ring B] [Algebra R B]
     (f : {f : A →ₐ[R] B // ∀ (g : G) (a : A), f (g • a) = f a}) (a : A) :
     (quotientFixedPointIdealAlgHomEquiv R G A B).symm f
-        (Ideal.Quotient.mk (fixedPointIdeal G A) a) = f.1 a :=
-  (rfl)
+        (Ideal.Quotient.mk (fixedPointIdeal G A) a) = f.1 a := by
+  have h := DFunLike.congr_fun
+    (Ideal.Quotient.liftₐ_comp (fixedPointIdeal G A) f.1 fun x hx ↦
+      RingHom.mem_ker.mp (((fixedPointIdeal_le_ker_iff (G := G) f.1).mpr f.2) hx)) a
+  simpa only [quotientFixedPointIdealAlgHomEquiv, Equiv.coe_fn_symm_mk, AlgHom.comp_apply,
+    Ideal.Quotient.mkₐ_eq_mk] using h
+
+/-- A `G`-equivariant `R`-algebra isomorphism `e : A ≃ₐ[R] B` induces an `R`-algebra isomorphism
+`(A ⧸ fixedPointIdeal G A) ≃ₐ[R] (B ⧸ fixedPointIdeal G B)` between the fixed-point quotients. -/
+def quotientFixedPointIdealAlgEquivOfEquiv (R : Type*) [CommSemiring R] {B : Type*} [CommRing B]
+    [Algebra R A] [Algebra R B] [SMul G B] (e : A ≃ₐ[R] B)
+    (he : ∀ (g : G) (a : A), e (g • a) = g • e a) :
+    (A ⧸ fixedPointIdeal G A) ≃ₐ[R] (B ⧸ fixedPointIdeal G B) :=
+  Ideal.quotientEquivAlg (fixedPointIdeal G A) (fixedPointIdeal G B) e
+    (map_fixedPointIdeal_of_surjective (e : A →+* B) e.surjective he).symm
+
+@[simp]
+theorem quotientFixedPointIdealAlgEquivOfEquiv_mk (R : Type*) [CommSemiring R] {B : Type*}
+    [CommRing B] [Algebra R A] [Algebra R B] [SMul G B] (e : A ≃ₐ[R] B)
+    (he : ∀ (g : G) (a : A), e (g • a) = g • e a) (a : A) :
+    quotientFixedPointIdealAlgEquivOfEquiv R e he
+        (Ideal.Quotient.mk (fixedPointIdeal G A) a) =
+      Ideal.Quotient.mk (fixedPointIdeal G B) (e a) := by
+  rw [quotientFixedPointIdealAlgEquivOfEquiv, Ideal.quotientEquivAlg_mk]
+
+@[simp]
+theorem quotientFixedPointIdealAlgEquivOfEquiv_symm_mk (R : Type*) [CommSemiring R] {B : Type*}
+    [CommRing B] [Algebra R A] [Algebra R B] [SMul G B] (e : A ≃ₐ[R] B)
+    (he : ∀ (g : G) (a : A), e (g • a) = g • e a) (b : B) :
+    (quotientFixedPointIdealAlgEquivOfEquiv R e he).symm
+        (Ideal.Quotient.mk (fixedPointIdeal G B) b) =
+      Ideal.Quotient.mk (fixedPointIdeal G A) (e.symm b) := by
+  rw [quotientFixedPointIdealAlgEquivOfEquiv, Ideal.quotientEquivAlg_symm,
+    Ideal.quotientEquivAlg_mk]
 
 /-- When `G` acts trivially on `A`, the fixed-point quotient `A ⧸ fixedPointIdeal G A` is
 isomorphic as an `R`-algebra to `A`. -/
@@ -253,15 +298,15 @@ noncomputable def quotientFixedPointIdealAlgEquivOfTrivial (R : Type*) [CommSemi
 theorem quotientFixedPointIdealAlgEquivOfTrivial_mk (R : Type*) [CommSemiring R] [Algebra R A]
     (htriv : ∀ (g : G) (a : A), g • a = a) (a : A) :
     quotientFixedPointIdealAlgEquivOfTrivial R htriv
-        (Ideal.Quotient.mk (fixedPointIdeal G A) a) = a :=
-  (rfl)
+        (Ideal.Quotient.mk (fixedPointIdeal G A) a) = a := by
+  simp [quotientFixedPointIdealAlgEquivOfTrivial]
 
 @[simp]
 theorem quotientFixedPointIdealAlgEquivOfTrivial_symm_apply (R : Type*) [CommSemiring R]
     [Algebra R A] (htriv : ∀ (g : G) (a : A), g • a = a) (a : A) :
     (quotientFixedPointIdealAlgEquivOfTrivial R htriv).symm a =
-      Ideal.Quotient.mk (fixedPointIdeal G A) a :=
-  (rfl)
+      Ideal.Quotient.mk (fixedPointIdeal G A) a := by
+  simp [quotientFixedPointIdealAlgEquivOfTrivial]
 
 end CommRing
 
@@ -272,26 +317,6 @@ section FinitePresentation
 variable {R M A : Type*} [CommSemiring R] [Monoid M] [CommRing A] [Algebra R A]
   [MulSemiringAction M A] [SMulCommClass M R A]
 
-/-- For a monoid acting on `A` by `R`-algebra endomorphisms, the elements `a : A` whose
-`m`-displacement `m • a - a` lies in a given ideal `J` form an `R`-subalgebra of `A`. -/
-private def displacementMemSubalgebra (m : M) (J : Ideal A) : Subalgebra R A where
-  carrier := {a : A | m • a - a ∈ J}
-  algebraMap_mem' r := by
-    change m • algebraMap R A r - algebraMap R A r ∈ J
-    rw [smul_algebraMap, sub_self]
-    exact J.zero_mem
-  add_mem' {a b} ha hb := by
-    change m • (a + b) - (a + b) ∈ J
-    rw [smul_add, add_sub_add_comm]
-    exact J.add_mem ha hb
-  mul_mem' {a b} ha hb := by
-    change m • (a * b) - a * b ∈ J
-    have hmul : m • (a * b) - a * b = m • a * (m • b - b) + (m • a - a) * b := by
-      rw [smul_mul']
-      ring
-    rw [hmul]
-    exact J.add_mem (J.mul_mem_left (m • a) hb) (J.mul_mem_right b ha)
-
 /-- When `M` acts on `A` by `R`-algebra endomorphisms and `s` generates `A` as an `R`-algebra,
 `fixedPointIdeal M A` is already generated as an ideal by the displacements `m • a - a` with
 `a ∈ s`. -/
@@ -299,11 +324,15 @@ theorem fixedPointIdeal_eq_span_of_adjoin_eq_top {s : Set A} (hs : Algebra.adjoi
     fixedPointIdeal M A = Ideal.span {x : A | ∃ m : M, ∃ a ∈ s, m • a - a = x} := by
   refine le_antisymm (fixedPointIdeal_le_iff.mpr fun m a ↦ ?_) (Ideal.span_mono ?_)
   · set J : Ideal A := Ideal.span {x : A | ∃ m : M, ∃ a ∈ s, m • a - a = x}
-    have hsJ : s ≤ displacementMemSubalgebra (R := R) m J :=
-      fun x hx ↦ Ideal.subset_span ⟨m, x, hx, rfl⟩
-    have htop : displacementMemSubalgebra (R := R) m J = ⊤ :=
-      top_unique (hs ▸ Algebra.adjoin_le hsJ)
-    exact (htop.symm ▸ Algebra.mem_top : a ∈ displacementMemSubalgebra (R := R) m J)
+    let E : Subalgebra R A :=
+      AlgHom.equalizer ((Ideal.Quotient.mkₐ R J).comp (MulSemiringAction.toAlgHom R A m))
+        (Ideal.Quotient.mkₐ R J)
+    have hmemE {x : A} : x ∈ E ↔ m • x - x ∈ J := by
+      simp only [E, AlgHom.mem_equalizer, AlgHom.comp_apply, MulSemiringAction.toAlgHom_apply,
+        Ideal.Quotient.mkₐ_eq_mk, Ideal.Quotient.eq]
+    have hsE : s ≤ E := fun x hx ↦ hmemE.mpr (Ideal.subset_span ⟨m, x, hx, rfl⟩)
+    have htop : E = ⊤ := top_unique (hs ▸ Algebra.adjoin_le hsE)
+    exact hmemE.mp (htop.symm ▸ Algebra.mem_top)
   · rintro _ ⟨m, a, -, rfl⟩
     exact ⟨m, a, rfl⟩
 
@@ -322,7 +351,7 @@ theorem fg_fixedPointIdeal [Finite M] [Algebra.FiniteType R A] :
 
 /-- If `M` is finite and `A` is finitely presented over `R`, then the fixed-point quotient
 `A ⧸ fixedPointIdeal M A` is finitely presented over `R`. -/
-theorem finitePresentation_quotient_fixedPointIdeal {R M A : Type*} [CommRing R] [Monoid M]
+instance finitePresentation_quotient_fixedPointIdeal {R M A : Type*} [CommRing R] [Monoid M]
     [Finite M] [CommRing A] [Algebra R A] [MulSemiringAction M A] [SMulCommClass M R A]
     [Algebra.FinitePresentation R A] :
     Algebra.FinitePresentation R (A ⧸ fixedPointIdeal M A) :=
@@ -332,7 +361,7 @@ end FinitePresentation
 
 section SwapDiagonal
 
-variable (R A : Type*) [CommRing R] [CommRing A] [Algebra R A]
+variable (R A : Type*) [CommSemiring R] [CommRing A] [Algebra R A]
 
 /-- The subgroup of `(A ⊗[R] A) ≃ₐ[R] (A ⊗[R] A)` generated by the factor-swapping involution
 `Algebra.TensorProduct.comm R A A`. -/
@@ -365,7 +394,7 @@ theorem fixedPointIdeal_tensorSwapSubgroup_eq_ker_lmul' :
       | tmul a b =>
         have hswap : Ideal.Quotient.mk I ((1 : A) ⊗ₜ[R] b) =
             Ideal.Quotient.mk I (b ⊗ₜ[R] (1 : A)) :=
-          (mk_smul_eq σ ((1 : A) ⊗ₜ[R] b)).symm
+          (mk_fixedPointIdeal_smul σ ((1 : A) ⊗ₜ[R] b)).symm
         have hprod : a ⊗ₜ[R] b = (a ⊗ₜ[R] (1 : A)) * ((1 : A) ⊗ₜ[R] b) := by simp
         rw [hprod, map_mul, hswap, ← map_mul]
         simp
@@ -388,14 +417,16 @@ def quotientSwapFixedPointIdealAlgEquiv :
 theorem quotientSwapFixedPointIdealAlgEquiv_mk (z : A ⊗[R] A) :
     quotientSwapFixedPointIdealAlgEquiv R A
         (Ideal.Quotient.mk (fixedPointIdeal (tensorSwapSubgroup R A) (A ⊗[R] A)) z) =
-      Algebra.TensorProduct.lmul' R z :=
-  (rfl)
+      Algebra.TensorProduct.lmul' R z := by
+  rw [quotientSwapFixedPointIdealAlgEquiv, AlgEquiv.trans_apply, Ideal.quotientEquivAlgOfEq_mk]
+  exact Ideal.kerLiftAlg_mk (Algebra.TensorProduct.lmul' R (S := A)) z
 
 @[simp]
 theorem quotientSwapFixedPointIdealAlgEquiv_symm_apply (a : A) :
     (quotientSwapFixedPointIdealAlgEquiv R A).symm a =
-      Ideal.Quotient.mk (fixedPointIdeal (tensorSwapSubgroup R A) (A ⊗[R] A)) (a ⊗ₜ[R] 1) :=
-  (rfl)
+      Ideal.Quotient.mk (fixedPointIdeal (tensorSwapSubgroup R A) (A ⊗[R] A)) (a ⊗ₜ[R] 1) := by
+  apply (quotientSwapFixedPointIdealAlgEquiv R A).injective
+  simp [quotientSwapFixedPointIdealAlgEquiv_mk]
 
 end SwapDiagonal
 
