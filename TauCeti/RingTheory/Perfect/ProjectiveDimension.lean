@@ -6,13 +6,17 @@ Authors: The Tau Ceti contributors
 module
 
 public import Mathlib.FieldTheory.IsPerfectClosure
+public import Mathlib.RingTheory.MvPolynomial.Basic
 public import Mathlib.RingTheory.RingHom.Flat
+public import TauCeti.Algebra.Category.ModuleCat.RestrictScalars
 public import TauCeti.RingTheory.RegularLocalRing.ProjectiveDimension
 import Mathlib.Algebra.Category.ModuleCat.ChangeOfRings
 import Mathlib.Algebra.Category.ModuleCat.ProjectiveDimension
+import Mathlib.RingTheory.KrullDimension.Polynomial
+import Mathlib.RingTheory.RegularLocalRing.Polynomial
 import TauCeti.Algebra.Category.ModuleCat.Projective.SequentialColimit
-import TauCeti.Algebra.Category.ModuleCat.RestrictScalars
 import TauCeti.RingTheory.Perfect.PerfectClosure
+import TauCeti.RingTheory.Perfect.Tor
 import TauCeti.RingTheory.RegularLocalRing.Frobenius
 
 /-!
@@ -34,9 +38,15 @@ injective. The perfect closure is flat over each of them because it is flat over
 changes from these subrings, which have projective dimension at most `d`, and the telescope
 sequence adds one (`ModuleCat.hasProjectiveDimensionLT_succ_of_iSup_eq_top`).
 
-Bhatt and Scholze use this bound for the perfection `P` of a regular ring, and then transport it
-along a surjection from `P` onto a perfect ring, to bound the projective dimension of modules over
-perfectly finitely presented algebras over the perfection of a regular ring.
+When `p` is prime and `g : A →+* B` is a surjection from a perfect ring `A` onto a reduced ring `B`
+(in particular any perfect ring of characteristic `p`), `Tor_{n+1}^A(B, M) = 0` for every
+`B`-module `M` (`TauCeti.isZero_Tor_succ_restrictScalars_of_surjective`), so `B ⊗[A] —` sends a
+projective resolution of `M` over `A` of length `d` to a projective resolution of `M` over `B` of
+length `d` (`TauCeti.hasProjectiveDimensionLE_of_surjective_of_perfectRing`). Applied to a
+surjection from a perfect closure of `K`, this bounds the global dimension of any reduced quotient
+of `L` by `d + 1`, and in particular bounds the global dimension of any perfectly finitely
+presented algebra over the perfection of a regular ring `K` of Krull dimension at most `d` in `n`
+perfect variables by `d + n + 1` (Bhatt and Scholze, Proposition 11.31 and Remark 11.32).
 
 ## Main results
 
@@ -46,11 +56,24 @@ perfectly finitely presented algebras over the perfection of a regular ring.
 * `IsPerfectClosure.hasProjectiveDimensionLE_succ_of_isRegularRing`: over a perfect closure of a
   regular ring of Krull dimension at most `d`, every module has projective dimension at most
   `d + 1`.
+* `TauCeti.hasProjectiveDimensionLE_of_surjective_of_perfectRing`: along a surjection `g : A →+* B`
+  from a perfect ring of prime characteristic onto a reduced ring, `pd_B M ≤ d` whenever
+  `pd_A M ≤ d`.
+* `IsPerfectClosure.hasProjectiveDimensionLE_succ_of_surjective` and
+  `IsPerfectClosure.hasProjectiveDimensionLE_succ_of_isRegularRing_of_surjective`: every module
+  over a reduced quotient of a perfect closure of a ring of prime characteristic with flat
+  Frobenius and global dimension at most `d` (in particular a regular ring of Krull dimension at
+  most `d`) has projective dimension at most `d + 1`.
+* `TauCeti.hasProjectiveDimensionLE_of_surjective_isPerfectClosure_mvPolynomial` and
+  `TauCeti.hasProjectiveDimensionLE_of_surjective_perfectClosure_mvPolynomial`: every module over a
+  reduced quotient of a perfect closure of `MvPolynomial σ K` for a regular ring `K` of prime
+  characteristic `p` and Krull dimension at most `d` and finite `σ` has projective dimension at
+  most `d + Nat.card σ + 1`.
 
 ## References
 
 * B. Bhatt and P. Scholze, *Projectivity of the Witt vector affine Grassmannian*,
-  Invent. Math. 209 (2017), Proposition 11.31 and its proof.
+  Invent. Math. 209 (2017), Proposition 11.31, Remark 11.32, and their proofs.
 * E. Kunz, *Characterizations of regular local rings of characteristic p*, Amer. J. Math. 91
   (1969), 772–784.
 -/
@@ -59,7 +82,25 @@ public section
 
 open CategoryTheory
 
-universe u
+universe u v
+
+namespace TauCeti
+
+/-- **Projective dimension along a surjection from a perfect ring onto a reduced ring.** Let `A` be
+a perfect ring of prime characteristic `p`, `B` a reduced ring (in particular any perfect ring of
+characteristic `p`), and `g : A →+* B` a surjective ring homomorphism. Because
+`Tor_{n+1}^A(B, M) = 0` for every `B`-module `M` and `n ≥ 0`, extending scalars along `g` carries
+a projective resolution of `M` over `A` to a projective resolution of `M` over `B`, so
+`pd_B M ≤ d` whenever `pd_A M ≤ d`. -/
+theorem hasProjectiveDimensionLE_of_surjective_of_perfectRing {A B : Type u} [CommRing A]
+    [CommRing B] [IsReduced B] {p : ℕ} [ExpChar A p] [PerfectRing A p] [Fact p.Prime]
+    {g : A →+* B} (hg : Function.Surjective g) (M : ModuleCat.{u} B) (d : ℕ)
+    [HasProjectiveDimensionLE ((ModuleCat.restrictScalars g).obj M) d] :
+    HasProjectiveDimensionLE M d :=
+  ModuleCat.hasProjectiveDimensionLE_of_surjective_of_isZero_Tor hg M d fun n _ ↦
+    isZero_Tor_succ_restrictScalars_of_surjective (p := p) hg M n
+
+end TauCeti
 
 namespace IsPerfectClosure
 
@@ -146,4 +187,63 @@ theorem hasProjectiveDimensionLE_succ_of_isRegularRing [IsRegularRing K] {d : �
   hasProjectiveDimensionLE_succ i p (TauCeti.IsRegularRing.flat_frobenius p)
     (TauCeti.IsRegularRing.hasProjectiveDimensionLE hd) M
 
+include i in
+/-- **Global dimension of reduced quotients of a perfect closure.** Let `i : K →+* L` be a perfect
+closure in prime characteristic `p` such that `(frobenius K p).Flat` and every `K`-module has
+projective dimension at most `d`. For any surjective ring homomorphism `g : L →+* B` onto a reduced
+ring `B` (in particular any perfect ring of characteristic `p`), every `B`-module has projective
+dimension at most `d + 1` (Bhatt and Scholze, Remark 11.32). -/
+theorem hasProjectiveDimensionLE_succ_of_surjective [Fact p.Prime] {B : Type u} [CommRing B]
+    [IsReduced B] (hF : (frobenius K p).Flat) {d : ℕ}
+    (h : ∀ N : ModuleCat.{u} K, HasProjectiveDimensionLE N d) {g : L →+* B}
+    (hg : Function.Surjective g) (M : ModuleCat.{u} B) :
+    HasProjectiveDimensionLE M (d + 1) := by
+  have := hasProjectiveDimensionLE_succ i p hF h ((ModuleCat.restrictScalars g).obj M)
+  exact TauCeti.hasProjectiveDimensionLE_of_surjective_of_perfectRing (p := p) hg M (d + 1)
+
+include i p in
+/-- Over any reduced quotient of a perfect closure of a regular ring of prime characteristic `p` and
+Krull dimension at most `d`, every module has projective dimension at most `d + 1`. -/
+theorem hasProjectiveDimensionLE_succ_of_isRegularRing_of_surjective [Fact p.Prime]
+    [IsRegularRing K] {B : Type u} [CommRing B] [IsReduced B] {d : ℕ} (hd : ringKrullDim K ≤ d)
+    {g : L →+* B} (hg : Function.Surjective g) (M : ModuleCat.{u} B) :
+    HasProjectiveDimensionLE M (d + 1) :=
+  hasProjectiveDimensionLE_succ_of_surjective i p (TauCeti.IsRegularRing.flat_frobenius p)
+    (TauCeti.IsRegularRing.hasProjectiveDimensionLE hd) hg M
+
 end IsPerfectClosure
+
+namespace TauCeti
+
+/-- **Global dimension of perfectly finitely presented algebras over the perfection of a regular
+ring (Bhatt–Scholze, Proposition 11.31).** Let `K` be a regular ring of prime characteristic `p`
+and Krull dimension at most `d`, let `σ` be a finite indexing type, and let `g` be a surjective
+ring homomorphism from a perfect closure `L` of `MvPolynomial σ K` onto a reduced ring `B` (in
+particular any perfect ring of characteristic `p`). Then every `B`-module has projective dimension
+at most `d + Nat.card σ + 1`. -/
+theorem hasProjectiveDimensionLE_of_surjective_isPerfectClosure_mvPolynomial
+    {K : Type u} {σ : Type v} {L B : Type (max u v)} [CommRing K] [CommRing L] [CommRing B]
+    [Finite σ] [IsReduced B] (i : MvPolynomial σ K →+* L) (p : ℕ) [Fact p.Prime] [ExpChar K p]
+    [ExpChar L p] [PerfectRing L p] [IsPerfectClosure i p] [IsRegularRing K] {d : ℕ}
+    (hd : ringKrullDim K ≤ d) {g : L →+* B} (hg : Function.Surjective g)
+    (M : ModuleCat.{max u v} B) :
+    HasProjectiveDimensionLE M (d + Nat.card σ + 1) := by
+  have hd' : ringKrullDim (MvPolynomial σ K) ≤ (d + Nat.card σ : ℕ) := by
+    rw [MvPolynomial.ringKrullDim_of_isNoetherianRing_of_finite, Nat.cast_add]
+    gcongr
+  exact IsPerfectClosure.hasProjectiveDimensionLE_succ_of_isRegularRing_of_surjective i p hd' hg M
+
+/-- Specialization of `TauCeti.hasProjectiveDimensionLE_of_surjective_isPerfectClosure_mvPolynomial`
+to the colimit perfection `PerfectClosure (MvPolynomial σ K) p`. -/
+theorem hasProjectiveDimensionLE_of_surjective_perfectClosure_mvPolynomial
+    {K : Type u} {σ : Type v} {B : Type (max u v)} [CommRing K] [CommRing B] [Finite σ]
+    [IsReduced B] (p : ℕ) [hp : Fact p.Prime] [CharP K p] [IsRegularRing K] {d : ℕ}
+    (hd : ringKrullDim K ≤ d) {g : PerfectClosure (MvPolynomial σ K) p →+* B}
+    (hg : Function.Surjective g) (M : ModuleCat.{max u v} B) :
+    HasProjectiveDimensionLE M (d + Nat.card σ + 1) := by
+  have : ExpChar K p := .prime hp.out
+  have : ExpChar (PerfectClosure (MvPolynomial σ K) p) p := .prime hp.out
+  exact hasProjectiveDimensionLE_of_surjective_isPerfectClosure_mvPolynomial
+    (PerfectClosure.of (MvPolynomial σ K) p) p hd hg M
+
+end TauCeti

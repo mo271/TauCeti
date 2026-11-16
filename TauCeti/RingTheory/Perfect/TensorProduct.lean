@@ -7,6 +7,7 @@ module
 
 public import TauCeti.RingTheory.Ideal.TensorProduct
 public import TauCeti.RingTheory.Perfect.FrobeniusRootIdeal
+import TauCeti.RingTheory.Ideal.Operations
 
 /-!
 # Tensor products of perfect rings and `Tor₁` of radical quotients
@@ -29,6 +30,11 @@ This is the `Tor₁` part of the Tor independence of perfect rings, which assert
 `Tor_i^A(B, C) = 0` for all `i > 0` and all maps `B ← A → C` of perfect rings, in the case where
 `B = A ⧸ I` is a quotient.
 
+When an `A`-module `M` (carrying no ring structure) is annihilated by a radical ideal `I`,
+idempotence of `I` (`Ideal.IsRadical.isIdempotentElem`) forces `I ⊗[A] M = 0`
+(`TauCeti.subsingleton_tensorProduct_of_isRadical`), so `I ⊗[A] M → A ⊗[A] M` is again injective
+(`TauCeti.subtype_rTensor_injective_of_isTorsionBySet`).
+
 The file also shows that `B ⊗[A] C` is perfect whenever `A`, `B` and `C` are perfect
 (`Algebra.TensorProduct.perfectRing`): its `p`-th root is `b ⊗ c ↦ b ^ (1 / p) ⊗ c ^ (1 / p)`,
 which is well defined because `(a • b) ^ (1 / p) = a ^ (1 / p) • b ^ (1 / p)`. Perfectness of `A`
@@ -41,6 +47,9 @@ is needed: over `A = 𝔽_p[t]`, with `B = 𝔽_p[t ^ (1 / p ^ ∞)]` perfect, t
   every reduced `A`-algebra `C`.
 * `TauCeti.subtype_rTensor_injective_of_isRadical`: `I ⊗[A] C → A ⊗[A] C` is injective for every
   radical ideal `I` of `A` and every perfect `A`-algebra `C`.
+* `TauCeti.subsingleton_tensorProduct_of_isRadical` and
+  `TauCeti.subtype_rTensor_injective_of_isTorsionBySet`: `I ⊗[A] M = 0`, and hence
+  `I ⊗[A] M → A ⊗[A] M` is injective, for every `A`-module `M` annihilated by a radical ideal `I`.
 * `Algebra.TensorProduct.perfectRing`: the tensor product of two perfect algebras over a perfect
   ring is perfect.
 
@@ -132,6 +141,31 @@ theorem subtype_rTensor_injective_of_isRadical [ExpChar C p] [PerfectRing C p] {
     LinearMap.rTensor_comp_apply] at hx ⊢
   rw [← LinearMap.rTensor_comp_apply, Submodule.subtype_comp_inclusion] at hx
   rw [fg hN (hx.trans (map_zero _).symm), map_zero]
+
+end TauCeti
+
+namespace TauCeti
+
+variable {A : Type*} [CommSemiring A] {p : ℕ} [ExpChar A p] [PerfectRing A p] [Fact p.Prime]
+  {M : Type*} [AddCommMonoid M] [Module A M] {I : Ideal A}
+
+include p
+
+/-- **A radical ideal of a perfect ring has vanishing tensor product with every module it
+annihilates**: `I` is idempotent (`Ideal.IsRadical.isIdempotentElem`), so `I • I = I` kills
+`I ⊗[A] M`. -/
+theorem subsingleton_tensorProduct_of_isRadical (hI : I.IsRadical)
+    (hM : Module.IsTorsionBySet A M I) : Subsingleton (I ⊗[A] M) :=
+  subsingleton_tensorProduct_of_isTorsionBySet_right
+    (Ideal.smul_top_eq_top_of_isIdempotentElem (hI.isIdempotentElem p)) hM
+
+/-- **`Tor₁` of a radical quotient against a module annihilated by the ideal.** For a radical
+ideal `I` of a perfect ring `A` and an `A`-module `M` annihilated by `I`, `I ⊗[A] M = 0`, so
+`I ⊗[A] M → A ⊗[A] M` is injective. -/
+theorem subtype_rTensor_injective_of_isTorsionBySet (hI : I.IsRadical)
+    (hM : Module.IsTorsionBySet A M I) : Function.Injective (I.subtype.rTensor M) :=
+  have := subsingleton_tensorProduct_of_isRadical (p := p) hI hM
+  Function.injective_of_subsingleton _
 
 end TauCeti
 

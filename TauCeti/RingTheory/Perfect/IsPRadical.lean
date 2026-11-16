@@ -29,6 +29,8 @@ ring of global sections of a perfect scheme, which is the zero ring for the empt
 * `IsPRadical.isHomeomorph_comap`: a `p`-radical ring map induces a homeomorphism of prime spectra.
 * `IsPRadical.bijective_comp`: if `p = 0` in `K` and `M` is a perfect ring, then precomposition
   with a `p`-radical map `i : K →+* L` is a bijection `(L →+* M) → (K →+* M)`.
+* `PerfectRing.lift_surjective_of_surjective`: a surjective ring map lifts along `p`-radical maps
+  into perfect rings to a surjection.
 
 ## References
 
@@ -93,3 +95,25 @@ theorem bijective_comp [hp : Fact p.Prime] (hK : (p : K) = 0) [PerfectRing M p] 
   exact ⟨PerfectRing.lift i j p, PerfectRing.lift_comp i j p⟩
 
 end IsPRadical
+
+namespace PerfectRing
+
+variable {K L R M : Type*} [CommRing K] [CommRing L] [CommRing R] [CommRing M]
+  (i : K →+* L) (j : R →+* M) (p : ℕ) [ExpChar K p] [ExpChar L p] [PerfectRing L p]
+  [ExpChar M p] [PerfectRing M p] [IsPRadical i p] [IsPRadical j p]
+
+/-- **Surjections lift to surjections on perfections.** If `i : K →+* L` and `j : R →+* M` are
+`p`-radical maps into perfect rings of exponential characteristic `p` and `φ : K →+* R` is
+surjective, then the induced map `PerfectRing.lift i (j.comp φ) p : L →+* M` is surjective. -/
+theorem lift_surjective_of_surjective {φ : K →+* R} (hφ : Function.Surjective φ) :
+    Function.Surjective (PerfectRing.lift i (j.comp φ) p) :=
+  fun z ↦ by
+    obtain ⟨n, r, hr⟩ := IsPRadical.pow_mem j p z
+    obtain ⟨y, rfl⟩ := hφ r
+    refine ⟨(iterateFrobeniusEquiv L p n).symm (i y), ?_⟩
+    have hx : i y = ((iterateFrobeniusEquiv L p n).symm (i y)) ^ p ^ n := by
+      rw [← iterateFrobeniusEquiv_def, RingEquiv.apply_symm_apply]
+    rw [PerfectRing.lift_apply i (j.comp φ) p _ n y hx, RingHom.comp_apply, hr,
+      ← iterateFrobeniusEquiv_def, RingEquiv.symm_apply_apply]
+
+end PerfectRing

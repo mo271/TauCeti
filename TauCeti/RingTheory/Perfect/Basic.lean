@@ -32,9 +32,10 @@ roots relate to each other, the fact that `R` is reduced when `p` is prime, and 
   along the `p`-th root of the scalars.
 * `TauCeti.isRadical_iff_frobeniusEquiv_symm_mem`: an ideal is radical exactly when it contains
   the `p`-th roots of its elements.
-* `Ideal.IsRadical.sup`, `Ideal.IsRadical.map`, `Ideal.IsRadical.map_inf`: sums of radical ideals
-  are radical, and extension along a homomorphism of perfect rings preserves radical ideals and
-  their intersections. The first fails for general rings: in `ℚ[x, y]` the sum of the radical
+* `Ideal.IsRadical.isIdempotentElem`, `Ideal.IsRadical.sup`, `Ideal.IsRadical.map`,
+  `Ideal.IsRadical.map_inf`: radical ideals are idempotent, sums of radical ideals are radical,
+  and extension along a homomorphism of perfect rings preserves radical ideals and their
+  intersections. The sum property fails for general rings: in `ℚ[x, y]` the sum of the radical
   ideals `(x)` and `(x - y ^ 2)` is `(x, y ^ 2)`, which is not radical.
 -/
 
@@ -128,6 +129,18 @@ namespace Ideal.IsRadical
 open TauCeti
 
 variable {R S F : Type*} [CommSemiring R] [CommSemiring S] {I J : Ideal R}
+
+/-- In a perfect ring of prime characteristic, every radical ideal is idempotent: every element
+`x ∈ I` factors as `x ^ (1 / p) * (x ^ (1 / p)) ^ (p - 1)`, with both factors in `I`. -/
+theorem isIdempotentElem (p : ℕ) [hp : Fact p.Prime] [ExpChar R p] [PerfectRing R p]
+    (hI : I.IsRadical) : IsIdempotentElem I := by
+  refine le_antisymm Ideal.mul_le_left fun x hx ↦ ?_
+  set y := (frobeniusEquiv R p).symm x
+  have hy : y ∈ I := (isRadical_iff_frobeniusEquiv_symm_mem p).mp hI x hx
+  have hyp : y * y ^ (p - 1) = x := by
+    rw [← pow_succ', Nat.sub_add_cancel hp.out.one_lt.le, ← frobenius_def,
+      frobenius_apply_frobeniusEquiv_symm]
+  exact hyp ▸ Ideal.mul_mem_mul hy (Ideal.pow_mem_of_mem I hy _ (Nat.sub_pos_of_lt hp.out.one_lt))
 
 /-- In a perfect ring of prime characteristic, the sum of two radical ideals is radical: taking
 `p`-th roots is additive. -/

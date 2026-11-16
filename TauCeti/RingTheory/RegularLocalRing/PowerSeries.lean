@@ -9,6 +9,7 @@ public import Mathlib.RingTheory.DiscreteValuationRing.TFAE
 public import Mathlib.RingTheory.PowerSeries.Ideal
 public import Mathlib.RingTheory.RegularLocalRing.Defs
 public import TauCeti.RingTheory.PowerSeries.Ideal
+import Mathlib.RingTheory.MvPowerSeries.Equiv
 import TauCeti.RingTheory.KrullDimension.PowerSeries
 
 /-!
@@ -34,6 +35,8 @@ completeness of `O` and no finiteness of its residue field is needed for this.
   generate the maximal ideal of `R⟦X⟧`.
 * `TauCeti.PowerSeries.isRegularLocalRing`: power series over a regular local ring form a regular
   local ring.
+* `TauCeti.MvPowerSeries.isRegularLocalRing`: multivariate power series in finitely many variables
+  over a regular local ring form a regular local ring.
 * `TauCeti.PowerSeries.ringKrullDim_of_isDiscreteValuationRing` and
   `TauCeti.PowerSeries.maximalIdeal_eq_span_C_X`: over a discrete valuation ring with uniformizer
   `ϖ`, the power series ring has dimension two and maximal ideal `(ϖ, X)`.
@@ -151,5 +154,20 @@ theorem maximalIdeal_eq_span_C_X {ϖ : R} (hϖ : Irreducible ϖ) :
 end IsDiscreteValuationRing
 
 end PowerSeries
+
+namespace MvPowerSeries
+
+open _root_.MvPowerSeries
+
+/-- **Multivariate power series in finitely many variables over a regular local ring form a regular
+local ring.** -/
+instance isRegularLocalRing {σ R : Type*} [CommRing R] [Finite σ] [IsRegularLocalRing R] :
+    IsRegularLocalRing (MvPowerSeries σ R) := by
+  induction σ using Finite.induction_empty_option with
+  | of_equiv e _ => exact IsRegularLocalRing.of_ringEquiv (renameEquiv R e).toRingEquiv
+  | h_empty => exact IsRegularLocalRing.of_ringEquiv (isEmptyEquiv _ R).symm.toRingEquiv
+  | h_option _ => exact IsRegularLocalRing.of_ringEquiv (optionEquivLeft _ R).symm.toRingEquiv
+
+end MvPowerSeries
 
 end TauCeti

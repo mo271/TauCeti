@@ -7,6 +7,7 @@ module
 
 public import Mathlib.Algebra.Category.ModuleCat.ChangeOfRings
 public import Mathlib.Algebra.Category.ModuleCat.Monoidal.Basic
+public import Mathlib.Algebra.Category.ModuleCat.ProjectiveDimension
 public import Mathlib.CategoryTheory.Monoidal.Tor
 public import Mathlib.RingTheory.Flat.Basic
 public import Mathlib.RingTheory.RingHom.Flat
@@ -17,10 +18,12 @@ import Mathlib.Algebra.Homology.HomologicalComplexAbelian
 import Mathlib.Algebra.Homology.HomologySequence
 import Mathlib.RingTheory.Flat.CategoryTheory
 import Mathlib.RingTheory.Flat.Tensor
-import TauCeti.Algebra.Category.ModuleCat.ChangeOfRings
 import TauCeti.Algebra.Category.ModuleCat.Monoidal.ChangeOfRings
+import TauCeti.Algebra.Category.ModuleCat.RestrictScalars
 import TauCeti.CategoryTheory.Abelian.LeftDerived
+import TauCeti.CategoryTheory.Abelian.Projective.LeftDerived
 import TauCeti.LinearAlgebra.TensorProduct.Basic
+public import TauCeti.Algebra.Category.ModuleCat.ChangeOfRings
 public import TauCeti.Algebra.Homology.ModuleCat.Basic
 public import TauCeti.LinearAlgebra.End.TensorProduct
 
@@ -68,6 +71,14 @@ a `B`-module `M` and an `A`-module `N`, `Torₙ^A(M, N)` vanishes exactly when
 `Torₙ^B(M, B ⊗[A] N)` does (`ModuleCat.isZero_Tor_restrictScalars_iff`). Extension of scalars
 along `f` carries a projective resolution of `N` to one of `B ⊗[A] N`, and
 `M ⊗[B] (B ⊗[A] -) ≅ M ⊗[A] -` (`ModuleCat.extendScalarsCompTensorLeftIso`).
+
+Without flatness of `f : A →+* B`, the left derived functors of scalar extension along `f` vanish
+at an `A`-module `N` precisely when `Torₙ^A(B, N)` vanishes
+(`ModuleCat.isZero_leftDerived_extendScalars_iff`). Thus `pd_B (B ⊗[A] N) ≤ d` whenever
+`pd_A N ≤ d` and `Torᵢ^A(B, N) = 0` for `1 ≤ i ≤ d`
+(`ModuleCat.hasProjectiveDimensionLE_extendScalars_of_isZero_Tor`), and when `f` is surjective so
+that restriction of scalars is full, `pd_B M ≤ d` whenever `pd_A M ≤ d` and `Torᵢ^A(B, M) = 0` for
+`1 ≤ i ≤ d` (`ModuleCat.hasProjectiveDimensionLE_of_surjective_of_isZero_Tor`).
 
 ## References
 
@@ -402,5 +413,70 @@ theorem isZero_Tor_restrictScalars_iff (hf : f.Flat) (M : ModuleCat.{u} B) (N : 
     ((tensorResolution Q' M).sc n).exact_map_iff_of_faithful (restrictScalars.{u} f)
   rw [← hR]
   exact ⟨fun h ↦ h.of_iso e.symm, fun h ↦ h.of_iso e⟩
+
+/-- **Vanishing of left derived scalar extension as `Tor` vanishing.** For a ring homomorphism
+`f : A →+* B` and an `A`-module `N`, the `n`-th left derived functor of `extendScalars f` vanishes
+at `N` precisely when `Torₙ^A(B, N)` vanishes. -/
+theorem isZero_leftDerived_extendScalars_iff (N : ModuleCat.{u} A) (n : ℕ) :
+    IsZero (((extendScalars.{u, u, u} f).leftDerived n).obj N) ↔
+      IsZero (((Tor (ModuleCat.{u} A) n).obj ((restrictScalars f).obj (of B B))).obj N) := by
+  let Q := projectiveResolution N
+  let K := ((extendScalars.{u, u, u} f).mapHomologicalComplex _).obj Q.complex
+  have hL : IsZero (((extendScalars.{u, u, u} f).leftDerived n).obj N) ↔ IsZero (K.homology n) :=
+    ⟨fun h ↦ h.of_iso (Q.isoLeftDerivedObj _ n).symm, fun h ↦ h.of_iso (Q.isoLeftDerivedObj _ n)⟩
+  rw [hL, isZero_Tor_iff Q, ← HomologicalComplex.exactAt_iff_isZero_homology,
+    ← HomologicalComplex.exactAt_iff_isZero_homology]
+  -- After restricting scalars to `A`, `K` is `B ⊗[B] (B ⊗[A] Q) ≅ B ⊗[A] Q`.
+  let e : ((restrictScalars.{u} f).mapHomologicalComplex _).obj K ≅
+      tensorResolution Q ((restrictScalars f).obj (of B B)) :=
+    HomologicalComplex.Hom.isoOfComponents
+      (fun k ↦ (restrictScalars.{u} f).mapIso
+        (λ_ ((extendScalars.{u, u, u} f).obj (Q.complex.X k))).symm ≪≫
+          (extendScalarsCompTensorLeftIso f (of B B)).app (Q.complex.X k))
+      fun i j _ ↦ by
+        simp only [K, Functor.mapHomologicalComplex_obj_X, Functor.mapHomologicalComplex_obj_d,
+          Iso.trans_hom, Functor.mapIso_hom, Iso.symm_hom, Iso.app_hom, Category.assoc]
+        rw [← (extendScalarsCompTensorLeftIso f (of B B)).hom.naturality (Q.complex.d i j)]
+        simp only [Functor.comp_obj, Functor.comp_map, ← Category.assoc,
+          ← (restrictScalars.{u} f).map_comp]
+        congr 2
+  have hR : (((restrictScalars.{u} f).mapHomologicalComplex _).obj K).ExactAt n ↔ K.ExactAt n :=
+    (K.sc n).exact_map_iff_of_faithful (restrictScalars.{u} f)
+  rw [← hR]
+  exact ⟨fun h ↦ h.of_iso e.symm, fun h ↦ h.of_iso e⟩
+
+/-- **Projective dimension under `Tor`-acyclic scalar extension.** For `f : A →+* B` and an
+`A`-module `N` of projective dimension at most `d`, if `Tor_{i+1}^A(B, N) = 0` for `i < d` then
+`B ⊗[A] N` has projective dimension at most `d` over `B`. -/
+theorem hasProjectiveDimensionLE_extendScalars_of_isZero_Tor (N : ModuleCat.{u} A) (d : ℕ)
+    [HasProjectiveDimensionLE N d]
+    (h : ∀ i < d,
+      IsZero (((Tor (ModuleCat.{u} A) (i + 1)).obj ((restrictScalars f).obj (of B B))).obj N)) :
+    HasProjectiveDimensionLE ((extendScalars.{u, u, u} f).obj N) d := by
+  have : PreservesColimitsOfSize.{0, 0} (extendScalars.{u, u, u} f) :=
+    (extendRestrictScalarsAdj.{u, u, u} f).leftAdjoint_preservesColimits
+  have : PreservesFiniteColimits (extendScalars.{u, u, u} f) :=
+    PreservesColimitsOfSize.preservesFiniteColimits _
+  have : (extendScalars.{u, u, u} f).PreservesProjectiveObjects :=
+    Functor.preservesProjectiveObjects_of_adjunction_of_preservesEpimorphisms
+      (extendRestrictScalarsAdj.{u, u, u} f)
+  exact (extendScalars.{u, u, u} f).hasProjectiveDimensionLE_obj_of_isZero_leftDerived N d
+    fun i hi ↦ (isZero_leftDerived_extendScalars_iff f N (i + 1)).mpr (h i hi)
+
+variable {f} in
+/-- **Projective dimension along a surjective ring homomorphism.** If `f : A →+* B` is surjective,
+`M` is a `B`-module with `pd_A M ≤ d`, and `Tor_{i+1}^A(B, M) = 0` for `i < d`, then
+`pd_B M ≤ d`. -/
+theorem hasProjectiveDimensionLE_of_surjective_of_isZero_Tor (hf : Function.Surjective f)
+    (M : ModuleCat.{u} B) (d : ℕ) [HasProjectiveDimensionLE ((restrictScalars f).obj M) d]
+    (h : ∀ i < d, IsZero (((Tor (ModuleCat.{u} A) (i + 1)).obj
+      ((restrictScalars f).obj (of B B))).obj ((restrictScalars f).obj M))) :
+    HasProjectiveDimensionLE M d := by
+  have := f.full_restrictScalars hf
+  have : (extendScalars.{u, u, u} f).PreservesProjectiveObjects :=
+    Functor.preservesProjectiveObjects_of_adjunction_of_preservesEpimorphisms
+      (extendRestrictScalarsAdj.{u, u, u} f)
+  exact (extendRestrictScalarsAdj.{u, u, u} f).hasProjectiveDimensionLE_of_isZero_leftDerived M d
+    fun i hi ↦ (isZero_leftDerived_extendScalars_iff f _ (i + 1)).mpr (h i hi)
 
 end ModuleCat
