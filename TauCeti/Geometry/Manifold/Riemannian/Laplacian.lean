@@ -40,8 +40,10 @@ real function `h`, with its special case `Δ (log f) = Δ f / f - |grad f|² / f
 finite-dimensional normed space whose metric is a field of bilinear forms `g`, the Hessian in
 linear coordinates is `D²f(u, v) - Df(Γ(u, v))` with `Γ` the Christoffel symbols of `g`. On a
 finite-dimensional inner-product space, the operator agrees with Mathlib's
-flat Laplacian. The Hessian conventions follow Lee, *Introduction to Riemannian Manifolds*,
-Chapter 3.
+flat Laplacian. For applications comparing or evolving families of metrics on a fixed manifold,
+`Bundle.ContMDiffRiemannianMetric.hessian` and `Bundle.ContMDiffRiemannianMetric.laplaceBeltrami`
+evaluate both operators with respect to an explicit `C^n` (`1 ≤ n`) metric. The Hessian conventions
+follow Lee, *Introduction to Riemannian Manifolds*, Chapter 3.
 
 -/
 
@@ -573,17 +575,30 @@ theorem laplaceBeltrami_smul (c : ℝ) {f : M → ℝ} (hf : ContMDiff I 𝓘(�
     laplaceBeltrami I (c • f) x = c * laplaceBeltrami I f x :=
   laplaceBeltrami_smul_of_contMDiffAt I c (hf x)
 
+/-- The Laplace–Beltrami operator commutes with negation at a point where the function is `C²`. -/
+theorem laplaceBeltrami_neg_of_contMDiffAt {f : M → ℝ} {x : M}
+    (hf : ContMDiffAt I 𝓘(ℝ) 2 f x) :
+    laplaceBeltrami I (-f) x = -laplaceBeltrami I f x := by
+  rw [← neg_one_smul ℝ f, laplaceBeltrami_smul_of_contMDiffAt I _ hf, neg_one_mul]
+
 /-- The Laplace–Beltrami operator commutes with negation on `C²` functions. -/
 theorem laplaceBeltrami_neg {f : M → ℝ} (hf : ContMDiff I 𝓘(ℝ) 2 f) (x : M) :
-    laplaceBeltrami I (-f) x = -laplaceBeltrami I f x := by
-  rw [← neg_one_smul ℝ f, laplaceBeltrami_smul I _ hf, neg_one_mul]
+    laplaceBeltrami I (-f) x = -laplaceBeltrami I f x :=
+  laplaceBeltrami_neg_of_contMDiffAt I (hf x)
+
+/-- The Laplace–Beltrami operator is additive with respect to subtraction at a point where both
+functions are `C²`. -/
+theorem laplaceBeltrami_sub_of_contMDiffAt {f g : M → ℝ} {x : M}
+    (hf : ContMDiffAt I 𝓘(ℝ) 2 f x) (hg : ContMDiffAt I 𝓘(ℝ) 2 g x) :
+    laplaceBeltrami I (f - g) x = laplaceBeltrami I f x - laplaceBeltrami I g x := by
+  rw [sub_eq_add_neg, laplaceBeltrami_add_of_contMDiffAt I (g := -g) hf hg.neg,
+    laplaceBeltrami_neg_of_contMDiffAt I hg, sub_eq_add_neg]
 
 /-- The Laplace–Beltrami operator is additive with respect to subtraction of `C²` functions. -/
 theorem laplaceBeltrami_sub {f g : M → ℝ} (hf : ContMDiff I 𝓘(ℝ) 2 f)
     (hg : ContMDiff I 𝓘(ℝ) 2 g) (x : M) :
-    laplaceBeltrami I (f - g) x = laplaceBeltrami I f x - laplaceBeltrami I g x := by
-  rw [sub_eq_add_neg, laplaceBeltrami_add I hf (g := -g) hg.neg, laplaceBeltrami_neg I hg,
-    sub_eq_add_neg]
+    laplaceBeltrami I (f - g) x = laplaceBeltrami I f x - laplaceBeltrami I g x :=
+  laplaceBeltrami_sub_of_contMDiffAt I (hf x) (hg x)
 
 /-- **Chain rule for the Laplace--Beltrami operator.** If `h` is `C²` on an open set of real
 numbers containing all values of a `C²` function `f`, then
@@ -937,3 +952,250 @@ theorem laplaceBeltrami_eq_laplacian_of_eq
   exact TauCeti.laplacian_norm_sq x
 
 end TauCeti.Manifold
+
+namespace Bundle.ContMDiffRiemannianMetric
+
+variable {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E] [FiniteDimensional ℝ E]
+  {H : Type*} [TopologicalSpace H] {I : ModelWithCorners ℝ E H}
+  {M : Type*} [TopologicalSpace M] [ChartedSpace H M] [IsManifold I 2 M] {n : ℕ∞ω}
+
+/-- The scalar Hessian of `f` with respect to an explicit `C^n` (`1 ≤ n`) Riemannian metric `g`,
+obtained by installing `g` as the tangent-bundle metric. This allows families of metrics on the
+same manifold to be compared without typeclass collisions. -/
+protected noncomputable def hessian
+    (g : ContMDiffRiemannianMetric I n E (fun x : M ↦ TangentSpace I x)) (hn : 1 ≤ n)
+    (f : M → ℝ) (x : M) (v w : TangentSpace I x) : ℝ :=
+  letI : RiemannianBundle (fun x : M ↦ TangentSpace I x) := ⟨g.toRiemannianMetric⟩
+  letI : IsContMDiffRiemannianBundle I 1 E (fun x : M ↦ TangentSpace I x) :=
+    IsContMDiffRiemannianBundle.of_le hn
+  TauCeti.Manifold.hessian I f x v w
+
+/-- Unfolding lemma for `Bundle.ContMDiffRiemannianMetric.hessian`. -/
+protected theorem hessian_def
+    (g : ContMDiffRiemannianMetric I n E (fun x : M ↦ TangentSpace I x)) (hn : 1 ≤ n)
+    (f : M → ℝ) (x : M) (v w : TangentSpace I x) :
+    g.hessian hn f x v w =
+      (letI : RiemannianBundle (fun x : M ↦ TangentSpace I x) := ⟨g.toRiemannianMetric⟩
+       letI : IsContMDiffRiemannianBundle I 1 E (fun x : M ↦ TangentSpace I x) :=
+         IsContMDiffRiemannianBundle.of_le hn
+       TauCeti.Manifold.hessian I f x v w) :=
+  (rfl)
+
+omit [FiniteDimensional ℝ E] [IsManifold I 2 M] in
+private theorem riemannianMetric_ext {m₁ m₂ : RiemannianMetric (fun x : M ↦ TangentSpace I x)}
+    (h : ∀ y v w, m₁.inner y v w = m₂.inner y v w) : m₁ = m₂ := by
+  cases m₁
+  cases m₂
+  congr 1
+  funext y
+  ext v w
+  exact h y v w
+
+/-- If every fibre inner product of `g` agrees with the ambient `RiemannianBundle` inner product,
+`g.hessian` agrees with `TauCeti.Manifold.hessian`. -/
+theorem hessian_eq_hessian
+    (g : ContMDiffRiemannianMetric I n E (fun x : M ↦ TangentSpace I x)) (hn : 1 ≤ n)
+    [inst : RiemannianBundle (fun x : M ↦ TangentSpace I x)]
+    [IsContMDiffRiemannianBundle I 1 E (fun x : M ↦ TangentSpace I x)]
+    (hg : ∀ y (v w : TangentSpace I y), g.inner y v w = Inner.inner ℝ v w)
+    (f : M → ℝ) (x : M) (v w : TangentSpace I x) :
+    g.hessian hn f x v w = TauCeti.Manifold.hessian I f x v w := by
+  have hm : RiemannianBundle.g = g.toRiemannianMetric :=
+    riemannianMetric_ext fun y v₁ w₁ ↦ (hg y v₁ w₁).symm
+  obtain ⟨_⟩ := inst
+  subst hm
+  rfl
+
+/-- `g.hessian` vanishes on constant functions. -/
+@[simp]
+protected theorem hessian_const
+    (g : ContMDiffRiemannianMetric I n E (fun x : M ↦ TangentSpace I x)) (hn : 1 ≤ n)
+    (c : ℝ) (x : M) (v w : TangentSpace I x) :
+    g.hessian hn (fun _ : M ↦ c) x v w = 0 := by
+  let _ : RiemannianBundle (fun x : M ↦ TangentSpace I x) := ⟨g.toRiemannianMetric⟩
+  let _ : IsContMDiffRiemannianBundle I 1 E (fun x : M ↦ TangentSpace I x) :=
+    IsContMDiffRiemannianBundle.of_le hn
+  exact TauCeti.Manifold.hessian_const I c x v w
+
+/-- `g.hessian` vanishes on the zero function. -/
+@[simp]
+protected theorem hessian_zero
+    (g : ContMDiffRiemannianMetric I n E (fun x : M ↦ TangentSpace I x)) (hn : 1 ≤ n)
+    (x : M) (v w : TangentSpace I x) :
+    g.hessian hn (0 : M → ℝ) x v w = 0 :=
+  g.hessian_const hn 0 x v w
+
+/-- `g.hessian` is symmetric at a `C²` point. -/
+protected theorem hessian_symm
+    (g : ContMDiffRiemannianMetric I n E (fun x : M ↦ TangentSpace I x)) (hn : 1 ≤ n)
+    {f : M → ℝ} (x : M) (hf : ContMDiffAt I 𝓘(ℝ) 2 f x) (v w : TangentSpace I x) :
+    g.hessian hn f x v w = g.hessian hn f x w v := by
+  let _ : RiemannianBundle (fun x : M ↦ TangentSpace I x) := ⟨g.toRiemannianMetric⟩
+  let _ : IsContMDiffRiemannianBundle I 1 E (fun x : M ↦ TangentSpace I x) :=
+    IsContMDiffRiemannianBundle.of_le hn
+  exact TauCeti.Manifold.hessian_symm x hf v w
+
+/-- `g.hessian` is additive in its first tangent argument. -/
+@[simp]
+protected theorem hessian_add_left
+    (g : ContMDiffRiemannianMetric I n E (fun x : M ↦ TangentSpace I x)) (hn : 1 ≤ n)
+    (f : M → ℝ) (x : M) (v₁ v₂ w : TangentSpace I x) :
+    g.hessian hn f x (v₁ + v₂) w = g.hessian hn f x v₁ w + g.hessian hn f x v₂ w := by
+  let _ : RiemannianBundle (fun x : M ↦ TangentSpace I x) := ⟨g.toRiemannianMetric⟩
+  let _ : IsContMDiffRiemannianBundle I 1 E (fun x : M ↦ TangentSpace I x) :=
+    IsContMDiffRiemannianBundle.of_le hn
+  exact TauCeti.Manifold.hessian_add_left I f x v₁ v₂ w
+
+/-- `g.hessian` is homogeneous in its first tangent argument. -/
+@[simp]
+protected theorem hessian_smul_left
+    (g : ContMDiffRiemannianMetric I n E (fun x : M ↦ TangentSpace I x)) (hn : 1 ≤ n)
+    (f : M → ℝ) (x : M) (r : ℝ) (v w : TangentSpace I x) :
+    g.hessian hn f x (r • v) w = r * g.hessian hn f x v w := by
+  let _ : RiemannianBundle (fun x : M ↦ TangentSpace I x) := ⟨g.toRiemannianMetric⟩
+  let _ : IsContMDiffRiemannianBundle I 1 E (fun x : M ↦ TangentSpace I x) :=
+    IsContMDiffRiemannianBundle.of_le hn
+  exact TauCeti.Manifold.hessian_smul_left I f x r v w
+
+/-- `g.hessian` vanishes when its first tangent argument is zero. -/
+@[simp]
+protected theorem hessian_zero_left
+    (g : ContMDiffRiemannianMetric I n E (fun x : M ↦ TangentSpace I x)) (hn : 1 ≤ n)
+    (f : M → ℝ) (x : M) (w : TangentSpace I x) :
+    g.hessian hn f x 0 w = 0 := by
+  let _ : RiemannianBundle (fun x : M ↦ TangentSpace I x) := ⟨g.toRiemannianMetric⟩
+  let _ : IsContMDiffRiemannianBundle I 1 E (fun x : M ↦ TangentSpace I x) :=
+    IsContMDiffRiemannianBundle.of_le hn
+  exact TauCeti.Manifold.hessian_zero_left I f x w
+
+/-- `g.hessian` is additive in its second tangent argument. -/
+@[simp]
+protected theorem hessian_add_right
+    (g : ContMDiffRiemannianMetric I n E (fun x : M ↦ TangentSpace I x)) (hn : 1 ≤ n)
+    (f : M → ℝ) (x : M) (v w₁ w₂ : TangentSpace I x) :
+    g.hessian hn f x v (w₁ + w₂) = g.hessian hn f x v w₁ + g.hessian hn f x v w₂ := by
+  let _ : RiemannianBundle (fun x : M ↦ TangentSpace I x) := ⟨g.toRiemannianMetric⟩
+  let _ : IsContMDiffRiemannianBundle I 1 E (fun x : M ↦ TangentSpace I x) :=
+    IsContMDiffRiemannianBundle.of_le hn
+  exact TauCeti.Manifold.hessian_add_right I f x v w₁ w₂
+
+/-- `g.hessian` is homogeneous in its second tangent argument. -/
+@[simp]
+protected theorem hessian_smul_right
+    (g : ContMDiffRiemannianMetric I n E (fun x : M ↦ TangentSpace I x)) (hn : 1 ≤ n)
+    (f : M → ℝ) (x : M) (r : ℝ) (v w : TangentSpace I x) :
+    g.hessian hn f x v (r • w) = r * g.hessian hn f x v w := by
+  let _ : RiemannianBundle (fun x : M ↦ TangentSpace I x) := ⟨g.toRiemannianMetric⟩
+  let _ : IsContMDiffRiemannianBundle I 1 E (fun x : M ↦ TangentSpace I x) :=
+    IsContMDiffRiemannianBundle.of_le hn
+  exact TauCeti.Manifold.hessian_smul_right I f x r v w
+
+/-- `g.hessian` vanishes when its second tangent argument is zero. -/
+@[simp]
+protected theorem hessian_zero_right
+    (g : ContMDiffRiemannianMetric I n E (fun x : M ↦ TangentSpace I x)) (hn : 1 ≤ n)
+    (f : M → ℝ) (x : M) (v : TangentSpace I x) :
+    g.hessian hn f x v 0 = 0 := by
+  let _ : RiemannianBundle (fun x : M ↦ TangentSpace I x) := ⟨g.toRiemannianMetric⟩
+  let _ : IsContMDiffRiemannianBundle I 1 E (fun x : M ↦ TangentSpace I x) :=
+    IsContMDiffRiemannianBundle.of_le hn
+  exact TauCeti.Manifold.hessian_zero_right I f x v
+
+/-- The Laplace–Beltrami operator `Δ_g = div_g ∘ grad_g` with respect to an explicit `C^n`
+(`1 ≤ n`) Riemannian metric `g`. -/
+protected noncomputable def laplaceBeltrami
+    (g : ContMDiffRiemannianMetric I n E (fun x : M ↦ TangentSpace I x)) (hn : 1 ≤ n)
+    (f : M → ℝ) (x : M) : ℝ :=
+  letI : RiemannianBundle (fun x : M ↦ TangentSpace I x) := ⟨g.toRiemannianMetric⟩
+  letI : IsContMDiffRiemannianBundle I 1 E (fun x : M ↦ TangentSpace I x) :=
+    IsContMDiffRiemannianBundle.of_le hn
+  TauCeti.Manifold.laplaceBeltrami I f x
+
+/-- Unfolding lemma for `Bundle.ContMDiffRiemannianMetric.laplaceBeltrami`. -/
+protected theorem laplaceBeltrami_def
+    (g : ContMDiffRiemannianMetric I n E (fun x : M ↦ TangentSpace I x)) (hn : 1 ≤ n)
+    (f : M → ℝ) (x : M) :
+    g.laplaceBeltrami hn f x =
+      (letI : RiemannianBundle (fun x : M ↦ TangentSpace I x) := ⟨g.toRiemannianMetric⟩
+       letI : IsContMDiffRiemannianBundle I 1 E (fun x : M ↦ TangentSpace I x) :=
+         IsContMDiffRiemannianBundle.of_le hn
+       TauCeti.Manifold.laplaceBeltrami I f x) :=
+  (rfl)
+
+/-- If every fibre inner product of `g` agrees with the ambient `RiemannianBundle` inner product,
+`g.laplaceBeltrami` agrees with `TauCeti.Manifold.laplaceBeltrami`. -/
+theorem laplaceBeltrami_eq_laplaceBeltrami
+    (g : ContMDiffRiemannianMetric I n E (fun x : M ↦ TangentSpace I x)) (hn : 1 ≤ n)
+    [inst : RiemannianBundle (fun x : M ↦ TangentSpace I x)]
+    [IsContMDiffRiemannianBundle I 1 E (fun x : M ↦ TangentSpace I x)]
+    (hg : ∀ y (v w : TangentSpace I y), g.inner y v w = Inner.inner ℝ v w) (f : M → ℝ) (x : M) :
+    g.laplaceBeltrami hn f x = TauCeti.Manifold.laplaceBeltrami I f x := by
+  have hm : RiemannianBundle.g = g.toRiemannianMetric :=
+    riemannianMetric_ext fun y v₁ w₁ ↦ (hg y v₁ w₁).symm
+  obtain ⟨_⟩ := inst
+  subst hm
+  rfl
+
+/-- `g.laplaceBeltrami` vanishes on constant functions. -/
+@[simp]
+protected theorem laplaceBeltrami_const
+    (g : ContMDiffRiemannianMetric I n E (fun x : M ↦ TangentSpace I x)) (hn : 1 ≤ n)
+    (c : ℝ) (x : M) :
+    g.laplaceBeltrami hn (fun _ : M ↦ c) x = 0 := by
+  let _ : RiemannianBundle (fun x : M ↦ TangentSpace I x) := ⟨g.toRiemannianMetric⟩
+  let _ : IsContMDiffRiemannianBundle I 1 E (fun x : M ↦ TangentSpace I x) :=
+    IsContMDiffRiemannianBundle.of_le hn
+  exact TauCeti.Manifold.laplaceBeltrami_const I c x
+
+/-- `g.laplaceBeltrami` vanishes on the zero function. -/
+@[simp]
+protected theorem laplaceBeltrami_zero
+    (g : ContMDiffRiemannianMetric I n E (fun x : M ↦ TangentSpace I x)) (hn : 1 ≤ n) (x : M) :
+    g.laplaceBeltrami hn (0 : M → ℝ) x = 0 :=
+  g.laplaceBeltrami_const hn 0 x
+
+/-- `g.laplaceBeltrami` is additive at a point where both functions are `C²`. -/
+protected theorem laplaceBeltrami_add_of_contMDiffAt
+    (g : ContMDiffRiemannianMetric I n E (fun x : M ↦ TangentSpace I x)) (hn : 1 ≤ n)
+    {f₁ f₂ : M → ℝ} {x : M}
+    (hf₁ : ContMDiffAt I 𝓘(ℝ) 2 f₁ x) (hf₂ : ContMDiffAt I 𝓘(ℝ) 2 f₂ x) :
+    g.laplaceBeltrami hn (f₁ + f₂) x =
+      g.laplaceBeltrami hn f₁ x + g.laplaceBeltrami hn f₂ x := by
+  let _ : RiemannianBundle (fun x : M ↦ TangentSpace I x) := ⟨g.toRiemannianMetric⟩
+  let _ : IsContMDiffRiemannianBundle I 1 E (fun x : M ↦ TangentSpace I x) :=
+    IsContMDiffRiemannianBundle.of_le hn
+  exact TauCeti.Manifold.laplaceBeltrami_add_of_contMDiffAt I hf₁ hf₂
+
+/-- `g.laplaceBeltrami` commutes with real scalar multiplication at a `C²` point. -/
+protected theorem laplaceBeltrami_smul_of_contMDiffAt
+    (g : ContMDiffRiemannianMetric I n E (fun x : M ↦ TangentSpace I x)) (hn : 1 ≤ n)
+    (c : ℝ) {f : M → ℝ} {x : M} (hf : ContMDiffAt I 𝓘(ℝ) 2 f x) :
+    g.laplaceBeltrami hn (c • f) x = c * g.laplaceBeltrami hn f x := by
+  let _ : RiemannianBundle (fun x : M ↦ TangentSpace I x) := ⟨g.toRiemannianMetric⟩
+  let _ : IsContMDiffRiemannianBundle I 1 E (fun x : M ↦ TangentSpace I x) :=
+    IsContMDiffRiemannianBundle.of_le hn
+  exact TauCeti.Manifold.laplaceBeltrami_smul_of_contMDiffAt I c hf
+
+/-- `g.laplaceBeltrami` commutes with negation at a `C²` point. -/
+protected theorem laplaceBeltrami_neg_of_contMDiffAt
+    (g : ContMDiffRiemannianMetric I n E (fun x : M ↦ TangentSpace I x)) (hn : 1 ≤ n)
+    {f : M → ℝ} {x : M} (hf : ContMDiffAt I 𝓘(ℝ) 2 f x) :
+    g.laplaceBeltrami hn (-f) x = -g.laplaceBeltrami hn f x := by
+  let _ : RiemannianBundle (fun x : M ↦ TangentSpace I x) := ⟨g.toRiemannianMetric⟩
+  let _ : IsContMDiffRiemannianBundle I 1 E (fun x : M ↦ TangentSpace I x) :=
+    IsContMDiffRiemannianBundle.of_le hn
+  exact TauCeti.Manifold.laplaceBeltrami_neg_of_contMDiffAt I hf
+
+/-- `g.laplaceBeltrami` preserves subtraction at a point where both functions are `C²`. -/
+protected theorem laplaceBeltrami_sub_of_contMDiffAt
+    (g : ContMDiffRiemannianMetric I n E (fun x : M ↦ TangentSpace I x)) (hn : 1 ≤ n)
+    {f₁ f₂ : M → ℝ} {x : M}
+    (hf₁ : ContMDiffAt I 𝓘(ℝ) 2 f₁ x) (hf₂ : ContMDiffAt I 𝓘(ℝ) 2 f₂ x) :
+    g.laplaceBeltrami hn (f₁ - f₂) x =
+      g.laplaceBeltrami hn f₁ x - g.laplaceBeltrami hn f₂ x := by
+  let _ : RiemannianBundle (fun x : M ↦ TangentSpace I x) := ⟨g.toRiemannianMetric⟩
+  let _ : IsContMDiffRiemannianBundle I 1 E (fun x : M ↦ TangentSpace I x) :=
+    IsContMDiffRiemannianBundle.of_le hn
+  exact TauCeti.Manifold.laplaceBeltrami_sub_of_contMDiffAt I hf₁ hf₂
+
+end Bundle.ContMDiffRiemannianMetric

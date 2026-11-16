@@ -7,7 +7,7 @@ module
 
 public import TauCeti.Geometry.Manifold.VectorBundle.CovariantDerivative.Curvature.Conformal.Basic
 import TauCeti.Geometry.Manifold.ContMDiff.Log
-import TauCeti.Geometry.Manifold.Riemannian.MaximumPrinciple
+import TauCeti.Geometry.Manifold.Riemannian.MaximumPrinciple.Basic
 import TauCeti.Geometry.Manifold.VectorBundle.CovariantDerivative.Curvature.Polarization
 
 /-!

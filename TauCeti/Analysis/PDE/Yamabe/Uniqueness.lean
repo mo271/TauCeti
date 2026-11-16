@@ -8,7 +8,7 @@ module
 public import TauCeti.Analysis.PDE.Yamabe.ConformalLaplacian
 public import TauCeti.Geometry.Manifold.Riemannian.VolumeDensity.Conformal
 import TauCeti.Geometry.Manifold.Riemannian.Harmonic
-import TauCeti.Geometry.Manifold.Riemannian.MaximumPrinciple
+import TauCeti.Geometry.Manifold.Riemannian.MaximumPrinciple.Basic
 
 /-!
 # Uniqueness of nonpositive constant scalar curvature in a conformal class

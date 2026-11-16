@@ -5,7 +5,7 @@ Authors: The Tau Ceti contributors
 -/
 module
 
-public import TauCeti.Geometry.Manifold.Riemannian.MaximumPrinciple
+public import TauCeti.Geometry.Manifold.Riemannian.MaximumPrinciple.Basic
 
 /-!
 # Taubes's gradient bounds for large-parameter Seiberg–Witten solutions
