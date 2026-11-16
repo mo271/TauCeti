@@ -5,7 +5,7 @@ Authors: The Tau Ceti contributors
 -/
 module
 
-public import TauCeti.RingTheory.Huber.Reduction
+public import TauCeti.RingTheory.Huber.Reduction.Basic
 public import TauCeti.RingTheory.Affinoid.PowerBounded
 public import Mathlib.Topology.Maps.Strict.Basic
 import TauCeti.RingTheory.Affinoid.Integral.Equation

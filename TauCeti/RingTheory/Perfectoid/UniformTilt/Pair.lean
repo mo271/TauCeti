@@ -7,7 +7,7 @@ module
 
 public import TauCeti.RingTheory.Perfectoid.UniformTilt.Tate
 public import TauCeti.RingTheory.Perfectoid.UniformTilt.Quotient
-import TauCeti.RingTheory.Huber.Reduction
+import TauCeti.RingTheory.Huber.Reduction.Basic
 
 /-!
 # Tilting Huber pairs
