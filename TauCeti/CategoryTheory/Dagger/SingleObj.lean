@@ -16,8 +16,9 @@ public import TauCeti.CategoryTheory.Linear.SingleObj
 A star monoid `M` makes `CategoryTheory.SingleObj M` a dagger category in which categorical
 composition is opposite to multiplication (`f ≫ g = g * f`), so `dagger` is `star` and
 `End (SingleObj.star M)` recovers `M` with its original multiplication and star. When `A` is a
-star ring (or `R`-star algebra), `SingleObj A` inherits `DaggerPreadditive`, `DaggerLinear`, and
-the canonical `⋆`-algebra isomorphism `SingleObj.toEndStarAlgEquiv`.
+star ring (or a ring with `StarMul` and a central `R`-module action), `SingleObj A` inherits
+`DaggerPreadditive`, `DaggerLinear`, and the canonical `⋆`-algebra isomorphism
+`SingleObj.toEndStarAlgEquiv`.
 -/
 
 public section
@@ -48,33 +49,38 @@ instance instDaggerPreadditive (A : Type u) [Ring A] [StarRing A] :
     DaggerPreadditive (SingleObj A) where
   dagger_add := star_add
 
-instance instDaggerLinear (R : Type w) (A : Type u) [Semiring R] [Star R] [Ring A] [StarRing A]
+instance instDaggerLinear (R : Type w) (A : Type u) [Semiring R] [Star R] [Ring A] [StarMul A]
     [Module R A] [SMulCommClass R A A] [IsScalarTower R A A] [StarModule R A] :
     DaggerLinear R (SingleObj A) where
   dagger_smul := star_smul
 
 /-- The endomorphism `⋆`-algebra of the unique object of `SingleObj A` is canonically isomorphic
 to `A`. -/
-def toEndStarAlgEquiv (R : Type w) (A : Type u) [CommSemiring R] [Ring A] [StarRing A]
-    [Algebra R A] : A ≃⋆ₐ[R] End (SingleObj.star A) where
-  toEquiv := (toEndAlgEquiv R A).toEquiv
-  map_mul' := map_mul (toEndAlgEquiv R A)
-  map_add' := map_add (toEndAlgEquiv R A)
-  map_smul' := map_smul (toEndAlgEquiv R A)
-  map_star' a := by
-    ext
-    simp [dagger_as_star]
+def toEndStarAlgEquiv (R : Type w) (A : Type u) [Semiring R] [Ring A] [StarMul A]
+    [Module R A] [SMulCommClass R A A] [IsScalarTower R A A] :
+    A ≃⋆ₐ[R] End (SingleObj.star A) where
+  __ := SingleObj.toEnd A
+  map_add' _ _ := by ext; simp [toEnd_def]
+  map_smul' _ _ := by ext; simp [toEnd_def]
+  map_star' _ := by ext; simp [toEnd_def, dagger_as_star]
 
 /-- Forward evaluation of `SingleObj.toEndStarAlgEquiv`. -/
-@[simp] theorem toEndStarAlgEquiv_apply {R : Type w} {A : Type u} [CommSemiring R] [Ring A]
-    [StarRing A] [Algebra R A] (a : A) : toEndStarAlgEquiv R A a = .of a := by
-  simp [toEndStarAlgEquiv]
+@[simp] theorem toEndStarAlgEquiv_apply {R : Type w} {A : Type u} [Semiring R] [Ring A]
+    [StarMul A] [Module R A] [SMulCommClass R A A] [IsScalarTower R A A] (a : A) :
+    toEndStarAlgEquiv R A a = .of a := (rfl)
 
 /-- Inverse evaluation of `SingleObj.toEndStarAlgEquiv`. -/
-@[simp] theorem toEndStarAlgEquiv_symm_apply {R : Type w} {A : Type u} [CommSemiring R] [Ring A]
-    [StarRing A] [Algebra R A] (f : End (SingleObj.star A)) :
-    (toEndStarAlgEquiv R A).symm f = f.asHom := by
-  simp [toEndStarAlgEquiv]
+@[simp] theorem toEndStarAlgEquiv_symm_apply {R : Type w} {A : Type u} [Semiring R] [Ring A]
+    [StarMul A] [Module R A] [SMulCommClass R A A] [IsScalarTower R A A]
+    (f : End (SingleObj.star A)) : (toEndStarAlgEquiv R A).symm f = f.asHom := (rfl)
+
+/-- Over a commutative base semiring, forgetting `star` from `SingleObj.toEndStarAlgEquiv` recovers
+`SingleObj.toEndAlgEquiv`. -/
+@[simp] theorem toEndStarAlgEquiv_toAlgEquiv (R : Type w) (A : Type u) [CommSemiring R] [Ring A]
+    [StarMul A] [Algebra R A] :
+    (toEndStarAlgEquiv R A).toAlgEquiv = toEndAlgEquiv R A := by
+  ext
+  simp
 
 /-- A monoid homomorphism commuting with `star` induces a dagger-preserving functor between
 single-object categories. -/

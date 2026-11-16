@@ -5,7 +5,7 @@ Authors: The Tau Ceti contributors
 -/
 module
 
-public import Mathlib.Algebra.Star.Basic
+public import Mathlib.Algebra.Module.LinearMap.Star
 public import Mathlib.CategoryTheory.Linear.Basic
 
 /-!
@@ -178,6 +178,30 @@ class DaggerLinear (R : Type w) [Semiring R] [Star R]
 
 export DaggerLinear (dagger_smul)
 attribute [simp, grind =] dagger_smul
+
+section Linear
+
+variable (R : Type w) [CommSemiring R] [StarRing R]
+variable [Preadditive C] [Linear R C] [DaggerPreadditive C] [DaggerLinear R C]
+
+/-- The dagger as a conjugate-linear equivalence of opposite Hom modules. -/
+def daggerLinearEquiv (X Y : C) : (X ⟶ Y) ≃ₗ⋆[R] (Y ⟶ X) where
+  toAddEquiv := daggerAddEquiv X Y
+  map_smul' := dagger_smul
+
+/-- Evaluation of the conjugate-linear dagger equivalence. -/
+@[simp] theorem daggerLinearEquiv_apply (f : X ⟶ Y) :
+    daggerLinearEquiv R X Y f = dagger f := (rfl)
+
+/-- The inverse conjugate-linear dagger equivalence reverses its endpoints. -/
+@[simp] theorem daggerLinearEquiv_symm (X Y : C) :
+    (daggerLinearEquiv R X Y).symm = daggerLinearEquiv R Y X := (rfl)
+
+/-- Forgetting scalar compatibility recovers the additive dagger equivalence. -/
+@[simp] theorem daggerLinearEquiv_toAddEquiv (X Y : C) :
+    (daggerLinearEquiv R X Y).toAddEquiv = daggerAddEquiv X Y := (rfl)
+
+end Linear
 
 /-- An arrow is unitary when its dagger is its two-sided inverse. -/
 def IsUnitary (f : X ⟶ Y) : Prop :=

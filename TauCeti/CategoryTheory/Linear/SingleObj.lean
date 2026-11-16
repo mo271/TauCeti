@@ -38,10 +38,8 @@ isomorphic to `A`. -/
 def toEndAlgEquiv (R : Type w) (A : Type u) [CommSemiring R] [Ring A] [Algebra R A] :
     A ≃ₐ[R] End (SingleObj.star A) where
   __ := SingleObj.toEnd A
-  map_add' _ _ := rfl
-  commutes' r := by
-    ext
-    exact Algebra.algebraMap_eq_smul_one r
+  map_add' _ _ := by ext; simp [toEnd_def]
+  commutes' r := by ext; simp [toEnd_def, Algebra.algebraMap_eq_smul_one, SingleObj.id_as_one]
 
 /-- Applying `SingleObj.toEndAlgEquiv` wraps an element of `A` as an endomorphism. -/
 @[simp] theorem toEndAlgEquiv_apply {R : Type w} {A : Type u} [CommSemiring R] [Ring A]

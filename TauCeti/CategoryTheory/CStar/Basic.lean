@@ -36,15 +36,20 @@ inner-product extensionality, and the polarization identities.
   `End.of (f ≫ dagger f)`.
 * `TauCeti.daggerLinearIsometryEquiv`: the dagger as a conjugate-linear isometric equivalence
   `(X ⟶ Y) ≃ₗᵢ⋆[ℂ] (Y ⟶ X)`.
-* `TauCeti.compCLM`, `TauCeti.leftCompCLM`, `TauCeti.rightCompCLM`: categorical composition
-  bundled as contractive continuous `ℂ`-linear maps, with closed kernels.
-* `CategoryTheory.End.instCStarAlgebra`, `CategoryTheory.End.linearIsometryEquiv`: the compatible
-  unital C⋆-algebra structure and spectral order on `End X`.
-* `TauCeti.norm_id_eq_zero_or_one`, `TauCeti.IsUnitary.norm_eq_one`,
-  `TauCeti.norm_le_one_of_idempotent_of_dagger_eq`: norm formulas for identities, zero objects,
-  unitary arrows, and self-adjoint projections.
-* `TauCeti.instCStarModuleEndHom`, `TauCeti.instCStarModuleOpEndHom`: left and right Hilbert
-  C⋆-module structures on Hom spaces, together with categorical Cauchy–Schwarz and polarization.
+* `TauCeti.compCLM`, `TauCeti.leftCompCLM`, `TauCeti.rightCompCLM`: categorical composition as a
+  contractive continuous `ℂ`-bilinear map, together with bounded continuous `ℂ`-linear
+  precomposition and postcomposition maps (of operator norms bounded by `‖f‖` and `‖g‖`) with
+  closed kernels.
+* `CategoryTheory.End.instCStarAlgebra`, `CategoryTheory.End.linearIsometryEquiv`,
+  `CategoryTheory.End.of_comp_le_comp_dagger`, `CategoryTheory.End.of_comp_dagger_mul_le`:
+  the compatible unital C⋆-algebra structure, spectral order, rectangular conjugation monotonicity,
+  and Cauchy–Schwarz inequalities on `End X`.
+* `TauCeti.norm_eq_zero_or_one_of_idempotent_of_dagger_eq`, `TauCeti.norm_id_eq_zero_or_one`,
+  `TauCeti.IsUnitary.norm_eq_one`, `TauCeti.norm_le_one_of_idempotent_of_dagger_eq`: norm formulas
+  for self-adjoint projections, identities, zero objects, and unitary arrows.
+* `TauCeti.instCStarModuleEndHom`, `TauCeti.instCStarModuleOpEndHom`,
+  `TauCeti.isGreatest_norm_comp_dagger`, `TauCeti.isGreatest_norm_dagger_comp`: left and right
+  Hilbert C⋆-module structures on Hom spaces, norm recovery, and polarization.
 
 ## References
 
@@ -138,31 +143,32 @@ private theorem norm_dagger_le (f : X ⟶ Y) : ‖dagger f‖ ≤ ‖f‖ := by
 
 /-- The dagger bundled as a conjugate-linear isometric equivalence of opposite Hom spaces. -/
 def daggerLinearIsometryEquiv (X Y : C) : (X ⟶ Y) ≃ₗᵢ⋆[ℂ] (Y ⟶ X) where
-  toFun := dagger
-  invFun := dagger
-  left_inv := dagger_dagger
-  right_inv := dagger_dagger
-  map_add' := dagger_add
-  map_smul' := dagger_smul
-  norm_map' := norm_dagger
+  toLinearEquiv := daggerLinearEquiv ℂ X Y
+  norm_map' f := by simp
 
 /-- Evaluation of `daggerLinearIsometryEquiv`. -/
 @[simp] theorem daggerLinearIsometryEquiv_apply (f : X ⟶ Y) :
-    daggerLinearIsometryEquiv X Y f = dagger f := (rfl)
+    daggerLinearIsometryEquiv X Y f = dagger f := by
+  simp [daggerLinearIsometryEquiv]
 
 /-- The inverse of `daggerLinearIsometryEquiv` reverses its endpoints. -/
 @[simp] theorem daggerLinearIsometryEquiv_symm (X Y : C) :
-    (daggerLinearIsometryEquiv X Y).symm = daggerLinearIsometryEquiv Y X := (rfl)
+    (daggerLinearIsometryEquiv X Y).symm = daggerLinearIsometryEquiv Y X := by
+  ext f
+  rw [LinearIsometryEquiv.symm_apply_eq]
+  simp
 
 /-- Forgetting norms from `daggerLinearIsometryEquiv` recovers `daggerLinearEquiv`. -/
 @[simp] theorem daggerLinearIsometryEquiv_toLinearEquiv (X Y : C) :
-    (daggerLinearIsometryEquiv X Y).toLinearEquiv = daggerLinearEquiv ℂ X Y := by
-  ext
-  simp
+    (daggerLinearIsometryEquiv X Y).toLinearEquiv = daggerLinearEquiv ℂ X Y := (rfl)
 
 /-- Taking daggers is an isometry between opposite Hom spaces. -/
-theorem isometry_dagger (X Y : C) : Isometry (dagger : (X ⟶ Y) → (Y ⟶ X)) :=
-  (daggerLinearIsometryEquiv X Y).isometry
+theorem isometry_dagger (X Y : C) : Isometry (dagger : (X ⟶ Y) → (Y ⟶ X)) := by
+  have h : (dagger : (X ⟶ Y) → (Y ⟶ X)) = ⇑(daggerLinearIsometryEquiv X Y) := by
+    ext
+    simp
+  rw [h]
+  exact (daggerLinearIsometryEquiv X Y).isometry
 
 /-- The C⋆-identity in categorical composition order: `‖f ≫ dagger f‖ = ‖f‖ ^ 2`. -/
 @[simp] theorem norm_self_comp_dagger (f : X ⟶ Y) : ‖f ≫ dagger f‖ = ‖f‖ ^ 2 := by
@@ -194,13 +200,8 @@ theorem isometry_dagger (X Y : C) : Isometry (dagger : (X ⟶ Y) → (Y ⟶ X)) 
 
 /-- Categorical composition as a continuous `ℂ`-bilinear map of operator norm at most `1`. -/
 def compCLM (X Y Z : C) : (X ⟶ Y) →L[ℂ] (Y ⟶ Z) →L[ℂ] (X ⟶ Z) :=
-  LinearMap.mkContinuous₂
-    { toFun := fun f => Linear.leftComp ℂ Z f
-      map_add' := fun f₁ f₂ => by ext g; exact Preadditive.add_comp X Y Z f₁ f₂ g
-      map_smul' := fun c f => by ext g; exact Linear.smul_comp X Y Z c f g }
-    1 (fun f g => by
-      simp only [LinearMap.coe_mk, AddHom.coe_mk, Linear.leftComp_apply, one_mul]
-      exact norm_comp_le' f g)
+  LinearMap.mkContinuous₂ (Linear.comp (S := ℂ) X Y Z) 1 fun f g => by
+    simpa only [Linear.comp_apply, Linear.leftComp_apply, one_mul] using norm_comp_le' f g
 
 /-- Applying `compCLM` composes the two arrows. -/
 @[simp] theorem compCLM_apply (f : X ⟶ Y) (g : Y ⟶ Z) : compCLM X Y Z f g = f ≫ g := (rfl)
@@ -240,13 +241,15 @@ theorem continuous_comp :
 
 /-- The subspace of arrows `g : Y ⟶ Z` annihilated on the left by `f : X ⟶ Y` is closed. -/
 theorem isClosed_setOf_comp_eq_zero_right (f : X ⟶ Y) (Z : C) :
-    IsClosed {g : Y ⟶ Z | f ≫ g = 0} :=
-  ContinuousLinearMap.isClosed_ker (leftCompCLM Z f)
+    IsClosed {g : Y ⟶ Z | f ≫ g = 0} := by
+  simpa only [← leftCompCLM_apply Z f] using
+    isClosed_eq (leftCompCLM Z f).continuous continuous_const
 
 /-- The subspace of arrows `f : X ⟶ Y` annihilated on the right by `g : Y ⟶ Z` is closed. -/
 theorem isClosed_setOf_comp_eq_zero_left (X : C) (g : Y ⟶ Z) :
-    IsClosed {f : X ⟶ Y | f ≫ g = 0} :=
-  ContinuousLinearMap.isClosed_ker (rightCompCLM X g)
+    IsClosed {f : X ⟶ Y | f ≫ g = 0} := by
+  simpa only [← rightCompCLM_apply X g] using
+    isClosed_eq (rightCompCLM X g).continuous continuous_const
 
 end Basic
 
@@ -323,39 +326,60 @@ instance instStarOrderedRing (X : C) : StarOrderedRing (End X) :=
     0 ≤ (End.of (dagger f ≫ f) : End Y) := by
   simpa using of_comp_dagger_self_nonneg (dagger f)
 
+/-- Rectangular conjugation `a ↦ f ≫ a ≫ dagger f` sends positive endomorphisms in `End Y` to
+positive endomorphisms in `End X`. -/
+theorem of_comp_nonneg_comp_dagger (f : X ⟶ Y) {a : End Y} (ha : 0 ≤ a) :
+    0 ≤ End.of (f ≫ a.asHom ≫ dagger f) := by
+  let s : End Y := CFC.sqrt a
+  have hs_sa : dagger s.asHom = s.asHom :=
+    (isSelfAdjoint_iff s).mp (CFC.sqrt_nonneg a).isSelfAdjoint
+  have hs_sq : s.asHom ≫ s.asHom = a.asHom := by
+    simpa only [mul_asHom] using congrArg End.asHom (CFC.sqrt_mul_sqrt_self a ha)
+  have heq : End.of (f ≫ a.asHom ≫ dagger f) =
+      End.of ((f ≫ s.asHom) ≫ dagger (f ≫ s.asHom)) := by
+    rw [← hs_sq]
+    simp [Category.assoc, hs_sa]
+  rw [heq]
+  exact of_comp_dagger_self_nonneg (f ≫ s.asHom)
+
+/-- Dual rectangular conjugation `a ↦ dagger f ≫ a ≫ f` sends positive endomorphisms in `End X`
+to positive endomorphisms in `End Y`. -/
+theorem of_dagger_comp_nonneg_comp (f : X ⟶ Y) {a : End X} (ha : 0 ≤ a) :
+    0 ≤ End.of (dagger f ≫ a.asHom ≫ f) := by
+  simpa using of_comp_nonneg_comp_dagger (dagger f) ha
+
+/-- Rectangular conjugation `a ↦ f ≫ a ≫ dagger f` is monotone from `End Y` to `End X`. -/
+theorem of_comp_le_comp_dagger (f : X ⟶ Y) {a b : End Y} (hab : a ≤ b) :
+    End.of (f ≫ a.asHom ≫ dagger f) ≤ End.of (f ≫ b.asHom ≫ dagger f) := by
+  rw [← sub_nonneg] at hab ⊢
+  have hdiff : End.of (f ≫ b.asHom ≫ dagger f) - End.of (f ≫ a.asHom ≫ dagger f) =
+      End.of (f ≫ (b - a).asHom ≫ dagger f) := by
+    rw [← of_sub]
+    simp [Preadditive.comp_sub, Preadditive.sub_comp]
+  rw [hdiff]
+  exact of_comp_nonneg_comp_dagger f hab
+
+/-- Dual rectangular conjugation `a ↦ dagger f ≫ a ≫ f` is monotone from `End X` to `End Y`. -/
+theorem of_dagger_comp_le_comp (f : X ⟶ Y) {a b : End X} (hab : a ≤ b) :
+    End.of (dagger f ≫ a.asHom ≫ f) ≤ End.of (dagger f ≫ b.asHom ≫ f) := by
+  simpa using of_comp_le_comp_dagger (dagger f) hab
+
 /-- Conjugating a self-adjoint endomorphism `b : Y ⟶ Y` by `f : X ⟶ Y` is bounded in the spectral
 order of `End X` by `‖b‖ • End.of (f ≫ dagger f)`. -/
 theorem of_comp_selfAdjoint_comp_dagger_le_norm_smul (f : X ⟶ Y) {b : Y ⟶ Y}
     (hb : dagger b = b) :
     End.of (f ≫ b ≫ dagger f) ≤ ‖b‖ • End.of (f ≫ dagger f) := by
-  -- Decompose `‖b‖ • 𝟙 Y - b` as a positive square `s * s` in `End Y`, then conjugate by `f`.
   have hb_sa : IsSelfAdjoint (End.of b) := (isSelfAdjoint_of_iff b).mpr hb
-  have hle : End.of b ≤ algebraMap ℝ (End Y) ‖End.of b‖ := hb_sa.le_algebraMap_norm_self
-  have hsub : 0 ≤ algebraMap ℝ (End Y) ‖b‖ - End.of b := sub_nonneg.mpr hle
-  let s : End Y := CFC.sqrt (algebraMap ℝ (End Y) ‖b‖ - End.of b)
-  have hs_sa : dagger s.asHom = s.asHom :=
-    (isSelfAdjoint_iff s).mp (CFC.sqrt_nonneg _).isSelfAdjoint
-  have hs_sq : s.asHom ≫ s.asHom = (‖b‖ : ℂ) • 𝟙 Y - b := by
-    have h1 := congrArg End.asHom (CFC.sqrt_mul_sqrt_self _ hsub)
-    have halg : (algebraMap ℝ (End Y) ‖b‖).asHom = (‖b‖ : ℂ) • 𝟙 Y := by
-      rw [Algebra.algebraMap_eq_smul_one]
-      rfl
-    simpa [halg, ← Complex.coe_smul] using h1
-  rw [← sub_nonneg]
-  have hdiff : ‖b‖ • End.of (f ≫ dagger f) - End.of (f ≫ b ≫ dagger f) =
-      End.of ((f ≫ s.asHom) ≫ dagger (f ≫ s.asHom)) := by
-    ext
-    have hsmul : (‖b‖ • End.of (f ≫ dagger f)).asHom = (‖b‖ : ℂ) • (f ≫ dagger f) := rfl
-    calc (‖b‖ • End.of (f ≫ dagger f) - End.of (f ≫ b ≫ dagger f)).asHom
-        = (‖b‖ : ℂ) • (f ≫ dagger f) - f ≫ b ≫ dagger f := by rw [sub_asHom, hsmul]
-      _ = f ≫ ((‖b‖ : ℂ) • 𝟙 Y - b) ≫ dagger f := by
-          rw [Preadditive.sub_comp, Preadditive.comp_sub, Linear.smul_comp, Category.id_comp,
-            Linear.comp_smul]
-      _ = f ≫ (s.asHom ≫ s.asHom) ≫ dagger f := by rw [hs_sq]
-      _ = (End.of ((f ≫ s.asHom) ≫ dagger (f ≫ s.asHom))).asHom := by
-          simp [Category.assoc, hs_sa]
-  rw [hdiff]
-  exact of_comp_dagger_self_nonneg (f ≫ s.asHom)
+  have hle : End.of b ≤ algebraMap ℝ (End Y) ‖b‖ := by
+    simpa only [norm_of] using hb_sa.le_algebraMap_norm_self
+  refine (of_comp_le_comp_dagger f hle).trans_eq ?_
+  ext
+  have halg : (algebraMap ℝ (End Y) ‖b‖).asHom = (‖b‖ : ℂ) • 𝟙 Y := by
+    rw [Algebra.algebraMap_eq_smul_one, ← Complex.coe_smul, smul_asHom, one_asHom]
+  have hsmul : (‖b‖ • End.of (f ≫ dagger f)).asHom = (‖b‖ : ℂ) • (f ≫ dagger f) := by
+    rw [← Complex.coe_smul, smul_asHom]
+  rw [halg, hsmul]
+  simp [-Complex.coe_smul]
 
 end CategoryTheory.End
 
@@ -413,7 +437,7 @@ private theorem existsSqrtAux {X Y : C} (f : X ⟶ Y) {A : Type v} [CStarAlgebra
 
 /-- Construct a `CStarCategory` from Ghez–Lima–Roberts' spectral positivity condition:
 every real spectral value of `End.of (f ≫ dagger f)` in `End X` is nonnegative. -/
-@[instance_reducible]
+@[expose, instance_reducible]
 def CStarCategory.ofSpectrumNonneg
     [homNorm : ∀ X Y : C, Norm (X ⟶ Y)]
     [homMetricSpace : ∀ X Y : C, MetricSpace (X ⟶ Y)]
@@ -432,8 +456,9 @@ def CStarCategory.ofSpectrumNonneg
   norm_smul_le := norm_smul_le
   norm_comp_le := norm_comp_le
   norm_mul_self_le := norm_mul_self_le
-  exists_comp_dagger_eq {X Y} f :=
-    @existsSqrtAux C _ _ _ _ X Y f (End X)
+  -- `by exact` keeps the private helpers inside a proof rather than in the exposed instance body.
+  exists_comp_dagger_eq {X Y} f := by
+    exact @existsSqrtAux C _ _ _ _ X Y f (End X)
       (mkEndCStarAlgebraAux X (homNorm X X) (homMetricSpace X X) (homCompleteSpace X X)
         dist_eq norm_smul_le norm_comp_le norm_mul_self_le)
       (StarAlgEquiv.refl ℂ (End X)) (spectrum_nonneg f)
@@ -450,15 +475,21 @@ theorem exists_selfAdjoint_sq_eq_comp_dagger_self (f : X ⟶ Y) :
 
 /-! ### Norm formulas for identities, zero objects, unitaries, and projections -/
 
-/-- For every object `X`, the norm of `𝟙 X` is either `0` (when `X` is a zero object) or `1`. -/
-theorem norm_id_eq_zero_or_one (X : C) : ‖(𝟙 X : X ⟶ X)‖ = 0 ∨ ‖(𝟙 X : X ⟶ X)‖ = 1 := by
-  have hsq : ‖(𝟙 X : X ⟶ X)‖ ^ 2 = ‖(𝟙 X : X ⟶ X)‖ := by
-    simpa using (norm_self_comp_dagger (𝟙 X)).symm
-  have hmul : ‖(𝟙 X : X ⟶ X)‖ * (‖(𝟙 X : X ⟶ X)‖ - 1) = 0 := by
-    linarith [sq (‖(𝟙 X : X ⟶ X)‖)]
+/-- Every self-adjoint idempotent endomorphism (a projection) has norm `0` or `1`. -/
+theorem norm_eq_zero_or_one_of_idempotent_of_dagger_eq {e : X ⟶ X} (he_idem : e ≫ e = e)
+    (he_sa : dagger e = e) : ‖e‖ = 0 ∨ ‖e‖ = 1 := by
+  have hsq : ‖e‖ ^ 2 = ‖e‖ := by
+    calc ‖e‖ ^ 2 = ‖e ≫ dagger e‖ := (norm_self_comp_dagger e).symm
+      _ = ‖e‖ := by rw [he_sa, he_idem]
+  have hmul : ‖e‖ * (‖e‖ - 1) = 0 := by
+    linarith [sq ‖e‖]
   rcases mul_eq_zero.mp hmul with h0 | h1
   · exact Or.inl h0
   · exact Or.inr (sub_eq_zero.mp h1)
+
+/-- For every object `X`, the norm of `𝟙 X` is either `0` (when `X` is a zero object) or `1`. -/
+theorem norm_id_eq_zero_or_one (X : C) : ‖(𝟙 X : X ⟶ X)‖ = 0 ∨ ‖(𝟙 X : X ⟶ X)‖ = 1 :=
+  norm_eq_zero_or_one_of_idempotent_of_dagger_eq (Category.id_comp (𝟙 X)) (dagger_id X)
 
 /-- Identity morphisms have norm at most `1`, unconditionally (including on zero objects). -/
 theorem norm_id_le_one (X : C) : ‖(𝟙 X : X ⟶ X)‖ ≤ 1 := by
@@ -507,6 +538,14 @@ def leftCompLinearIsometryEquiv {u : X ⟶ Y} (hu : IsUnitary u) (Z : C) :
   map_smul' _ _ := Linear.comp_smul _ _ _ _ _ _
   norm_map' := hu.norm_comp_left
 
+/-- Forward evaluation of `IsUnitary.leftCompLinearIsometryEquiv`. -/
+@[simp] theorem leftCompLinearIsometryEquiv_apply {u : X ⟶ Y} (hu : IsUnitary u) (Z : C)
+    (g : Y ⟶ Z) : hu.leftCompLinearIsometryEquiv Z g = u ≫ g := (rfl)
+
+/-- Inverse evaluation of `IsUnitary.leftCompLinearIsometryEquiv`. -/
+@[simp] theorem leftCompLinearIsometryEquiv_symm_apply {u : X ⟶ Y} (hu : IsUnitary u) (Z : C)
+    (h : X ⟶ Z) : (hu.leftCompLinearIsometryEquiv Z).symm h = TauCeti.dagger u ≫ h := (rfl)
+
 /-- Postcomposition with a unitary arrow as a `ℂ`-linear isometric equivalence of Hom spaces. -/
 def rightCompLinearIsometryEquiv (W : C) {u : X ⟶ Y} (hu : IsUnitary u) :
     (W ⟶ X) ≃ₗᵢ[ℂ] (W ⟶ Y) where
@@ -518,29 +557,35 @@ def rightCompLinearIsometryEquiv (W : C) {u : X ⟶ Y} (hu : IsUnitary u) :
   map_smul' _ _ := Linear.smul_comp _ _ _ _ _ _
   norm_map' f := hu.norm_comp_right f
 
+/-- Forward evaluation of `IsUnitary.rightCompLinearIsometryEquiv`. -/
+@[simp] theorem rightCompLinearIsometryEquiv_apply (W : C) {u : X ⟶ Y} (hu : IsUnitary u)
+    (f : W ⟶ X) : hu.rightCompLinearIsometryEquiv W f = f ≫ u := (rfl)
+
+/-- Inverse evaluation of `IsUnitary.rightCompLinearIsometryEquiv`. -/
+@[simp] theorem rightCompLinearIsometryEquiv_symm_apply (W : C) {u : X ⟶ Y} (hu : IsUnitary u)
+    (h : W ⟶ Y) : (hu.rightCompLinearIsometryEquiv W).symm h = h ≫ TauCeti.dagger u := (rfl)
+
+/-- Every unitary arrow has the same norm as the source identity morphism. -/
+theorem norm_eq_norm_id {u : X ⟶ Y} (hu : IsUnitary u) : ‖u‖ = ‖(𝟙 X : X ⟶ X)‖ := by
+  simpa using hu.norm_comp_right (𝟙 X)
+
 /-- Every unitary arrow has norm at most `1`. -/
-theorem norm_le_one {u : X ⟶ Y} (hu : IsUnitary u) : ‖u‖ ≤ 1 := by
-  rw [← sq_le_one_iff₀ (norm_nonneg u), ← norm_self_comp_dagger, hu.hom_dagger_id]
-  exact norm_id_le_one X
+theorem norm_le_one {u : X ⟶ Y} (hu : IsUnitary u) : ‖u‖ ≤ 1 :=
+  hu.norm_eq_norm_id.trans_le (norm_id_le_one X)
 
 /-- A unitary arrow out of an object with nontrivial endomorphisms has norm `1`. -/
-theorem norm_eq_one {u : X ⟶ Y} (hu : IsUnitary u) [Nontrivial (End X)] : ‖u‖ = 1 := by
-  have hsq : ‖u‖ ^ 2 = 1 := by
-    rw [← norm_self_comp_dagger, hu.hom_dagger_id, norm_id_of_nontrivial]
-  nlinarith [norm_nonneg u]
+theorem norm_eq_one {u : X ⟶ Y} (hu : IsUnitary u) [Nontrivial (End X)] : ‖u‖ = 1 :=
+  hu.norm_eq_norm_id.trans (norm_id_of_nontrivial X)
 
 /-- A unitary arrow out of a non-zero object has norm `1`. -/
 theorem norm_eq_one_of_not_isZero {u : X ⟶ Y} (hu : IsUnitary u) (hX : ¬Limits.IsZero X) :
-    ‖u‖ = 1 := by
-  have hsq : ‖u‖ ^ 2 = 1 := by
-    rw [← norm_self_comp_dagger, hu.hom_dagger_id, norm_id_of_not_isZero hX]
-  nlinarith [norm_nonneg u]
+    ‖u‖ = 1 :=
+  hu.norm_eq_norm_id.trans (norm_id_of_not_isZero hX)
 
 /-- A unitary arrow out of a zero object has norm `0`. -/
 theorem norm_eq_zero_of_isZero {u : X ⟶ Y} (hu : IsUnitary u) (hX : Limits.IsZero X) :
-    ‖u‖ = 0 := by
-  rw [← sq_eq_zero_iff, ← norm_self_comp_dagger, hu.hom_dagger_id,
-    (norm_id_eq_zero_iff X).mpr hX]
+    ‖u‖ = 0 :=
+  hu.norm_eq_norm_id.trans ((norm_id_eq_zero_iff X).mpr hX)
 
 end IsUnitary
 
@@ -551,12 +596,9 @@ theorem norm_le_one_of_idempotent_of_dagger_eq {e : X ⟶ X} (he_idem : e ≫ e 
 
 /-- Any nonzero self-adjoint idempotent endomorphism has norm `1`. -/
 theorem norm_eq_one_of_idempotent_of_dagger_eq {e : X ⟶ X} (he_idem : e ≫ e = e)
-    (he_sa : dagger e = e) (he0 : e ≠ 0) : ‖e‖ = 1 := by
-  have hsq : ‖e‖ ^ 2 = ‖e‖ := by
-    calc ‖e‖ ^ 2 = ‖e ≫ dagger e‖ := (norm_self_comp_dagger e).symm
-      _ = ‖e‖ := by rw [he_sa, he_idem]
-  have hpos : 0 < ‖e‖ := norm_pos_iff.mpr he0
-  nlinarith
+    (he_sa : dagger e = e) (he0 : e ≠ 0) : ‖e‖ = 1 :=
+  (norm_eq_zero_or_one_of_idempotent_of_dagger_eq he_idem he_sa).resolve_left
+    (norm_ne_zero_iff.mpr he0)
 
 /-! ### Hilbert C⋆-module structures on Hom spaces, Cauchy–Schwarz, and polarization -/
 
@@ -612,9 +654,21 @@ instance instCStarModuleOpEndHom (X Y : C) : CStarModule (End X)ᵐᵒᵖ (X ⟶
 @[simp] theorem unop_inner_opEnd_hom (f g : X ⟶ Y) :
     unop (inner (End X)ᵐᵒᵖ f g) = End.of (g ≫ dagger f) := (rfl)
 
+end Consequences
+
+end TauCeti
+
+namespace CategoryTheory.End
+
+open TauCeti
+
+variable {C : Type u} [Category.{v} C] [Preadditive C] [Linear ℂ C]
+  [DaggerCategory C] [DaggerPreadditive C] [DaggerLinear ℂ C] [CStarCategory C]
+variable {X Y : C}
+
 /-- Cauchy–Schwarz inequality in the spectral order of `End X`:
 `End.of (f ≫ dagger g) * End.of (g ≫ dagger f) ≤ ‖f‖ ^ 2 • End.of (g ≫ dagger g)`. -/
-theorem end_of_comp_dagger_mul_le (f g : X ⟶ Y) :
+theorem of_comp_dagger_mul_le (f g : X ⟶ Y) :
     End.of (f ≫ dagger g) * End.of (g ≫ dagger f) ≤ ‖f‖ ^ 2 • End.of (g ≫ dagger g) := by
   have h := CStarModule.star_unop_inner_mul_unop_inner_le (A := End X) f g
   have hstar : star (End.of (g ≫ dagger f)) = End.of (f ≫ dagger g) := by ext; simp
@@ -622,15 +676,31 @@ theorem end_of_comp_dagger_mul_le (f g : X ⟶ Y) :
 
 /-- Cauchy–Schwarz inequality in the spectral order of `End Y`:
 `End.of (dagger f ≫ g) * End.of (dagger g ≫ f) ≤ ‖f‖ ^ 2 • End.of (dagger g ≫ g)`. -/
-theorem end_of_dagger_comp_mul_le (f g : X ⟶ Y) :
+theorem of_dagger_comp_mul_le (f g : X ⟶ Y) :
     End.of (dagger f ≫ g) * End.of (dagger g ≫ f) ≤ ‖f‖ ^ 2 • End.of (dagger g ≫ g) := by
   simpa using CStarModule.inner_mul_inner_swap_le (A := End Y) (x := f) (y := g)
+
+end CategoryTheory.End
+
+namespace TauCeti
+
+section ModuleConsequences
+
+variable {C : Type u} [Category.{v} C] [Preadditive C] [Linear ℂ C]
+  [DaggerCategory C] [DaggerPreadditive C] [DaggerLinear ℂ C] [CStarCategory C]
+variable {X Y : C}
 
 /-- Norm recovery: `‖f‖` is the greatest value of `‖f ≫ dagger g‖` as `g : X ⟶ Y` ranges over the
 closed unit ball. -/
 theorem isGreatest_norm_comp_dagger (f : X ⟶ Y) :
     IsGreatest {‖f ≫ dagger g‖ | (g : X ⟶ Y) (_ : ‖g‖ ≤ 1)} ‖f‖ := by
   simpa using CStarModule.isGreatest_norm_unop_inner (A := End X) f
+
+/-- Norm recovery: `‖f‖` is the greatest value of `‖dagger g ≫ f‖` as `g : X ⟶ Y` ranges over the
+closed unit ball. -/
+theorem isGreatest_norm_dagger_comp (f : X ⟶ Y) :
+    IsGreatest {‖dagger g ≫ f‖ | (g : X ⟶ Y) (_ : ‖g‖ ≤ 1)} ‖f‖ := by
+  simpa using CStarModule.isGreatest_norm_inner (A := End Y) f
 
 /-- Morphisms in `X ⟶ Y` are determined by pairing on the right with `dagger h` for all
 `h : X ⟶ Y`. -/
@@ -649,6 +719,7 @@ theorem ext_dagger_comp {f g : X ⟶ Y} (h : ∀ k : X ⟶ Y, dagger k ≫ f = d
   ext
   exact h k
 
+omit [CStarCategory C] in
 /-- Polarization identity in `X ⟶ X`: `g ≫ dagger f` is a linear combination of four
 self-composites `h ≫ dagger h`. -/
 theorem comp_dagger_polarization (f g : X ⟶ Y) :
@@ -656,10 +727,13 @@ theorem comp_dagger_polarization (f g : X ⟶ Y) :
       ((f + g) ≫ dagger (f + g) - (f - g) ≫ dagger (f - g) -
         I • ((f + I • g) ≫ dagger (f + I • g)) +
         I • ((f - I • g) ≫ dagger (f - I • g))) := by
-  have h := congrArg (End.asHom ∘ unop) (CStarModule.inner_polarization (A := (End X)ᵐᵒᵖ) f g)
-  simp only [Function.comp_apply, unop_smul, unop_inner_opEnd_hom, End.smul_asHom] at h
-  exact h
+  simp only [dagger_add, dagger_sub, dagger_smul, Preadditive.add_comp, Preadditive.comp_add,
+    Preadditive.sub_comp, Preadditive.comp_sub, Preadditive.comp_neg, Linear.smul_comp,
+    Linear.comp_smul, Complex.star_def, conj_I, smul_add, smul_sub, smul_neg, smul_smul, neg_smul,
+    I_mul_I]
+  module
 
+omit [CStarCategory C] in
 /-- Dual polarization identity in `Y ⟶ Y`: `dagger f ≫ g` is a linear combination of four
 self-composites `dagger h ≫ h`. -/
 theorem dagger_comp_polarization (f g : X ⟶ Y) :
@@ -667,10 +741,13 @@ theorem dagger_comp_polarization (f g : X ⟶ Y) :
       (dagger (f + g) ≫ (f + g) - dagger (f - g) ≫ (f - g) -
         I • (dagger (f + I • g) ≫ (f + I • g)) +
         I • (dagger (f - I • g) ≫ (f - I • g))) := by
-  have h := congrArg End.asHom (CStarModule.inner_polarization (A := End Y) f g)
-  simpa using h
+  simp only [dagger_add, dagger_sub, dagger_smul, Preadditive.add_comp, Preadditive.comp_add,
+    Preadditive.sub_comp, Preadditive.comp_sub, Preadditive.neg_comp, Linear.smul_comp,
+    Linear.comp_smul, Complex.star_def, conj_I, smul_add, smul_sub, smul_neg, smul_smul, neg_smul,
+    I_mul_I]
+  module
 
-end Consequences
+end ModuleConsequences
 
 end TauCeti
 

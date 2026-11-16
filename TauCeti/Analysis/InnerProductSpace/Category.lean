@@ -7,6 +7,7 @@ module
 
 public import Mathlib.Analysis.InnerProductSpace.Adjoint
 public import Mathlib.CategoryTheory.ConcreteCategory.Basic
+public import Mathlib.CategoryTheory.ObjectProperty.ClosedUnderIsomorphisms
 public import TauCeti.CategoryTheory.Dagger.Basic
 
 /-!
@@ -15,11 +16,16 @@ public import TauCeti.CategoryTheory.Dagger.Basic
 `TauCeti.HilbertCat 𝕜` bundles complete inner product spaces over an `RCLike` field.
 Its morphisms are Mathlib continuous linear maps, with their existing Banach-space
 structures. Composition and addition give the native linear category structure, and
-Mathlib's `ContinuousLinearMap.adjoint` supplies the conjugate-linear dagger.
+Mathlib's `ContinuousLinearMap.adjoint` supplies the conjugate-linear dagger; the
+categorical endomorphism `⋆`-algebra `End X` identifies with `X →L[𝕜] X` via
+`TauCeti.HilbertCat.endStarAlgEquiv`.
 
-Unitary arrows are precisely the maps underlying linear isometric equivalences.
-The operator norm satisfies the C*-identity in categorical composition order; these
-facts provide the Hilbert-space example for analytic categories.
+Unitary arrows are precisely the maps underlying linear isometric equivalences, zero
+objects are the subsingleton Hilbert spaces (for which `‖𝟙 X‖ = 0`, whereas nontrivial
+spaces satisfy `‖𝟙 X‖ = 1`), and `TauCeti.HilbertCat.isFiniteDimensional` cuts out the
+isomorphism-closed property of finite-dimensional Hilbert spaces. The operator norm
+satisfies the C*-identity in categorical composition order; these facts provide the
+Hilbert-space example for analytic categories.
 -/
 
 public section
@@ -315,6 +321,78 @@ theorem unitaryEquivLinearIsometryEquiv_apply_apply
 theorem unitaryEquivLinearIsometryEquiv_symm_val_apply
     (e : X ≃ₗᵢ[𝕜] Y) (x : X) :
     (unitaryEquivLinearIsometryEquiv.symm e).1 x = e x := (rfl)
+
+/-- The categorical endomorphism `⋆`-algebra `End X` of a Hilbert space `X` over `𝕜` is canonically
+`⋆`-isomorphic to `X →L[𝕜] X` (both use operator-order multiplication). -/
+def endStarAlgEquiv (X : HilbertCat.{u, v} 𝕜) : End X ≃⋆ₐ[𝕜] (X →L[𝕜] X) where
+  toFun f := f.asHom
+  invFun f := End.of f
+  left_inv _ := rfl
+  right_inv _ := rfl
+  map_mul' f g := by rw [End.mul_asHom, comp_eq_comp, ContinuousLinearMap.mul_def]
+  map_add' f g := by rw [End.add_asHom]
+  map_smul' r f := by rw [End.smul_asHom]
+  map_star' f := by rw [End.star_asHom, dagger_eq_adjoint, ContinuousLinearMap.star_eq_adjoint]
+
+/-- Forward evaluation of `HilbertCat.endStarAlgEquiv`. -/
+@[simp] theorem endStarAlgEquiv_apply (X : HilbertCat.{u, v} 𝕜) (f : End X) :
+    endStarAlgEquiv X f = f.asHom := (rfl)
+
+/-- Inverse evaluation of `HilbertCat.endStarAlgEquiv`. -/
+@[simp] theorem endStarAlgEquiv_symm_apply (X : HilbertCat.{u, v} 𝕜) (f : X →L[𝕜] X) :
+    (endStarAlgEquiv X).symm f = End.of f := (rfl)
+
+/-- An object of `HilbertCat 𝕜` is a categorical zero object if and only if its underlying carrier
+is subsingleton. -/
+theorem isZero_iff_subsingleton {X : HilbertCat.{u, v} 𝕜} :
+    Limits.IsZero X ↔ Subsingleton X := by
+  rw [Limits.IsZero.iff_id_eq_zero, id_eq_id, ContinuousLinearMap.ext_iff,
+    subsingleton_iff_forall_eq 0]
+  simp
+
+/-- Any subsingleton Hilbert space bundles to a zero object of `HilbertCat 𝕜`. -/
+theorem isZero_of_subsingleton (E : Type v) [NormedAddCommGroup E] [InnerProductSpace 𝕜 E]
+    [CompleteSpace E] [Subsingleton E] : Limits.IsZero (of 𝕜 E) :=
+  isZero_iff_subsingleton.mpr inferInstance
+
+/-- The identity morphism of `X : HilbertCat 𝕜` has norm `0` if and only if `X` is subsingleton. -/
+theorem norm_id_eq_zero_iff_subsingleton {X : HilbertCat.{u, v} 𝕜} :
+    ‖𝟙 X‖ = 0 ↔ Subsingleton X := by
+  rw [norm_eq_zero, ← Limits.IsZero.iff_id_eq_zero, isZero_iff_subsingleton]
+
+/-- The identity morphism of `X : HilbertCat 𝕜` has norm `1` if and only if `X` is nontrivial. -/
+theorem norm_id_eq_one_iff_nontrivial {X : HilbertCat.{u, v} 𝕜} :
+    ‖𝟙 X‖ = 1 ↔ Nontrivial X := by
+  refine ⟨fun h => ?_, fun _ => ?_⟩
+  · rw [← not_subsingleton_iff_nontrivial, ← norm_id_eq_zero_iff_subsingleton, h]
+    exact one_ne_zero
+  · rw [id_eq_id]
+    exact ContinuousLinearMap.norm_id
+
+/-- Object property selecting the finite-dimensional Hilbert spaces in `HilbertCat 𝕜`. -/
+def isFiniteDimensional : ObjectProperty (HilbertCat.{u, v} 𝕜) :=
+  fun X => FiniteDimensional 𝕜 X
+
+/-- Membership in `HilbertCat.isFiniteDimensional` is `FiniteDimensional 𝕜 X`. -/
+@[simp] theorem isFiniteDimensional_iff (X : HilbertCat.{u, v} 𝕜) :
+    isFiniteDimensional X ↔ FiniteDimensional 𝕜 X := Iff.rfl
+
+instance instIsClosedUnderIsomorphismsIsFiniteDimensional :
+    (isFiniteDimensional (𝕜 := 𝕜)).IsClosedUnderIsomorphisms where
+  of_iso {X Y} e hX := by
+    rw [isFiniteDimensional_iff] at hX ⊢
+    have forward_inverse :
+        (e.inv : Y →L[𝕜] X).toLinearMap.comp (e.hom : X →L[𝕜] Y).toLinearMap = LinearMap.id := by
+      simpa only [comp_eq_comp, id_eq_id, ContinuousLinearMap.toLinearMap_comp,
+        ContinuousLinearMap.coe_id] using
+        congrArg (fun f : X ⟶ X => (f : X →L[𝕜] X).toLinearMap) e.hom_inv_id
+    have inverse_forward :
+        (e.hom : X →L[𝕜] Y).toLinearMap.comp (e.inv : Y →L[𝕜] X).toLinearMap = LinearMap.id := by
+      simpa only [comp_eq_comp, id_eq_id, ContinuousLinearMap.toLinearMap_comp,
+        ContinuousLinearMap.coe_id] using
+        congrArg (fun f : Y ⟶ Y => (f : Y →L[𝕜] Y).toLinearMap) e.inv_hom_id
+    exact (LinearEquiv.ofLinearMap (e.hom : X →L[𝕜] Y).toLinearMap
+      (e.inv : Y →L[𝕜] X).toLinearMap inverse_forward forward_inverse).finiteDimensional
 
 end HilbertCat
 

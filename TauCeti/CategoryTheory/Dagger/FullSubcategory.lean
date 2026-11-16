@@ -86,20 +86,20 @@ arrow. -/
 
 /-- Unitarity in `P.FullSubcategory` agrees with unitarity in `C`. -/
 @[simp] theorem isUnitary_iff {X Y : P.FullSubcategory} (f : X ⟶ Y) :
-    IsUnitary f ↔ IsUnitary f.hom := by
-  simp [TauCeti.isUnitary_iff, ObjectProperty.hom_ext_iff]
+    IsUnitary f ↔ IsUnitary f.hom :=
+  InducedCategory.isUnitary_iff (F := ObjectProperty.FullSubcategory.obj) f
 
 instance instDaggerPreadditiveFullSubcategory (P : ObjectProperty C) [Preadditive C]
-    [DaggerPreadditive C] : DaggerPreadditive P.FullSubcategory where
-  dagger_add _ _ := by ext; simp
+    [DaggerPreadditive C] : DaggerPreadditive P.FullSubcategory :=
+  InducedCategory.instDaggerPreadditive (F := ObjectProperty.FullSubcategory.obj)
 
 instance instDaggerLinearFullSubcategory (P : ObjectProperty C) {R : Type w} [Semiring R]
     [Star R] [Preadditive C] [Linear R C] [DaggerLinear R C] :
-    DaggerLinear R P.FullSubcategory where
-  dagger_smul _ _ := by ext; simp
+    DaggerLinear R P.FullSubcategory :=
+  InducedCategory.instDaggerLinear (F := ObjectProperty.FullSubcategory.obj)
 
-instance instPreservesDaggerι (P : ObjectProperty C) : P.ι.PreservesDagger where
-  map_dagger _ := (rfl)
+instance instPreservesDaggerι (P : ObjectProperty C) : P.ι.PreservesDagger :=
+  instPreservesDaggerInducedFunctor (F := ObjectProperty.FullSubcategory.obj)
 
 end ObjectProperty
 
