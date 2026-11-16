@@ -125,6 +125,12 @@ double coset `HgK` is a complete invariant of it. -/
 def doubleCosetOrbit (g : G) : orbitRel.Quotient G ((G ⧸ H) × (G ⧸ K)) :=
   Quotient.mk'' (((1 : G) : G ⧸ H), ((g : G) : G ⧸ K))
 
+/-- Defining equation for `doubleCosetOrbit`, allowing downstream modules to rewrite it to the
+quotient class of `(1H, gK)` without unfolding the unexposed definition. -/
+theorem doubleCosetOrbit_def (g : G) :
+    doubleCosetOrbit H K g = Quotient.mk'' (((1 : G) : G ⧸ H), ((g : G) : G ⧸ K)) :=
+  (rfl)
+
 variable {H K}
 
 /-- Two points of the slice `{(H, gK) | g : G}` lie in the same orbit exactly when their labels
