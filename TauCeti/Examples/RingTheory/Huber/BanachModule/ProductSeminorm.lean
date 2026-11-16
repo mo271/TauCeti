@@ -10,15 +10,17 @@ public import TauCeti.RingTheory.Huber.BanachModule.ProductSeminorm
 /-!
 # Checks for the nonarchimedean product seminorm and completed product norm
 
-In `L ⊗[L] L` over a nonarchimedean normed field, `productSeminorm` evaluates `2 ⊗ 3 - 7 ⊗ 1` to
-`1` in every characteristic (including characteristics `2` and `3`), vanishes identically when a
-factor is the zero space `Fin 0 → L`, and collapses `1 ⊗ c + d ⊗ 1` to `‖c + d‖` (taking the value
-`0` for `d = -c` even when the two-term presentation has positive maximum). On the completion
-`CompletedTensor`, `productNorm` evaluates scalar pure tensors `a ⊗ w` to `‖a‖ * ‖w‖`, vanishes
-for a zero-dimensional first factor, collapses `1 ⊗ a + b ⊗ 1` in `L ⊗̂_L L` to `‖a + b‖`, gives
-the unit-vector distance `‖v - v'‖` when `‖w‖ = 1`, embeds the algebraic tensor product
-injectively over a complete nontrivially normed field, and witnesses nondiscreteness of the tensor
-topology on `L ⊗[L] L`.
+In `L ⊗[L] L` over a complete nontrivially normed nonarchimedean field `L`, `productSeminorm`
+evaluates `2 ⊗ 3 - 7 ⊗ 1` to `1` in every characteristic (including characteristics `2` and `3`),
+vanishes identically when a factor is the zero space `Fin 0 → L`, and collapses `1 ⊗ c + d ⊗ 1` to
+`‖c + d‖` (taking the value `0` for `d = -c` even when the two-term presentation has positive
+maximum). Over a Tate seminormed commutative ring with contractive module actions, the positive
+open balls of `productSeminorm` form a neighbourhood basis of `0` for `banachTensorTopology`. On
+the completion `CompletedTensor` of ultrametric normed `L`-spaces over `L`, `productNorm` evaluates
+scalar pure tensors `a ⊗ w` to `‖a‖ * ‖w‖`, vanishes for a zero-dimensional first factor, collapses
+`1 ⊗ a + b ⊗ 1` in `L ⊗̂_L L` to `‖a + b‖` (giving `0 < max ‖a‖ ‖-a‖` when `b = -a ≠ 0`), and gives
+the unit-vector distance `‖v - v'‖` when `‖w‖ = 1`, while `CompletedTensor.toCompletion` embeds the
+algebraic tensor product `V ⊗[L] W` injectively into `V ⊗̂_L W`.
 -/
 
 public section
@@ -60,12 +62,6 @@ example {c : L} (hc : c ≠ 0) :
     simp [map_add]
   · simp [norm_pos_iff.mpr hc]
 
-/-- Over a nontrivially normed nonarchimedean field `L`, `L ⊗[L] L` is nondiscrete in the Banach
-tensor topology. -/
-example : ¬ @DiscreteTopology (L ⊗[L] L) (banachTensorTopology L L L) :=
-  have : Nontrivial (L ⊗[L] L) := (TensorProduct.lid L L).toEquiv.nontrivial
-  not_discreteTopology_banachTensorTopology
-
 end AlgebraicSeminorm
 
 section TateBasis
@@ -79,8 +75,7 @@ variable {A V W : Type*} [SeminormedCommRing A] [TauCeti.NormedRing.IsTate A]
 example :
     (@nhds (V ⊗[A] W) (banachTensorTopology A V W) 0).HasBasis (0 < ·)
       fun r ↦ {u | productSeminorm A V W u < r} :=
-  hasBasis_banachTensorTopology ⟨1, fun a v ↦ by simpa using norm_smul_le a v⟩
-    ⟨1, fun a w ↦ by simpa using norm_smul_le a w⟩
+  hasBasis_banachTensorTopology TauCeti.exists_norm_smul_le TauCeti.exists_norm_smul_le
 
 end TateBasis
 
@@ -113,10 +108,11 @@ example (a b : L) :
 `max ‖a‖ ‖-a‖` whenever `a ≠ 0`. -/
 example {a : L} (ha : a ≠ 0) :
     CompletedTensor.productNorm L L L
-        (CompletedTensor.tmul L L L 1 a + CompletedTensor.tmul L L L (-a) 1) <
-      max ‖a‖ ‖-a‖ := by
+        (CompletedTensor.tmul L L L 1 a + CompletedTensor.tmul L L L (-a) 1) = 0 ∧
+      0 < max ‖a‖ ‖-a‖ := by
+  refine ⟨?_, by simp [norm_pos_iff.mpr ha]⟩
   rw [CompletedTensor.productNorm_eq_norm_lid]
-  simpa [map_add] using norm_pos_iff.mpr ha
+  simp [map_add]
 
 /-- Tensoring on the right by a vector `w` of norm `1` preserves distances:
 `productNorm (v ⊗ w - v' ⊗ w) = ‖v - v'‖`. -/
@@ -124,13 +120,14 @@ example (v v' : V) {w : W} (hw : ‖w‖ = 1) :
     CompletedTensor.productNorm L V W
         (CompletedTensor.tmul L V W v w - CompletedTensor.tmul L V W v' w) =
       ‖v - v'‖ :=
-  CompletedTensor.productNorm_unitVector v v' hw
+  CompletedTensor.productNorm_tmul_sub_tmul_of_norm_eq_one v v' hw
 
-/-- Over a complete nontrivially normed nonarchimedean field `L`, the canonical map from the
-algebraic tensor product `V ⊗[L] W` into `CompletedTensor L V W` is injective. -/
+/-- For ultrametric normed `L`-spaces `V` and `W` over a complete nontrivially normed
+nonarchimedean field `L`, the canonical map `toCompletion L V W` from `V ⊗[L] W` into
+`CompletedTensor L V W` is injective. -/
 example {u₁ u₂ : V ⊗[L] W}
     (h : CompletedTensor.toCompletion L V W u₁ = CompletedTensor.toCompletion L V W u₂) :
     u₁ = u₂ :=
-  CompletedTensor.injective_tensorProduct_of_field L V W h
+  CompletedTensor.toCompletion_injective L V W h
 
 end CompletedNorm

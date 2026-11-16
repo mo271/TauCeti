@@ -10,11 +10,12 @@ public import Mathlib.Analysis.Normed.Operator.BoundedLinearMaps
 /-!
 # Bounded bilinear maps and bounded scalar actions over a normed ring
 
-Over a seminormed commutative ring `R`, which need not be a field, an `R`-bilinear map `β` with
-`‖β x y‖ ≤ C * ‖x‖ * ‖y‖` is jointly continuous (`LinearMap.continuous₂_of_bound`), and so is a
-scalar action with `‖r • m‖ ≤ C * ‖r‖ * ‖m‖` (`TauCeti.continuousSMul_of_norm_smul_le`). For an
-`R`-algebra `S`, such a bound on the action makes the structure map bounded
-(`TauCeti.exists_norm_algebraMap_le_of_norm_smul_le`).
+Over a commutative semiring `R`, an `R`-bilinear map `β` between seminormed `R`-modules with
+`‖β x y‖ ≤ C * ‖x‖ * ‖y‖` is jointly continuous (`LinearMap.continuous₂_of_bound`). Over a
+seminormed commutative ring `R`, a scalar action with `‖r • m‖ ≤ C * ‖r‖ * ‖m‖` is therefore
+continuous (`TauCeti.continuousSMul_of_norm_smul_le`), with contractive actions supplying `C = 1`
+(`TauCeti.exists_norm_smul_le`), and for an `R`-algebra `S` such a bound makes the structure map
+bounded (`TauCeti.exists_norm_algebraMap_le_of_norm_smul_le`).
 
 A fibrewise linear change of coordinates `(x, v) ↦ (x, e x v)`, with `e` continuous at `a`, tends
 to `(a, 0)` at `(a, 0)` (`ContinuousAt.tendsto_prodMk_clm_apply`).
@@ -25,11 +26,10 @@ public section
 open Filter Topology
 open scoped NNReal
 
-variable {R : Type*} [SeminormedCommRing R]
-
 /-- An `R`-bilinear map bounded by `C * ‖x‖ * ‖y‖` is jointly continuous. -/
-theorem LinearMap.continuous₂_of_bound {X Y Z : Type*} [SeminormedAddCommGroup X]
-    [Module R X] [SeminormedAddCommGroup Y] [Module R Y] [SeminormedAddCommGroup Z] [Module R Z]
+theorem LinearMap.continuous₂_of_bound {R X Y Z : Type*} [CommSemiring R]
+    [SeminormedAddCommGroup X] [Module R X] [SeminormedAddCommGroup Y] [Module R Y]
+    [SeminormedAddCommGroup Z] [Module R Z]
     (β : X →ₗ[R] Y →ₗ[R] Z) (C : ℝ) (hβ : ∀ x y, ‖β x y‖ ≤ C * ‖x‖ * ‖y‖) :
     Continuous fun p : X × Y ↦ β p.1 p.2 :=
   IsBoundedBilinearMap.continuous (𝕜 := R)
@@ -39,6 +39,15 @@ theorem LinearMap.continuous₂_of_bound {X Y Z : Type*} [SeminormedAddCommGroup
       smul_right := fun c x y ↦ by simp
       bound := ⟨max C 1, by positivity, fun x y ↦
         (hβ x y).trans (by gcongr; exact le_max_left _ _)⟩ }
+
+/-- A contractive scalar action (`IsBoundedSMul R M`) satisfies the explicit constant bound
+`‖r • m‖ ≤ C * ‖r‖ * ‖m‖` with `C = 1`. -/
+theorem TauCeti.exists_norm_smul_le {R M : Type*} [SeminormedAddGroup R] [SeminormedAddGroup M]
+    [SMulZeroClass R M] [IsBoundedSMul R M] :
+    ∃ C : ℝ≥0, ∀ (r : R) (m : M), ‖r • m‖ ≤ C * ‖r‖ * ‖m‖ :=
+  ⟨1, fun r m ↦ by simpa using norm_smul_le r m⟩
+
+variable {R : Type*} [SeminormedCommRing R]
 
 /-- A scalar action bounded by `C * ‖r‖ * ‖m‖` is continuous. -/
 theorem TauCeti.continuousSMul_of_norm_smul_le {M : Type*} [SeminormedAddCommGroup M]

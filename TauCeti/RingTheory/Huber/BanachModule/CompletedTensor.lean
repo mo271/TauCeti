@@ -74,7 +74,8 @@ products with a finite projective factor can be computed with the algebraic tens
 * `TauCeti.Huber.banachTensorTopology_le`: the tensor topology is finer than every nonarchimedean
   additive group topology making the action and `(v, w) ↦ v ⊗ w` continuous, and
   `nonarchimedeanAddGroup_banachTensorTopology`, `continuousSMul_banachTensorTopology` and
-  `continuous_tmul_banachTensorTopology` show that it is one of them.
+  `continuous_tmul_banachTensorTopology` show that it is one of them; when `0` is a limit of units
+  in `A`, any nontrivial `V ⊗[A] W` is nondiscrete (`not_discreteTopology_banachTensorTopology`).
 * `TauCeti.Huber.continuous_banachTensorTopology_iff`: continuity of linear maps out of
   `V ⊗[A] W`.
 * `TauCeti.Huber.BanachModule.CompletedTensor.continuous_tmul`: `(v, w) ↦ v ⊗ w` is continuous,
@@ -135,6 +136,20 @@ theorem nonarchimedeanAddGroup_banachTensorTopology :
 theorem continuousSMul_banachTensorTopology :
     @ContinuousSMul A (V ⊗[A] W) _ _ (banachTensorTopology A V W) :=
   continuousSMul_sInf fun _ ht ↦ ht.2.1
+
+variable {A V W} in
+/-- Over a ring in which `0` is a limit of units (for instance any Tate ring or nondiscrete normed
+field), any nontrivial tensor product `V ⊗[A] W` is nondiscrete for `banachTensorTopology A V W`. -/
+theorem not_discreteTopology_banachTensorTopology [Filter.NeBot (𝓝[{a : A | IsUnit a}] 0)]
+    [Nontrivial (V ⊗[A] W)] :
+    ¬ @DiscreteTopology (V ⊗[A] W) (banachTensorTopology A V W) := by
+  let := banachTensorTopology A V W
+  have := (nonarchimedeanAddGroup_banachTensorTopology A V W).toIsTopologicalAddGroup
+  have := continuousSMul_banachTensorTopology A V W
+  intro
+  have h0 : ((⊥ : Submodule A (V ⊗[A] W)) : Set (V ⊗[A] W)) = {0} := by simp
+  exact bot_ne_top ((⊥ : Submodule A (V ⊗[A] W)).eq_top_of_nonempty_interior'
+    ⟨0, by rw [h0, (isOpen_discrete {0}).interior_eq]; rfl⟩)
 
 /-- The map `(v, w) ↦ v ⊗ w` is continuous for the tensor topology. -/
 theorem continuous_tmul_banachTensorTopology :
@@ -265,6 +280,20 @@ theorem equivCompletion_toCompletion (x : V ⊗[A] W) :
     equivCompletion A V W (toCompletion A V W x) =
       @Completion.coe' _ (banachTensorUniformSpace A V W) x :=
   (rfl)
+
+/-- `equivCompletion` is uniformly continuous. -/
+theorem uniformContinuous_equivCompletion :
+    @UniformContinuous _ _ _ (@Completion.uniformSpace _ (banachTensorUniformSpace A V W))
+      (equivCompletion A V W) :=
+  uniformContinuous_id
+
+/-- Under `equivCompletion`, neighbourhoods in `V ⊗̂_A W` are the pullbacks of neighbourhoods in
+`Completion (V ⊗[A] W)`. -/
+theorem nhds_eq_comap_equivCompletion (z : CompletedTensor A V W) :
+    𝓝 z = @Filter.comap _ _ (equivCompletion A V W)
+      (@nhds _ (@Completion.uniformSpace _ (banachTensorUniformSpace A V W)).toTopologicalSpace
+        (equivCompletion A V W z)) :=
+  (equivCompletion A V W).toHomeomorph.nhds_eq_comap z
 
 /-- The map into the completion is continuous for the tensor topology. -/
 theorem continuous_toCompletion :
@@ -485,6 +514,15 @@ noncomputable def map (f : V →L[A] V') (g : W →L[A] W') :
 theorem map_tmul (f : V →L[A] V') (g : W →L[A] W') (v : V) (w : W) :
     map f g (tmul A V W v w) = tmul A V' W' (f v) (g w) := by
   simp [map]
+
+/-- `map f g` extends `TensorProduct.map` from `V ⊗[A] W`. -/
+@[simp]
+theorem map_toCompletion (f : V →L[A] V') (g : W →L[A] W') (x : V ⊗[A] W) :
+    map f g (toCompletion A V W x) =
+      toCompletion A V' W' (TensorProduct.map f.toLinearMap g.toLinearMap x) := by
+  induction x using TensorProduct.inductionOn with
+  | tmul v w => simp
+  | add x y hx hy => simp only [map_add, hx, hy]
 
 /-- The completed tensor product of identities is the identity. -/
 @[simp]

@@ -11,6 +11,7 @@ public import Mathlib.Topology.Algebra.Module.FiniteDimension
 public import TauCeti.Analysis.Normed.Group.Quotient
 public import TauCeti.Analysis.Normed.Module.Bases.TOrthogonal
 public import TauCeti.Analysis.Normed.Module.RieszLemma
+import Mathlib.LinearAlgebra.Basis.VectorSpace
 
 /-!
 # `t`-orthogonal bases and subspaces of normed spaces of countable type
@@ -25,6 +26,11 @@ has a `t`-orthogonal one. This file constructs these bases by an approximate Gra
   `span (e '' Iio n) = span (w '' Iio n)`. The vector `e n` is `w n` minus an almost best
   approximation of `w n` in the span of the previous vectors (`TauCeti.riesz_lemma_translate`);
   the losses at the successive steps are chosen with product at least `t`.
+* `TauCeti.exists_dual_of_notMem` and `TauCeti.exists_dual_of_linearIndependent`: separating a
+  vector `x` outside a finite-dimensional subspace `D` (in particular, one member of a finite
+  linearly independent family from the span of the remaining vectors) by a linear functional
+  `φ : E →ₗ[K] K` with `φ x = 1`, `φ = 0` on `D`, and quantitative `t`-orthogonal norm control on
+  any finite family of test vectors.
 * `TauCeti.exists_isTOrthogonalBasis_of_dense_span`: a space of countable type has a
   `t`-orthogonal basis indexed by a set of natural numbers.
 * `TauCeti.exists_basis_isTOrthogonalFamily`: a finite-dimensional space has a `t`-orthogonal
@@ -350,5 +356,165 @@ theorem _root_.Submodule.separatingDual_span_of_countable {S : Set E} (hS : S.Co
   refine separatingDual_of_dense_span (v := v) ?_
   rw [htop]
   exact dense_univ
+
+omit [CompleteSpace K] [IsUltrametricDist E] in
+/-- Coordinate functional of a finite `t`-orthogonal family of nonzero vectors, extended to all of
+`E` along a linear retraction onto `span K (range e')`. -/
+private theorem exists_coord_of_isTOrthogonalFamily {S : Type*} [Finite S] [DecidableEq S]
+    {e' : S → E} {t : ℝ≥0} (he' : IsTOrthogonalFamily K t e') (ht0 : 0 < t)
+    (he_ne : ∀ i, e' i ≠ 0) (rIdx : S) :
+    ∃ ψ : E →ₗ[K] K,
+      (∀ i : S, ψ (e' i) = if i = rIdx then 1 else 0) ∧
+      ∀ u ∈ span K (range e'), (t : ℝ) * ‖ψ u‖ * ‖e' rIdx‖ ≤ ‖u‖ := by
+  cases nonempty_fintype S
+  have hli : LinearIndependent K e' := he'.linearIndependent ht0 he_ne
+  let E_S : Submodule K E := span K (range e')
+  let bS : Module.Basis S K E_S := Module.Basis.span hli
+  obtain ⟨π, hπ⟩ := E_S.subtype.exists_leftInverse_of_injective E_S.ker_subtype
+  refine ⟨(bS.coord rIdx).comp π, fun i ↦ ?_, fun u hu ↦ ?_⟩
+  · have hπi : π (e' i) = ⟨e' i, subset_span ⟨i, rfl⟩⟩ :=
+      LinearMap.congr_fun hπ ⟨e' i, subset_span ⟨i, rfl⟩⟩
+    rw [LinearMap.comp_apply, hπi, (Module.Basis.span_apply hli i).symm, Module.Basis.coord_apply,
+      bS.repr_self, Finsupp.single_apply]
+  · let u' : E_S := ⟨u, hu⟩
+    have hπu : π u = u' := LinearMap.congr_fun hπ u'
+    have hbS (i : S) : ((bS i : E_S) : E) = e' i :=
+      congrArg Subtype.val (Module.Basis.span_apply hli i)
+    have hexp : ∑ i : S, bS.repr u' i • e' i = u := by
+      simpa only [map_sum, map_smul, Submodule.coe_subtype, hbS] using
+        congrArg (E_S.subtype : E_S →ₗ[K] E) (bS.sum_repr u')
+    have horth := he'.mul_norm_smul_le (Finset.mem_univ rIdx) (fun i ↦ bS.repr u' i)
+    rwa [hexp, norm_smul, ← mul_assoc, ← Module.Basis.coord_apply, ← hπu] at horth
+
+/-- Approximate Gram–Schmidt step on a basis of a finite-dimensional subspace `D`, followed by
+`x ∉ D` and a finite family `y : Fin m → E`: the `(finrank K D)`-th orthogonalized vector separates
+`x` from `D` while the first `finrank K D + 1 + m` vectors span all `y k`. -/
+private theorem exists_isTOrthogonalFamily_of_notMem {D : Submodule K E} [FiniteDimensional K D]
+    {x : E} (hx : x ∉ D) {m : ℕ} (y : Fin m → E) {t : ℝ≥0} (ht1 : t < 1) :
+    ∃ (e : ℕ → E) (α : K) (d : E),
+      IsTOrthogonalFamily K t e ∧
+      α ≠ 0 ∧ e (Module.finrank K D) ≠ 0 ∧
+      d ∈ D ∧ α • e (Module.finrank K D) + d = x ∧
+      infDist x D ≤ ‖α • e (Module.finrank K D)‖ ∧
+      span K (e '' Iio (Module.finrank K D)) = D ∧
+      ∀ k : Fin m, y k ∈ span K (e '' Iio (Module.finrank K D + 1 + m)) := by
+  classical
+  set r := Module.finrank K D
+  let bD := Module.finBasis K D
+  let z : ℕ → E := fun n ↦
+    if h₁ : n < r then (bD ⟨n, h₁⟩ : E)
+    else if _ : n = r then x
+    else if _ : n < r + 1 + m then y ⟨n - (r + 1), by omega⟩
+    else 0
+  obtain ⟨e, he, hspan⟩ := exists_isTOrthogonalFamily_span_image_Iio_eq (K := K) z ht1
+  have hzD : span K (z '' Iio r) = D := by
+    have himg : z '' Iio r = range (fun i : Fin r ↦ (bD i : E)) := by
+      ext u
+      exact ⟨fun ⟨n, hn, hu⟩ ↦ ⟨⟨n, hn⟩, by simpa [z, mem_Iio.mp hn] using hu⟩,
+        fun ⟨i, hi⟩ ↦ ⟨i.1, i.2, by simpa [z, i.2] using hi⟩⟩
+    rw [himg, show (fun i : Fin r ↦ (bD i : E)) = D.subtype ∘ bD from rfl, range_comp,
+      ← Submodule.map_span, bD.span_eq, Submodule.map_top, Submodule.range_subtype]
+  have heD : span K (e '' Iio r) = D := (hspan r).trans hzD
+  -- `x = z r` lies in `span (e '' Iio (r + 1)) = (K ∙ e r) ⊔ D`, with nonzero `e r` component.
+  have hx_mem : x ∈ (K ∙ e r) ⊔ D := by
+    have hz_mem : z r ∈ span K (z '' Iio (r + 1)) := subset_span ⟨r, Nat.lt_succ_self r, rfl⟩
+    rw [← hspan (r + 1), ← Order.succ_eq_add_one, Order.Iio_succ_eq_insert, image_insert_eq,
+      span_insert, heD] at hz_mem
+    simpa [z] using hz_mem
+  obtain ⟨u₁, hu₁, d, hd, hud⟩ := Submodule.mem_sup.mp hx_mem
+  obtain ⟨α, rfl⟩ := Submodule.mem_span_singleton.mp hu₁
+  have hαer_ne : α • e r ≠ 0 := fun h0 ↦ hx ((zero_add d ▸ h0 ▸ hud) ▸ hd)
+  have hdist : infDist x D ≤ ‖α • e r‖ :=
+    (infDist_le_dist_of_mem hd).trans_eq (by rw [dist_eq_norm, ← hud, add_sub_cancel_right])
+  refine ⟨e, α, d, he, left_ne_zero_of_smul hαer_ne, right_ne_zero_of_smul hαer_ne,
+    hd, hud, hdist, heD, fun k ↦ ?_⟩
+  rw [hspan (r + 1 + m)]
+  refine subset_span ⟨r + 1 + k.1, mem_Iio.mpr (by omega), ?_⟩
+  have h1 : ¬ (r + 1 + k.1 < r) := by omega
+  have h2 : r + 1 + k.1 ≠ r := by omega
+  have h3 : r + 1 + k.1 < r + 1 + m := by omega
+  simp [z, h1, h2, h3]
+
+/-- **Finite-dimensional Gram–Schmidt dual separation**: over a complete nontrivially normed field
+`K`, given a finite-dimensional subspace `D` of an ultrametric normed `K`-space `E`, a vector
+`x ∉ D`, a finite family `y : ι → E`, and `0 < t < 1`, there exist `c > 0` with `infDist x D ≤ c`
+and a linear functional `φ : E →ₗ[K] K` vanishing on `D`, sending `x` to `1`, and satisfying
+`t * ‖φ (y k)‖ * c ≤ ‖y k‖` for every `k`. -/
+theorem exists_dual_of_notMem {D : Submodule K E} [FiniteDimensional K D] {x : E} (hx : x ∉ D)
+    {ι : Type*} [Finite ι] (y : ι → E) {t : ℝ≥0} (ht0 : 0 < t) (ht1 : t < 1) :
+    ∃ (c : ℝ) (φ : E →ₗ[K] K),
+      0 < c ∧
+      infDist x D ≤ c ∧
+      φ x = 1 ∧
+      (∀ u ∈ D, φ u = 0) ∧
+      ∀ k : ι, (t : ℝ) * ‖φ (y k)‖ * c ≤ ‖y k‖ := by
+  classical
+  cases nonempty_fintype ι
+  let σ : Fin (Fintype.card ι) ≃ ι := (Fintype.equivFin ι).symm
+  obtain ⟨e, α, d, he, hα_ne, her_ne, hd, hud, hdist, heD, hy_mem⟩ :=
+    exists_isTOrthogonalFamily_of_notMem hx (y ∘ σ) ht1
+  set r := Module.finrank K D
+  -- Build the coordinate functional `ψ` at index `r` on the nonzero vectors of `e`, then scale.
+  let S := {i : Fin (r + 1 + Fintype.card ι) // e i ≠ 0}
+  let e' : S → E := fun i ↦ e i.1.1
+  let rIdx : S := ⟨⟨r, by omega⟩, her_ne⟩
+  obtain ⟨ψ, hψ_e', hψ_bound⟩ := exists_coord_of_isTOrthogonalFamily (e' := e')
+    (he.comp (Fin.val_injective.comp Subtype.val_injective)) ht0 (fun i ↦ i.2) rIdx
+  let φ : E →ₗ[K] K := α⁻¹ • ψ
+  have hφ_D {u : E} (hu : u ∈ D) : φ u = 0 := by
+    rw [← heD] at hu
+    refine Submodule.span_induction (p := fun u _ ↦ φ u = 0) ?_ (map_zero φ)
+      (fun a b _ _ ha hb ↦ by rw [map_add, ha, hb, add_zero])
+      (fun c a _ ha ↦ by rw [map_smul, ha, smul_eq_mul, mul_zero]) hu
+    rintro _ ⟨n, hn, rfl⟩
+    have hn' : n < r + 1 + Fintype.card ι := (mem_Iio.mp hn).trans (by omega)
+    by_cases h0 : e n = 0
+    · simp [h0]
+    · have hne : (⟨⟨n, hn'⟩, h0⟩ : S) ≠ rIdx :=
+        fun h ↦ (mem_Iio.mp hn).ne (congrArg (fun s : S ↦ s.1.1) h)
+      have hψ_n : ψ (e n) = 0 := by simpa [e', hne] using hψ_e' ⟨⟨n, hn'⟩, h0⟩
+      simp [φ, hψ_n]
+  have hφ_x : φ x = 1 := by
+    have hψ_er : ψ (e r) = 1 := by simpa [e', rIdx] using hψ_e' rIdx
+    rw [← hud, map_add, map_smul, hφ_D hd, add_zero]
+    simp [φ, hψ_er, mul_inv_cancel₀ hα_ne]
+  refine ⟨‖α • e r‖, φ, norm_pos_iff.mpr (smul_ne_zero hα_ne her_ne), hdist, hφ_x,
+    fun _ hu ↦ hφ_D hu, fun k ↦ ?_⟩
+  have hy_S : y k ∈ span K (range e') := by
+    have hk : y (σ (σ.symm k)) ∈ span K (e '' Iio (r + 1 + Fintype.card ι)) := hy_mem (σ.symm k)
+    rw [σ.apply_symm_apply] at hk
+    refine span_le.mpr ?_ hk
+    rintro _ ⟨n, hn, rfl⟩
+    have hn' : n < r + 1 + Fintype.card ι := mem_Iio.mp hn
+    by_cases h0 : e n = 0
+    · simp [h0]
+    · exact subset_span ⟨⟨⟨n, hn'⟩, h0⟩, rfl⟩
+  calc (t : ℝ) * ‖φ (y k)‖ * ‖α • e r‖
+      = (t : ℝ) * (‖α‖⁻¹ * ‖ψ (y k)‖) * (‖α‖ * ‖e' rIdx‖) := by
+          simp [φ, e', rIdx, norm_smul]
+    _ = (t : ℝ) * ‖ψ (y k)‖ * ‖e' rIdx‖ := by
+          have hα0 : ‖α‖ ≠ 0 := norm_ne_zero_iff.mpr hα_ne
+          calc (t : ℝ) * (‖α‖⁻¹ * ‖ψ (y k)‖) * (‖α‖ * ‖e' rIdx‖)
+              = (‖α‖⁻¹ * ‖α‖) * ((t : ℝ) * ‖ψ (y k)‖ * ‖e' rIdx‖) := by ring
+            _ = (t : ℝ) * ‖ψ (y k)‖ * ‖e' rIdx‖ := by rw [inv_mul_cancel₀ hα0, one_mul]
+    _ ≤ ‖y k‖ := hψ_bound (y k) hy_S
+
+/-- **Gram–Schmidt coordinate functional**: over a complete nontrivially normed field `K`, given a
+finite linearly independent family `w : ι → E` in an ultrametric normed `K`-space `E`, an index
+`i₀ : ι`, a finite family `y : κ → E`, and `0 < t < 1`, there exist `c > 0` with
+`infDist (w i₀) (span K (w '' (univ \ {i₀}))) ≤ c` and a linear functional `φ : E →ₗ[K] K` sending
+`w i₀` to `1`, vanishing on `span K (w '' (univ \ {i₀}))`, and satisfying
+`t * ‖φ (y k)‖ * c ≤ ‖y k‖` for every `k`. -/
+theorem exists_dual_of_linearIndependent {ι κ : Type*} [Finite ι] [Finite κ] {w : ι → E}
+    (hw : LinearIndependent K w) (i₀ : ι) (y : κ → E) {t : ℝ≥0} (ht0 : 0 < t) (ht1 : t < 1) :
+    ∃ (c : ℝ) (φ : E →ₗ[K] K),
+      0 < c ∧
+      infDist (w i₀) (span K (w '' (univ \ {i₀})) : Set E) ≤ c ∧
+      φ (w i₀) = 1 ∧
+      (∀ u ∈ span K (w '' (univ \ {i₀})), φ u = 0) ∧
+      ∀ k : κ, (t : ℝ) * ‖φ (y k)‖ * c ≤ ‖y k‖ := by
+  have : FiniteDimensional K (span K (w '' (univ \ {i₀}))) :=
+    FiniteDimensional.span_of_finite K (toFinite _)
+  exact exists_dual_of_notMem (linearIndependent_iff_notMem_span.mp hw i₀) y ht0 ht1
 
 end TauCeti

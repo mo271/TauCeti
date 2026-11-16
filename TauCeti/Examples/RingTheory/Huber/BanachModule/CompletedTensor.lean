@@ -12,7 +12,8 @@ public import Mathlib.Algebra.Algebra.Bilinear
 # Checks for the completed tensor product of topological modules
 
 The elementary tensor map is the completion image of the algebraic tensor, so it respects signs
-and vanishes on a zero factor, while `comm` swaps the two factors involutively. Lifting
+and vanishes on a zero factor, while `comm` swaps the two factors involutively and `A ⊗[A] A` is
+nondiscrete in `banachTensorTopology` whenever `0` is a limit of units in `A`. Lifting
 multiplication of a complete nonarchimedean ring evaluates products, the zero bilinear map lifts to
 zero, and the functor `map` cancels two signs and kills a zero factor on the whole completion. The
 unit isomorphisms `lid` and `rid` evaluate scalar multiples and kill everything when the module is
@@ -23,6 +24,7 @@ unit map in rank one, and keeps signs in rank two.
 public section
 
 open TensorProduct TauCeti.Huber BanachModule
+open scoped Topology
 
 section Generic
 
@@ -40,6 +42,13 @@ example (v₁ v₂ : V) (w₁ w₂ : W) :
     CompletedTensor.tmul A V W v₁ w₁ - CompletedTensor.tmul A V W v₂ w₂ =
       CompletedTensor.toCompletion A V W (v₁ ⊗ₜ[A] w₁ - v₂ ⊗ₜ[A] w₂) := by
   simp
+
+/-- When `0` is a limit of units in a nontrivial commutative topological ring `A`, `A ⊗[A] A` is
+nondiscrete in `banachTensorTopology`. -/
+example [Nontrivial A] [Filter.NeBot (𝓝[{a : A | IsUnit a}] 0)] :
+    ¬ @DiscreteTopology (A ⊗[A] A) (banachTensorTopology A A A) :=
+  have : Nontrivial (A ⊗[A] A) := (TensorProduct.lid A A).toEquiv.nontrivial
+  not_discreteTopology_banachTensorTopology
 
 variable [IsTopologicalRing A] [IsTopologicalAddGroup V] [IsTopologicalAddGroup W]
 
@@ -115,6 +124,11 @@ example (w : M) : (CompletedTensor.rid A M).symm w = CompletedTensor.tmul A M A 
 /-- For a zero module, every completed tensor and its image under the unit map are zero. -/
 example [Subsingleton M] (x : CompletedTensor A A M) : x = 0 ∧ CompletedTensor.lid A M x = 0 :=
   ⟨(CompletedTensor.lid A M).injective (Subsingleton.elim _ _), Subsingleton.elim _ _⟩
+
+/-- For a zero module, every right-tensored completed tensor and its image under the right unit map
+are zero. -/
+example [Subsingleton M] (x : CompletedTensor A M A) : x = 0 ∧ CompletedTensor.rid A M x = 0 :=
+  ⟨(CompletedTensor.rid A M).injective (Subsingleton.elim _ _), Subsingleton.elim _ _⟩
 
 variable [IsTopologicalRing A]
 
