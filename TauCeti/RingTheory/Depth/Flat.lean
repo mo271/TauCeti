@@ -39,6 +39,9 @@ closed fibre, which embeds in `N ⊗[R] M` by flatness, so `N ⊗[R] M` has dept
   `depth (N ⊗[R] M) = depth M + depth (N ⧸ 𝔪_R N)`.
 * `IsLocalRing.depth_eq_add_of_flat`: `depth S = depth R + depth (S ⧸ 𝔪_R S)` for a flat local
   homomorphism `R → S` with `S` Noetherian.
+* `IsLocalRing.depth_eq_of_flat_of_ringKrullDim_quotient_eq_zero` and
+  `IsLocalRing.depth_eq_of_flat_of_map_maximalIdeal_eq`: `depth S = depth R` when the closed fibre
+  `S ⧸ 𝔪_R S` has Krull dimension zero, in particular when `𝔪_R S = 𝔪_S`.
 
 ## References
 
@@ -184,17 +187,53 @@ end Depth
 local rings with `S` Noetherian (so `R` is Noetherian too, by faithful flatness), the depth of `S`
 is the depth of `R` plus the depth of the closed fibre `S ⧸ 𝔪_R S`, as a module over `S`. -/
 @[stacks 0337]
-theorem depth_eq_add_of_flat {R S : Type u} [CommRing R] [CommRing S] [Algebra R S]
+theorem depth_eq_add_of_flat {R : Type u'} {S : Type u} [CommRing R] [CommRing S] [Algebra R S]
     [IsLocalRing R] [IsLocalRing S] [IsNoetherianRing S]
     [IsLocalHom (algebraMap R S)] [Module.Flat R S] :
     depth (ModuleCat.of S S) = depth (ModuleCat.of R R) +
       depth (ModuleCat.of S (S ⧸ (maximalIdeal R).map (algebraMap R S))) := by
   have : Module.FaithfullyFlat R S := .of_flat_of_isLocalHom
   have : IsNoetherianRing R := .of_faithfullyFlat S
-  have h := depth_tensorProduct_eq_add_of_flat (R := R) (S := S) (N := S) (M := R)
-  rwa [depth_eq_of_linearEquiv (AlgebraTensorModule.rid R S S),
-    depth_eq_of_linearEquiv (Submodule.quotEquivOfEq _ _ (by simp) :
-      (S ⧸ ((maximalIdeal R).map (algebraMap R S) • ⊤ : Submodule S S)) ≃ₗ[S]
-        (S ⧸ (maximalIdeal R).map (algebraMap R S)))] at h
+  have h := depth_tensorProduct_eq_add_of_flat (R := R) (S := S)
+    (N := ULift.{u'} S) (M := ULift.{u} R)
+  let e₁ : ULift.{u'} S ⊗[R] ULift.{u} R ≃ₗ[S] S :=
+    (AlgebraTensorModule.congr (ULift.moduleEquiv (R := S) (M := S))
+      (ULift.moduleEquiv (R := R) (M := R))).trans (AlgebraTensorModule.rid R S S)
+  let I := (maximalIdeal R).map (algebraMap R S)
+  let e₂ : (ULift.{u'} S ⧸ (I • ⊤ : Submodule S (ULift.{u'} S))) ≃ₗ[S] (S ⧸ I) :=
+    Submodule.Quotient.equiv (I • ⊤ : Submodule S (ULift.{u'} S)) I
+      (ULift.moduleEquiv (R := S) (M := S))
+      (by rw [Submodule.map_smul'', Submodule.map_top, LinearEquiv.range]; simp)
+  rwa [depth_eq_of_linearEquiv e₁, depth_eq_of_linearEquiv (ULift.moduleEquiv (R := R) (M := R)),
+    depth_eq_of_linearEquiv e₂] at h
+
+/-- Along a flat local homomorphism `R → S` with `S` Noetherian whose closed fibre `S ⧸ 𝔪_R S` has
+Krull dimension zero (for instance at a prime minimal in its fibre, or along a flat quasi-finite
+local homomorphism), `S` and `R` have the same depth. -/
+theorem depth_eq_of_flat_of_ringKrullDim_quotient_eq_zero {R : Type u'} {S : Type u} [CommRing R]
+    [CommRing S] [Algebra R S] [IsLocalRing R] [IsLocalRing S] [IsNoetherianRing S]
+    [IsLocalHom (algebraMap R S)] [Module.Flat R S]
+    (hdim : ringKrullDim (S ⧸ (maximalIdeal R).map (algebraMap R S)) = 0) :
+    depth (ModuleCat.of S S) = depth (ModuleCat.of R R) := by
+  set I := (maximalIdeal R).map (algebraMap R S)
+  have : Nontrivial (S ⧸ I) :=
+    Ideal.Quotient.nontrivial_iff.mpr (map_maximalIdeal_lt_top (algebraMap R S)).ne
+  have hle := depth_le_supportDim (R := S) (M := S ⧸ I)
+  rw [Module.supportDim_quotient_eq_ringKrullDim, hdim] at hle
+  have h0 : depth (ModuleCat.of S (S ⧸ I)) = 0 := nonpos_iff_eq_zero.mp (by exact_mod_cast hle)
+  rw [depth_eq_add_of_flat (R := R) (S := S), h0, add_zero]
+
+/-- Along a flat homomorphism `R → S` of local rings with `S` Noetherian under which the maximal
+ideal of `R` generates the maximal ideal of `S` (so that the closed fibre is a field, as for the
+completion or henselization of a Noetherian local ring), `S` and `R` have the same depth. -/
+theorem depth_eq_of_flat_of_map_maximalIdeal_eq {R : Type u'} {S : Type u} [CommRing R] [CommRing S]
+    [Algebra R S] [IsLocalRing R] [IsLocalRing S] [IsNoetherianRing S] [Module.Flat R S]
+    (h : (maximalIdeal R).map (algebraMap R S) = maximalIdeal S) :
+    depth (ModuleCat.of S S) = depth (ModuleCat.of R R) := by
+  have : IsLocalHom (algebraMap R S) := ((local_hom_tfae (algebraMap R S)).out 1 3).mpr h.le
+  refine depth_eq_of_flat_of_ringKrullDim_quotient_eq_zero ?_
+  rw [h]
+  exact ringKrullDim_eq_zero_of_isField
+    ((Ideal.Quotient.maximal_ideal_iff_isField_quotient _).mp (maximalIdeal.isMaximal S))
 
 end IsLocalRing
