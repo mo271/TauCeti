@@ -7,8 +7,7 @@ module
 
 public import TauCeti.Geometry.Manifold.DeRham.Map
 public import TauCeti.Geometry.Manifold.DeRham.PathIntegral
-public import TauCeti.Geometry.Manifold.DifferentialForm.LocalPrimitive
-public import Mathlib.Topology.Homotopy.Lifting
+public import TauCeti.Geometry.Manifold.DifferentialForm.Monodromy
 import TauCeti.Geometry.Manifold.DifferentialForm.Naturality
 
 /-!
@@ -16,10 +15,12 @@ import TauCeti.Geometry.Manifold.DifferentialForm.Naturality
 
 A closed `C¹` `1`-form `φ` can be integrated along every continuous path, and the integral only
 depends on the homotopy class of the path relative to its endpoints. The integral along a path
-`γ` from `x` to `y` is `TauCeti.pathClassIntegral φ γ`. It is computed by lifting `γ` to the
-covering space `TauCeti.PrimitiveSpace φ` of local primitives: a lift is a primitive of `φ` along
-the path, and the integral is the change of its value (`TauCeti.pathClassIntegral_mk_eq_sub`).
-Equivalently, the monodromy of the covering along `γ` translates values by the integral
+`γ` from `x` to `y` is `TauCeti.pathClassIntegral φ γ`; on closed `C¹` forms it agrees with the
+general monodromy integral `TauCeti.monodromyIntegral φ γ`
+(`TauCeti.monodromyIntegral_eq_pathClassIntegral`). It is computed by lifting `γ` to the covering
+space `TauCeti.PrimitiveSpace φ` of local primitives: a lift is a primitive of `φ` along the path,
+and the integral is the change of its value (`TauCeti.pathClassIntegral_mk_eq_sub`). Equivalently,
+the monodromy of the covering along `γ` translates values by the integral
 (`TauCeti.PrimitiveSpace.value_monodromy`), which gives homotopy invariance for free.
 
 The integral is additive under concatenation (`TauCeti.pathClassIntegral_trans`), linear in the
@@ -44,7 +45,8 @@ is the subgroup of loops lifting to loops, so this decides which covers make a c
 ## Main declarations
 
 * `TauCeti.pathClassIntegral φ γ`: the integral of a closed `C¹` `1`-form along a homotopy class
-  of paths.
+  of paths, agreeing on closed `C¹` forms with `TauCeti.monodromyIntegral`
+  (`TauCeti.monodromyIntegral_eq_pathClassIntegral`).
 * `TauCeti.periodHom φ x`: the period homomorphism of `φ` on the fundamental group at `x`.
 * `TauCeti.mem_exactForms_one_iff_periodHom_eq_zero`: a closed smooth real `1`-form on a connected
   manifold is exact exactly when its periods vanish.
@@ -98,6 +100,20 @@ theorem pathClassIntegral_undef (h : ¬(IsSmoothForm I 1 φ ∧ mextDeriv φ = 0
     (γ : Path.Homotopic.Quotient x y) : pathClassIntegral φ γ = 0 :=
   dite_eq_right h
 
+/-- For a closed `C¹` form `φ`, the monodromy integral along any continuous path `γ` agrees with
+`pathClassIntegral φ (.mk γ)`. -/
+theorem monodromyIntegral_eq_pathClassIntegral (hφ : IsSmoothForm I 1 φ)
+    (hclosed : mextDeriv φ = 0) (γ : Path x y) :
+    monodromyIntegral φ γ = pathClassIntegral φ (.mk γ) := by
+  have hp := PrimitiveSpace.isCoveringMap_proj (r := 1) le_rfl hφ hclosed
+  let e : PrimitiveSpace.proj φ ⁻¹' {x} := ⟨PrimitiveSpace.graph φ 0 x, PrimitiveSpace.proj_graph x⟩
+  have he : γ 0 = PrimitiveSpace.proj φ e := γ.source.trans e.2.symm
+  rw [monodromyIntegral_eq_sub (hφ.exists_isPrimitiveOn le_rfl hclosed)
+      (hp.liftPath γ e he).continuous (fun t ↦ congrFun (hp.liftPath_lifts γ e he) t),
+    hp.liftPath_zero, ← hp.coe_monodromy_mk γ e, pathClassIntegral,
+    dite_eq_left (⟨hφ, hclosed⟩ : IsSmoothForm I 1 φ ∧ mextDeriv φ = 0)]
+  simp [e]
+
 /-- **Integration along a lift.** If `Γ` is a continuous lift of the path `γ` to the covering space
 of local primitives of a closed `C¹` form `φ`, then the integral of `φ` along `γ` is the change of
 the value of `Γ`. -/
@@ -105,16 +121,8 @@ theorem pathClassIntegral_mk_eq_sub (hφ : IsSmoothForm I 1 φ) (hclosed : mextD
     {γ : Path x y} {Γ : unitInterval → PrimitiveSpace φ} (hΓ : Continuous Γ)
     (hΓγ : ∀ t, PrimitiveSpace.proj φ (Γ t) = γ t) :
     pathClassIntegral φ (.mk γ) = PrimitiveSpace.value φ (Γ 1) - PrimitiveSpace.value φ (Γ 0) := by
-  have hp := PrimitiveSpace.isCoveringMap_proj (r := 1) le_rfl hφ hclosed
-  -- translate the lift so that it starts with value `0`
-  let Γ' : C(unitInterval, PrimitiveSpace φ) :=
-    ⟨fun t ↦ PrimitiveSpace.translate φ (-PrimitiveSpace.value φ (Γ 0)) (Γ t),
-      (PrimitiveSpace.continuous_translate _).comp hΓ⟩
-  have hΓ'0 : Γ' 0 = PrimitiveSpace.graph φ 0 x :=
-    PrimitiveSpace.ext (by simp [Γ', hΓγ]) (by simp [Γ'])
-  rw [pathClassIntegral, dite_eq_left (⟨hφ, hclosed⟩ : IsSmoothForm I 1 φ ∧ mextDeriv φ = 0),
-    hp.monodromy_eq_apply_one (Γ := Γ') (funext fun t ↦ by simp [Γ', hΓγ]) hΓ'0]
-  simp [Γ', sub_eq_add_neg]
+  rw [← monodromyIntegral_eq_pathClassIntegral hφ hclosed]
+  exact monodromyIntegral_eq_sub (hφ.exists_isPrimitiveOn le_rfl hclosed) hΓ hΓγ
 
 /-- **Integration inside the domain of a primitive.** The integral of a closed `C¹` form along a
 path inside an open set `U` is the difference of the values at the endpoints of any primitive of
@@ -214,35 +222,9 @@ path which follows a `C¹` curve `c` is the line integral along `c`. -/
 theorem pathClassIntegral_mk_eq_pathIntegral (hφ : IsSmoothForm I 1 φ)
     (hclosed : mextDeriv φ = 0) {c : ℝ → M} (hc : ContMDiff 𝓘(ℝ, ℝ) I 1 c) {γ : Path x y}
     (hγ : ∀ t : unitInterval, γ t = c t) : pathClassIntegral φ (.mk γ) = pathIntegral φ c 0 1 := by
-  have hφ₀ : IsSmoothForm I 0 φ := hφ.of_le (by norm_num)
-  have hint := hφ₀.intervalIntegrable_apply_curveVelocity hc
-  -- the lift: follow `γ`, with value the line integral from `0`
-  let Γ (t : unitInterval) : PrimitiveSpace φ :=
-    PrimitiveSpace.graph φ (fun _ ↦ pathIntegral φ c 0 t) (γ t)
-  have hΓ : Continuous Γ := continuous_iff_continuousAt.mpr fun t₀ ↦ by
-    obtain ⟨g, hg, U, hxU, hgU⟩ := exists_contMDiff_isPrimitiveOn le_rfl hφ hclosed (c t₀)
-    -- near `t₀`, the curve stays in `U`, where `φ = dg`
-    obtain ⟨δ, hδ, hball⟩ :=
-      Metric.isOpen_iff.mp (hgU.isOpen.preimage hc.continuous) (t₀ : ℝ) hxU
-    refine PrimitiveSpace.continuousAt_of_eventually_value_eq
-      (by simp only [Γ, PrimitiveSpace.proj_graph]; exact γ.continuous.continuousAt)
-      (hgU.add_const (pathIntegral φ c 0 t₀ - g (c t₀)))
-      (by simp only [Γ, PrimitiveSpace.proj_graph, hγ]; exact hxU) ?_
-    filter_upwards [continuous_subtype_val.continuousAt.preimage_mem_nhds
-      (Metric.ball_mem_nhds (t₀ : ℝ) hδ)] with s hs
-    have hsub : uIcc (t₀ : ℝ) s ⊆ c ⁻¹' U := by
-      refine (Set.OrdConnected.uIcc_subset ?_ (Metric.mem_ball_self (x := (t₀ : ℝ)) hδ) hs).trans
-        hball
-      rw [Real.ball_eq_Ioo]
-      exact ordConnected_Ioo
-    simp only [PrimitiveSpace.value_graph, PrimitiveSpace.proj_graph, Γ, hγ]
-    rw [← pathIntegral_add_adjacent (hint 0 t₀) (hint t₀ s),
-      pathIntegral_congr (ψ := mextDeriv (RoughForm.ofFunction I g))
-        fun t ht ↦ (hgU.mextDeriv_eq _ (hsub ht)).symm,
-      pathIntegral_mextDeriv_ofFunction hg hc]
-    abel
-  rw [pathClassIntegral_mk_eq_sub hφ hclosed hΓ fun t ↦ PrimitiveSpace.proj_graph (γ t)]
-  simp [Γ]
+  rw [← monodromyIntegral_eq_pathClassIntegral hφ hclosed]
+  exact monodromyIntegral_eq_pathIntegral (hφ.exists_isPrimitiveOn le_rfl hclosed)
+    (hφ.of_le (by norm_num)) hc hγ
 
 /-- Paths which agree pointwise have the same integral, even when their endpoints are written
 differently. -/
@@ -261,15 +243,6 @@ theorem pathClassIntegral_smul_add_smul (hφ : IsSmoothForm I 1 φ) (hφc : mext
     pathClassIntegral (a • φ + b • ψ) γ =
       a • pathClassIntegral φ γ + b • pathClassIntegral ψ γ := by
   induction γ with | mk γ =>
-  have hpφ := PrimitiveSpace.isCoveringMap_proj (r := 1) le_rfl hφ hφc
-  have hpψ := PrimitiveSpace.isCoveringMap_proj (r := 1) le_rfl hψ hψc
-  -- lifts of `γ` for `φ` and for `ψ`
-  obtain ⟨Γ, hΓγ, -⟩ := hpφ.exists_path_lifts γ.toContinuousMap (PrimitiveSpace.graph φ 0 x)
-    (by simp)
-  obtain ⟨Δ, hΔγ, -⟩ := hpψ.exists_path_lifts γ.toContinuousMap (PrimitiveSpace.graph ψ 0 x)
-    (by simp)
-  have hΓγ' (t : unitInterval) : PrimitiveSpace.proj φ (Γ t) = γ t := congrFun hΓγ t
-  have hΔγ' (t : unitInterval) : PrimitiveSpace.proj ψ (Δ t) = γ t := congrFun hΔγ t
   have hsmooth : IsSmoothForm I 1 (a • φ + b • ψ) := (hφ.smul a).add (hψ.smul b)
   have hclosed : mextDeriv (a • φ + b • ψ) = 0 := by
     funext p
@@ -278,31 +251,11 @@ theorem pathClassIntegral_smul_add_smul (hφ : IsSmoothForm I 1 φ) (hφc : mext
       (((hψ.smul b).contDiffWithinAt_inChartAt_self p).differentiableWithinAt one_ne_zero),
       mextDeriv_smul, mextDeriv_smul, hφc, hψc]
     simp
-  -- the same linear combination of the values is a lift of `γ` for `a • φ + b • ψ`
-  let Λ (t : unitInterval) : PrimitiveSpace (a • φ + b • ψ) :=
-    PrimitiveSpace.graph _ (fun _ ↦ a • PrimitiveSpace.value φ (Γ t) +
-      b • PrimitiveSpace.value ψ (Δ t)) (γ t)
-  have hΛ : Continuous Λ := continuous_iff_continuousAt.mpr fun t₀ ↦ by
-    obtain ⟨g, -, U, hxU, hgU, c, hc⟩ :=
-      PrimitiveSpace.exists_isPrimitiveOn_eventually_value_eq le_rfl hφ hφc
-        Γ.continuous.continuousAt (t := t₀)
-    obtain ⟨h, -, V, hxV, hhV, d, hd⟩ :=
-      PrimitiveSpace.exists_isPrimitiveOn_eventually_value_eq le_rfl hψ hψc
-        Δ.continuous.continuousAt (t := t₀)
-    refine PrimitiveSpace.continuousAt_of_eventually_value_eq
-      (by simp only [Λ, PrimitiveSpace.proj_graph]; exact γ.continuous.continuousAt)
-      (((hgU.const_smul a).add (hhV.const_smul b)).add_const (a • c + b • d))
-      (by simp only [Λ, PrimitiveSpace.proj_graph]; rw [hΓγ'] at hxU; rw [hΔγ'] at hxV
-          exact ⟨hxU, hxV⟩) ?_
-    filter_upwards [hc, hd] with s hcs hds
-    simp only [PrimitiveSpace.value_graph, PrimitiveSpace.proj_graph, Λ, hcs.2, hds.2, hΓγ',
-      hΔγ', Pi.add_apply, Pi.smul_apply, smul_add]
-    abel
-  rw [pathClassIntegral_mk_eq_sub hsmooth hclosed hΛ fun t ↦ PrimitiveSpace.proj_graph (γ t),
-    pathClassIntegral_mk_eq_sub hφ hφc Γ.continuous hΓγ',
-    pathClassIntegral_mk_eq_sub hψ hψc Δ.continuous hΔγ']
-  simp only [PrimitiveSpace.value_graph, Λ, smul_sub]
-  abel
+  rw [← monodromyIntegral_eq_pathClassIntegral hsmooth hclosed,
+    ← monodromyIntegral_eq_pathClassIntegral hφ hφc,
+    ← monodromyIntegral_eq_pathClassIntegral hψ hψc]
+  exact monodromyIntegral_smul_add_smul (hφ.exists_isPrimitiveOn le_rfl hφc)
+    (hψ.exists_isPrimitiveOn le_rfl hψc) a b γ
 
 /-- Integration along path classes is additive in the closed `C¹` form. -/
 theorem pathClassIntegral_add (hφ : IsSmoothForm I 1 φ) (hφc : mextDeriv φ = 0)
@@ -377,31 +330,12 @@ theorem pathClassIntegral_mpullback (hf : ContMDiff I I' 2 f) (hθ : IsSmoothFor
     (hclosed : mextDeriv θ = 0) (γ : Path.Homotopic.Quotient x y) :
     pathClassIntegral (mpullback I I' f θ) γ = pathClassIntegral θ (γ.map ⟨f, hf.continuous⟩) := by
   induction γ with | mk γ =>
-  have hfθ : IsSmoothForm I 1 (mpullback I I' f θ) := hθ.mpullback hf
-  have hfclosed : mextDeriv (mpullback I I' f θ) = 0 := hθ.mextDeriv_mpullback_eq_zero hclosed hf
-  have hp := PrimitiveSpace.isCoveringMap_proj (r := 1) le_rfl hθ hclosed
-  -- a lift of the image path `f ∘ γ`
-  obtain ⟨Γ, hΓγ, -⟩ := hp.exists_path_lifts (γ.map hf.continuous).toContinuousMap
-    (PrimitiveSpace.graph θ 0 (f x)) (by simp)
-  have hΓγ' (t : unitInterval) : PrimitiveSpace.proj θ (Γ t) = f (γ t) := congrFun hΓγ t
-  -- the same values over `γ` give a lift of `γ` for the pullback
-  let Λ (t : unitInterval) : PrimitiveSpace (mpullback I I' f θ) :=
-    PrimitiveSpace.graph _ (fun _ ↦ PrimitiveSpace.value θ (Γ t)) (γ t)
-  have hΛ : Continuous Λ := continuous_iff_continuousAt.mpr fun t₀ ↦ by
-    obtain ⟨g, -, U, hxU, hgU, c, hc⟩ :=
-      PrimitiveSpace.exists_isPrimitiveOn_eventually_value_eq le_rfl hθ hclosed
-        Γ.continuous.continuousAt (t := t₀)
-    refine PrimitiveSpace.continuousAt_of_eventually_value_eq
-      (by simp only [Λ, PrimitiveSpace.proj_graph]; exact γ.continuous.continuousAt)
-      ((hgU.mpullback (hf.mdifferentiable (by norm_num))).add_const c)
-      (by simpa only [Λ, PrimitiveSpace.proj_graph, mem_preimage, ← hΓγ'] using hxU) ?_
-    filter_upwards [hc] with s hs
-    simp only [Λ, PrimitiveSpace.value_graph, PrimitiveSpace.proj_graph, hs.2, hΓγ',
-      Function.comp_apply]
-  rw [pathClassIntegral_mk_eq_sub hfθ hfclosed hΛ fun t ↦ PrimitiveSpace.proj_graph (γ t),
-    ← Path.Homotopic.Quotient.mk_map,
-    pathClassIntegral_mk_eq_sub hθ hclosed Γ.continuous hΓγ']
-  simp [Λ]
+  rw [← Path.Homotopic.Quotient.mk_map,
+    ← monodromyIntegral_eq_pathClassIntegral (hθ.mpullback hf)
+      (hθ.mextDeriv_mpullback_eq_zero hclosed hf),
+    ← monodromyIntegral_eq_pathClassIntegral hθ hclosed]
+  exact monodromyIntegral_mpullback (hf.mdifferentiable (by norm_num))
+    (hθ.exists_isPrimitiveOn le_rfl hclosed) γ
 
 /-- **Naturality of periods.** The periods of the pullback of a closed `C¹` form `θ` along a `C²`
 map `f` are the periods of `θ` composed with the induced map of fundamental groups. -/

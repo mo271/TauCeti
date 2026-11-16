@@ -6,9 +6,8 @@ Authors: The Tau Ceti contributors
 module
 
 public import TauCeti.Geometry.Manifold.DeRham.Basic
-public import TauCeti.Geometry.Manifold.DifferentialForm.LocalPrimitive
-public import TauCeti.Geometry.Manifold.Topology
-public import Mathlib.Topology.Homotopy.Lifting
+public import Mathlib.AlgebraicTopology.FundamentalGroupoid.SimplyConnected
+import TauCeti.Geometry.Manifold.DifferentialForm.Monodromy
 
 /-!
 # Closed `1`-forms on simply connected manifolds are exact
@@ -17,14 +16,11 @@ On a simply connected manifold every closed `1`-form is the differential of a fu
 (`TauCeti.exists_mextDeriv_eq_of_simplyConnectedSpace`), so the first de Rham cohomology vanishes
 (`TauCeti.subsingleton_deRhamCohomology_one_of_simplyConnectedSpace`).
 
-The proof is the monodromy argument. By the Poincaré lemma (`TauCeti.exists_mextDeriv_eq_nhds`)
-a closed `1`-form `φ` has a primitive near every point, and two primitives on a common open set
-differ by a locally constant function. Pairs `(x, a)` of a point and a value are topologized so
-that the graphs `{(y, g y) | y ∈ U}` of the primitives `g` of `φ` on open sets `U` form a basis.
-Projecting to the point is a covering map: over an open set carrying a primitive `g`, the sheets
-are the graphs of the translates `g + c`. A simply connected, locally path-connected base lifts
-the identity through every covering map, and the second coordinate of such a lift is a global
-primitive of `φ`, since near each point it agrees with a translate of a local primitive.
+By the Poincaré lemma (`TauCeti.exists_contMDiff_isPrimitiveOn`) a closed `C^r` `1`-form (`1 ≤ r`)
+admits a `C^r` primitive near every point. Applying
+`TauCeti.exists_isPrimitiveOn_univ_of_simplyConnectedSpace` produces a global differentiable
+primitive `f`, and since `f` agrees near each point with a translate of a `C^r` local primitive
+(`TauCeti.IsPrimitiveOn.eventuallyEq_add_const`), `f` is itself `C^r`.
 
 The Poincaré lemma is where finite dimensionality, the Hausdorff property and completeness of the
 coefficient space are used. Manifolds with boundary or corners are included.
@@ -69,23 +65,12 @@ derivative of a `C^r` function. -/
 theorem exists_mextDeriv_eq_of_simplyConnectedSpace [SimplyConnectedSpace M] {r : ℕ∞}
     (hr : 1 ≤ r) {φ : RoughForm I M F 1} (hφ : IsSmoothForm I r φ) (hclosed : mextDeriv φ = 0) :
     ∃ ψ : RoughForm I M F 0, IsSmoothForm I r ψ ∧ mextDeriv ψ = φ := by
-  have := I.locallyPathConnectedSpace
-  have := ChartedSpace.locallyPathConnectedSpace H M
-  obtain ⟨x₀⟩ := (inferInstance : Nonempty M)
-  -- lift the identity of `M` through the covering space of local primitives
-  have hp := PrimitiveSpace.isCoveringMap_proj hr hφ hclosed
-  obtain ⟨s, ⟨-, hs⟩, -⟩ :=
-    hp.existsUnique_continuousMap_lifts (ContinuousMap.id M) x₀ (PrimitiveSpace.graph φ 0 x₀)
-      (PrimitiveSpace.proj_graph x₀)
-  have hps (y : M) : PrimitiveSpace.proj φ (s y) = y := congrFun hs y
-  -- Near each point `x`, the value of `s` differs by a constant from a local primitive of `φ`.
-  refine exists_mextDeriv_eq_of_forall_eventuallyEq_add_const
-    (f := fun y ↦ PrimitiveSpace.value φ (s y)) fun x ↦ ?_
-  obtain ⟨g, hg, U, hxU, hgU, c, hc⟩ :=
-    PrimitiveSpace.exists_isPrimitiveOn_eventually_value_eq hr hφ hclosed
-      (s.continuous.continuousAt (x := x))
-  rw [hps] at hxU
-  exact ⟨g, c, hg x, hc.mono fun y hy ↦ by rw [hy.2, hps], hgU.mextDeriv_eq x hxU⟩
+  obtain ⟨f, hf⟩ :=
+    exists_isPrimitiveOn_univ_of_simplyConnectedSpace (hφ.exists_isPrimitiveOn hr hclosed)
+  refine exists_mextDeriv_eq_of_forall_eventuallyEq_add_const (f := f) fun x ↦ ?_
+  obtain ⟨g, hg, U, hxU, hgU⟩ := exists_contMDiff_isPrimitiveOn hr hφ hclosed x
+  exact ⟨g, f x - g x, hg x, hf.eventuallyEq_add_const hgU (mem_univ x) hxU,
+    hgU.mextDeriv_eq x hxU⟩
 
 variable (I M) in
 /-- On a simply connected manifold every closed smooth real `1`-form is exact. -/
