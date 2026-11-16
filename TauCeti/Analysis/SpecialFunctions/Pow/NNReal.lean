@@ -119,6 +119,7 @@ On a seminormed group, `x ↦ c * ‖x‖₊ ^ a` tends to `0` at `0` for every 
   `ofReal (p * 2⁻¹ ^ (1 - p) / (p - 1)) * (2 * A) = ofReal (2 * p * 2 ^ (p - 1) / (p - 1)) * A`.
 * `NNReal.rpow_neg_mem_Icc_iff`: an interval of negative powers is equivalent to an interval
   for the reciprocal parameter `α / r`.
+* `NNReal.mul_rpow_div_add_le`: `ε * (u ^ θ / (u + ε)) ≤ ε ^ θ` for `θ ∈ [0, 1]`.
 * `TauCeti.tendsto_const_mul_nnnorm_rpow_nhds_zero`: `c * ‖x‖₊ ^ a → 0` as `x → 0` for `0 < a`.
 -/
 
@@ -489,6 +490,24 @@ lemma max_two_mul_le_toNNReal {α C M ρ : ℝ≥0} {C₀ D N R : ℝ} (hα1 : (
         rw [show (2 : ℝ) * 2 * D = 4 * D by ring]
         gcongr
         exact le_max_right _ _
+
+/-- For `θ ∈ [0, 1]`, the error term `ε * (u ^ θ / (u + ε))` of the regularized quotient
+`u ^ θ / (u + ε)` is bounded uniformly in `u` by `ε ^ θ`. -/
+theorem mul_rpow_div_add_le (u ε : ℝ≥0) {θ : ℝ} (hθ₀ : 0 ≤ θ) (hθ₁ : θ ≤ 1) :
+    ε * (u ^ θ / (u + ε)) ≤ ε ^ θ := by
+  rcases eq_or_ne ε 0 with rfl | hε
+  · simp
+  have huε : 0 < u + ε := add_pos_of_nonneg_of_pos zero_le (pos_iff_ne_zero.2 hε)
+  have : 0 ≤ 1 - θ := sub_nonneg.2 hθ₁
+  rw [← mul_div_assoc, div_le_iff₀ huε]
+  calc ε * u ^ θ = ε ^ θ * (u ^ θ * ε ^ (1 - θ)) := by
+        rw [mul_left_comm, ← rpow_add hε, add_sub_cancel, rpow_one, mul_comm]
+    _ ≤ ε ^ θ * ((u + ε) ^ θ * (u + ε) ^ (1 - θ)) := by
+        gcongr
+        · exact le_self_add
+        · exact le_add_self
+    _ = ε ^ θ * (u + ε) := by
+        rw [← rpow_add huε.ne', add_sub_cancel, rpow_one]
 
 end NNReal
 
