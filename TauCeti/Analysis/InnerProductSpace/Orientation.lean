@@ -64,6 +64,28 @@ theorem volumeFormL_apply_orthonormal (o : Orientation ℝ E (Fin n))
   rw [volumeFormL_apply, o.volumeForm_robust b hb]
   exact b.toBasis.det_self
 
+/-- Reversing the orientation negates `volumeFormL`. -/
+@[simp]
+theorem volumeFormL_neg_orientation (o : Orientation ℝ E (Fin n)) :
+    (-o).volumeFormL = -o.volumeFormL := by
+  ext v
+  simp [volumeForm_neg_orientation]
+
+/-- The oriented volume form has operator norm one in every dimension. -/
+@[simp]
+theorem norm_volumeFormL (o : Orientation ℝ E (Fin n)) : ‖o.volumeFormL‖ = 1 := by
+  refine le_antisymm (o.volumeForm.mkContinuous_norm_le zero_le_one _) ?_
+  rcases n with - | n
+  · have h := o.volumeFormL.le_opNorm ![]
+    have h1 : |o.volumeForm ![]| = 1 := by
+      refine o.eq_or_eq_neg_of_isEmpty.elim ?_ ?_ <;> rintro rfl <;> simp
+    simpa [h1] using h
+  · have : FiniteDimensional ℝ E := .of_fact_finrank_eq_succ n
+    let b : OrthonormalBasis (Fin (n + 1)) ℝ E :=
+      (stdOrthonormalBasis ℝ E).reindex (finCongr Fact.out)
+    have hb : |o.volumeForm b| = 1 := o.abs_volumeForm_apply_of_orthonormal b
+    simpa [hb, b.norm_eq_one] using o.volumeFormL.le_opNorm b
+
 /-- A top form taking value one on an oriented orthonormal basis is the volume form. -/
 theorem eq_volumeFormL_of_apply_orthonormal (o : Orientation ℝ E (Fin n))
     (ω : E [⋀^Fin n]→L[ℝ] ℝ) (b : OrthonormalBasis (Fin n) ℝ E)

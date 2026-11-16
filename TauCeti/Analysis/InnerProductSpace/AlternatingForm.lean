@@ -46,6 +46,8 @@ product, a form is represented by `∑ α(b_{i₁}, …, b_{iₖ}) b*_{i₁} ∧
   the wedge with the covector `⟪u, ·⟫`.
 * `LinearIsometry.alternatingFormEquiv_map`: musical identification commutes with isometries.
 * `TauCeti.alternatingFormInner_eq_sum`: the inner product of forms in an orthonormal basis.
+* `TauCeti.alternatingFormInner_eq_mul_apply_orthonormalBasis`: in top degree, the inner product
+  of forms is the product of their values on an orthonormal basis.
 * `Module.Basis.alternatingFormEquiv_symm_eq_sum`: the element of `⋀ᵏ V` representing a form, in
   an arbitrary basis.
 
@@ -237,6 +239,23 @@ theorem alternatingFormInner_eq_sum {ι : Type*} [Fintype ι] [LinearOrder ι]
       ιMulti_family, OrthonormalBasis.coe_toBasis]
   rw [hs, real_inner_comm ((alternatingFormEquiv V k).symm β),
     inner_alternatingFormEquiv_symm_ιMulti, inner_alternatingFormEquiv_symm_ιMulti]
+
+/-- **The inner product of top-degree forms**: in an orthonormal basis `b` indexed by `Fin k`,
+`⟨α, β⟩ = α(b) β(b)`. -/
+theorem alternatingFormInner_eq_mul_apply_orthonormalBasis {k : ℕ}
+    (b : OrthonormalBasis (Fin k) ℝ V) (α β : V [⋀^Fin k]→L[ℝ] ℝ) :
+    alternatingFormInner V k α β = α b * β b := by
+  let s₀ : powersetCard (Fin k) k := ⟨Finset.univ, by simp⟩
+  have huniq : ∀ s : powersetCard (Fin k) k, s = s₀ := fun s ↦
+    Subtype.ext (Finset.eq_univ_of_card s.1 (by simp [powersetCard.mem_iff.1 s.2]))
+  have he : powersetCard.ofFinEmbEquiv.symm s₀ = (OrderIso.refl (Fin k)).toOrderEmbedding := by
+    refine OrderEmbedding.eq_of_range_eq ?_
+    ext i
+    simpa using (powersetCard.mem_range_ofFinEmbEquiv_symm_iff_mem s₀ i).2 (Finset.mem_univ i)
+  rw [alternatingFormInner_eq_sum b α β,
+    Finset.sum_eq_single s₀ (fun s _ hs ↦ absurd (huniq s) hs)
+      (fun h ↦ absurd (Finset.mem_univ _) h), he]
+  rfl
 
 end TauCeti
 

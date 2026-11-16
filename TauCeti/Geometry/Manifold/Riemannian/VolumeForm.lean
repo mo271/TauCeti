@@ -79,6 +79,16 @@ theorem riemannianVolumeForm_apply
   let := o.fact_finrank_tangentSpace x
   simp [riemannianVolumeForm]
 
+/-- Reversing the orientation negates the Riemannian volume form. -/
+@[simp]
+theorem riemannianVolumeForm_neg (o : Manifold.Orientation I M (Fin m)) :
+    riemannianVolumeForm (-o) = -riemannianVolumeForm o := by
+  funext x
+  let := o.fact_finrank_tangentSpace x
+  let := (-o).fact_finrank_tangentSpace x
+  rw [riemannianVolumeForm_def, Pi.neg_apply, riemannianVolumeForm_def,
+    Manifold.Orientation.orientationAt_neg, Orientation.volumeFormL_neg_orientation]
+
 /-- The volume form takes value `1` on a positively oriented orthonormal tangent basis. -/
 theorem riemannianVolumeForm_apply_orthonormal
     (o : Manifold.Orientation I M (Fin m)) (x : M)
