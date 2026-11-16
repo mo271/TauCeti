@@ -20,6 +20,8 @@ and unramifiedness at `q` is equivalent to unramifiedness at `q.comap ψ`.
 
 * `AlgEquiv.isUnramifiedAt_iff_of_eq_comap`: `A` is unramified over `R` at a prime equal to
   `q.comap ψ` if and only if `B` is unramified over `R` at `q`.
+* `AlgEquiv.isUnramifiedIn_iff`: an ideal of `R` is unramified in `A` if and only if it is
+  unramified in `B`.
 -/
 
 public section
@@ -41,5 +43,15 @@ theorem isUnramifiedAt_iff_of_eq_comap (ψ : A ≃ₐ[R] B) {q : Ideal B} [q.IsP
   exact Algebra.FormallyUnramified.iff_of_equiv (IsLocalization.algEquivOfAlgEquiv
     (Localization.AtPrime (q.comap ψ)) (Localization.AtPrime q) ψ
       (Ideal.map_primeCompl_comap_of_surjective ψ ψ.surjective q))
+
+private theorem isUnramifiedIn_of_algEquiv (ψ : A ≃ₐ[R] B) {p : Ideal R}
+    (h : Algebra.IsUnramifiedIn A p) : Algebra.IsUnramifiedIn B p := fun q _ hqp ↦
+  have hlo : (q.comap ψ).LiesOver p := ⟨hqp.over.trans (by ext; simp)⟩
+  (ψ.isUnramifiedAt_iff_of_eq_comap rfl).mp (h (q.comap ψ) inferInstance hlo)
+
+/-- **Unramifiedness of a base ideal transports along an isomorphism of `R`-algebras.** -/
+theorem isUnramifiedIn_iff (ψ : A ≃ₐ[R] B) (p : Ideal R) :
+    Algebra.IsUnramifiedIn A p ↔ Algebra.IsUnramifiedIn B p :=
+  ⟨isUnramifiedIn_of_algEquiv ψ, isUnramifiedIn_of_algEquiv ψ.symm⟩
 
 end AlgEquiv

@@ -8,8 +8,10 @@ module
 public import Mathlib.FieldTheory.Normal.Closure
 public import Mathlib.RingTheory.Unramified.Locus
 public import TauCeti.NumberTheory.NumberField.Frobenius.FixedField.Inertia
+import Mathlib.FieldTheory.SeparableClosure
 import Mathlib.NumberTheory.RamificationInertia.Unramified
 import TauCeti.NumberTheory.RamificationInertia.Splitting
+import TauCeti.RingTheory.Unramified.AlgEquiv
 
 /-!
 # Complete splitting and unramifiedness in composita and Galois closures
@@ -31,9 +33,15 @@ so neither property changes. As the normal closure of `E` in `M` is the join of 
 `E`, the prime `𝔭` splits completely (or is unramified) in `E` exactly when it does in the normal
 closure. When `M` is itself the normal closure of `E`, this compares `E` with `M` directly.
 
+For unramifiedness, embedding `normalClosure K L M` into a finite Galois extension of `K` removes
+both the normality and finiteness hypotheses on the ambient `K`-field `M`: if an ideal of `𝓞 K`
+is unramified in a number field `L`, it remains unramified in `normalClosure K L M`
+(`Ideal.isUnramifiedIn_normalClosure`), and consequently formal unramifiedness of `𝓞 L` over `𝓞 K`
+passes to `𝓞 (normalClosure K L M)` (`Algebra.FormallyUnramified.ringOfIntegers_normalClosure`).
+
 The decomposition-group criterion rests on the local degree formula
 `e(Q ∩ E / 𝔭) f(Q ∩ E / 𝔭) = [D(Q) : D(Q) ∩ Gal(M/E)]`, together with the non-Galois count
-criterion "`[E : K]` primes above `𝔭` exactly when `e = f = 1` at each". The inertia-group
+criterion (`[E : K]` primes above `𝔭` exactly when `e = f = 1` at each). The inertia-group
 criterion rests likewise on `e(Q ∩ E / 𝔭) = [I(Q) : I(Q) ∩ Gal(M/E)]`.
 
 ## Main results
@@ -52,8 +60,10 @@ criterion rests likewise on `e(Q ∩ E / 𝔭) = [I(Q) : I(Q) ∩ Gal(M/E)]`.
 * `Ideal.isUnramifiedIn_iff_forall_inertia_le`: `𝔭` is unramified in `E` iff every inertia group
   above `𝔭` lies in `Gal(M/E)`.
 * `Ideal.isUnramifiedIn_sup_iff`, `Ideal.isUnramifiedIn_iSup_iff`,
-  `Ideal.isUnramifiedIn_map_iff`, `Ideal.isUnramifiedIn_normalClosure_iff`: the same four
-  consequences for unramifiedness.
+  `Ideal.isUnramifiedIn_map_iff`, `Ideal.isUnramifiedIn_normalClosure`,
+  `Ideal.isUnramifiedIn_normalClosure_iff`,
+  `Algebra.FormallyUnramified.ringOfIntegers_normalClosure`: unramifiedness in composita,
+  conjugate fields, and normal closures inside arbitrary ambient extensions.
 
 ## References
 
@@ -67,6 +77,8 @@ open IntermediateField Module
 open scoped NumberField Pointwise
 
 namespace Ideal
+
+section GaloisAmbient
 
 variable {K M : Type*} [Field K] [NumberField K] [Field M] [NumberField M]
   [Algebra K M] [IsGalois K M]
@@ -242,12 +254,90 @@ theorem isUnramifiedIn_map_iff (p : Ideal (𝓞 K)) (E : IntermediateField K M) 
       exact ⟨inferInstance, inferInstance⟩
     exact Subgroup.map_mono (h _ hσQ)
 
-/-- **Unramifiedness in the normal closure.** An ideal `p` of `𝓞 K` is unramified in an
-intermediate field `E` of `M / K` exactly when it is unramified in the normal closure of `E`
-in `M`. -/
-theorem isUnramifiedIn_normalClosure_iff (p : Ideal (𝓞 K)) (E : IntermediateField K M) :
-    Algebra.IsUnramifiedIn (𝓞 (normalClosure K E M)) p ↔ Algebra.IsUnramifiedIn (𝓞 E) p := by
-  rw [normalClosure_def'' E, isUnramifiedIn_iSup_iff]
-  simp only [isUnramifiedIn_map_iff, forall_const]
+end GaloisAmbient
+
+section AmbientNormalClosure
+
+/-- The image of a field extension under a `K`-algebra homomorphism is unramified above an ideal
+`p` of `𝓞 K` if and only if the source extension is. -/
+theorem _root_.AlgHom.isUnramifiedIn_fieldRange_iff {K L M : Type*} [Field K] [Field L] [Field M]
+    [Algebra K L] [Algebra K M] (f : L →ₐ[K] M) (p : Ideal (𝓞 K)) :
+    Algebra.IsUnramifiedIn (𝓞 f.fieldRange) p ↔ Algebra.IsUnramifiedIn (𝓞 L) p :=
+  (NumberField.RingOfIntegers.mapAlgEquiv f.equivFieldRange.symm).isUnramifiedIn_iff p
+
+/-- **Unramifiedness in the normal closure.** Taking the normal closure of a finite extension
+`L / K` of a number field `K` inside an arbitrary ambient `K`-field `M` preserves unramifiedness of
+any ideal `p` of `𝓞 K`. The ambient field `M` need not be finite, normal, or an `L`-algebra. -/
+theorem isUnramifiedIn_normalClosure {K L : Type*} [Field K] [NumberField K]
+    [Field L] [Algebra K L] [FiniteDimensional K L] (p : Ideal (𝓞 K))
+    (M : Type*) [Field M] [Algebra K M] (h : Algebra.IsUnramifiedIn (𝓞 L) p) :
+    Algebra.IsUnramifiedIn (𝓞 (normalClosure K L M)) p := by
+  let N := normalClosure K L M
+  let _ : NumberField N := NumberField.of_module_finite K N
+  let G := normalClosure K N (SeparableClosure K)
+  let _ : NumberField G := NumberField.of_module_finite K G
+  have : IsGalois K G := {}
+  let φ : N →ₐ[K] G := (normalClosure.algHomEquiv K N (SeparableClosure K)).symm IsSepClosed.lift
+  let E : (L →ₐ[K] M) → IntermediateField K G :=
+    fun f ↦ (φ.comp ((normalClosure.algHomEquiv K L M).symm f)).fieldRange
+  have hφ : φ.fieldRange = ⨆ f : L →ₐ[K] M, E f := by
+    apply le_antisymm
+    · rintro _ ⟨x, rfl⟩
+      have hx : (x : M) ∈ ⨆ f : L →ₐ[K] M, f.fieldRange := x.2
+      have hmap : (⨆ f : L →ₐ[K] M, ((normalClosure.algHomEquiv K L M).symm f).fieldRange).map
+          N.val = ⨆ f : L →ₐ[K] M, f.fieldRange := by
+        rw [IntermediateField.map_iSup]
+        refine iSup_congr fun f ↦ ?_
+        rw [AlgHom.map_fieldRange]
+        rfl
+      rw [← hmap] at hx
+      rcases hx with ⟨y, hy, hyx⟩
+      obtain rfl : y = x := N.val.injective hyx
+      have hsub : ((⨆ f : L →ₐ[K] M,
+          ((normalClosure.algHomEquiv K L M).symm f).fieldRange).map φ :
+            IntermediateField K G) = ⨆ f : L →ₐ[K] M, E f := by
+        rw [IntermediateField.map_iSup]
+        exact iSup_congr fun f ↦ AlgHom.map_fieldRange _ φ
+      rw [← hsub]
+      exact ⟨y, hy, rfl⟩
+    · exact iSup_le fun f ↦ by
+        rintro _ ⟨z, rfl⟩
+        exact ⟨(normalClosure.algHomEquiv K L M).symm f z, rfl⟩
+  rw [← φ.isUnramifiedIn_fieldRange_iff, hφ, isUnramifiedIn_iSup_iff]
+  intro f
+  exact ((φ.comp ((normalClosure.algHomEquiv K L M).symm f)).isUnramifiedIn_fieldRange_iff p).mpr h
+
+/-- **Unramifiedness in a field and in its normal closure.** In a tower `M / L / K` of fields with
+`K` a number field and `L / K` finite, an ideal `p` of `𝓞 K` is unramified in
+`normalClosure K L M` if and only if it is unramified in `L`. -/
+@[simp]
+theorem isUnramifiedIn_normalClosure_iff {K : Type*} [Field K] [NumberField K]
+    (p : Ideal (𝓞 K)) (L M : Type*) [Field L] [Algebra K L] [FiniteDimensional K L]
+    [Field M] [Algebra K M] [Algebra L M] [IsScalarTower K L M] :
+    Algebra.IsUnramifiedIn (𝓞 (normalClosure K L M)) p ↔ Algebra.IsUnramifiedIn (𝓞 L) p := by
+  refine ⟨fun h P hP hPp ↦ ?_, p.isUnramifiedIn_normalClosure M⟩
+  let _ : NumberField L := NumberField.of_module_finite K L
+  let N := normalClosure K L M
+  let _ : NumberField N := NumberField.of_module_finite K N
+  have : P.IsPrime := hP
+  have : P.LiesOver p := hPp
+  obtain ⟨⟨Q, hQprime, hQover⟩⟩ := (inferInstance : Nonempty (P.primesOver (𝓞 N)))
+  have : Q.IsPrime := hQprime
+  have : Q.LiesOver P := hQover
+  have : Algebra.IsUnramifiedAt (𝓞 K) Q := h Q hQprime (LiesOver.trans Q P p)
+  exact Algebra.IsUnramifiedAt.of_liesOver (𝓞 K) P Q
+
+/-- If `L / K` is a finite extension of a number field `K` and `𝓞 L` is formally unramified over
+`𝓞 K`, then so is the ring of integers of `normalClosure K L M` inside any ambient `K`-field `M`. -/
+theorem _root_.Algebra.FormallyUnramified.ringOfIntegers_normalClosure
+    {K : Type*} [Field K] [NumberField K] (L M : Type*)
+    [Field L] [Algebra K L] [FiniteDimensional K L] [Field M] [Algebra K M]
+    [Algebra.FormallyUnramified (𝓞 K) (𝓞 L)] :
+    Algebra.FormallyUnramified (𝓞 K) (𝓞 (normalClosure K L M)) :=
+  Algebra.formallyUnramified_iff_forall.mpr fun Q ↦
+    ((Q.asIdeal.under (𝓞 K)).isUnramifiedIn_normalClosure M fun P hP _ ↦
+      Algebra.formallyUnramified_iff_forall.mp ‹_› ⟨P, hP⟩) Q.asIdeal Q.isPrime ⟨rfl⟩
+
+end AmbientNormalClosure
 
 end Ideal

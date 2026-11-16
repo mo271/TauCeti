@@ -34,6 +34,8 @@ x² + ny²*, Chapter 5.
 
 ## Main results
 
+* `TauCeti.NumberField.not_isPrincipal_of_liesOver_span_two_of_minpoly_eq_X_sq_add_five`: every
+  prime of `𝓞 K` above `(2)` in a presentation of `ℚ(√-5)` is non-principal.
 * `TauCeti.NumberField.classNumber_eq_two_of_minpoly_eq_X_sq_add_five`: every presentation of
   `ℚ(√-5)` by an integral generator has class number two.
 * `TauCeti.NumberField.classNumber_adjoinRoot_sqrt_neg_five_eq_two`: the result for the concrete
@@ -161,8 +163,8 @@ private theorem minkowski_bound_lt_three
       rw [div_lt_iff₀ Real.pi_pos]
       nlinarith [Real.pi_gt_three]
 
-/-- The unique prime above `2` in `ℚ(√-5)` is not principal. -/
-private theorem not_isPrincipal_primeAboveTwo
+/-- Every prime ideal above `(2)` in a presentation of `ℚ(√-5)` is non-principal. -/
+theorem not_isPrincipal_of_liesOver_span_two_of_minpoly_eq_X_sq_add_five
     (hmin : minpoly ℤ θ = X ^ 2 - C (-5 : ℤ))
     (hgen : Algebra.adjoin ℚ {(θ : K)} = ⊤)
     (P : Ideal (𝓞 K)) [P.IsPrime] [P.LiesOver (span {(2 : ℤ)})] :
@@ -221,7 +223,7 @@ theorem classNumber_eq_two_of_minpoly_eq_X_sq_add_five
     ⟨P, mem_nonZeroDivisors_of_ne_zero hPne⟩
   have hPclass : ClassGroup.mk0 P0 ≠ 1 := by
     intro h
-    apply not_isPrincipal_primeAboveTwo hmin hgen P
+    apply not_isPrincipal_of_liesOver_span_two_of_minpoly_eq_X_sq_add_five hmin hgen P
     exact (ClassGroup.mk0_eq_one_iff (mem_nonZeroDivisors_of_ne_zero hPne)).mp
       (by simpa [P0] using h)
   have hM := minkowski_bound_lt_three hmin hgen

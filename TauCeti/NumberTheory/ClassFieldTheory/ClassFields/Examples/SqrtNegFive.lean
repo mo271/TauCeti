@@ -5,9 +5,12 @@ Authors: The Tau Ceti contributors
 -/
 module
 
+public import Mathlib.RingTheory.ClassGroup.ExtendedHom
 public import TauCeti.NumberTheory.ClassFieldTheory.ClassFields.GenusField
 public import TauCeti.NumberTheory.Multiquadratic.MinusFive.GenusField
+import TauCeti.NumberTheory.ClassFieldTheory.ClassFields.PrincipalIdeal
 import TauCeti.NumberTheory.Multiquadratic.MinusFive.ClassNumber
+import TauCeti.RingTheory.ClassGroup.Extension
 
 /-!
 # The Hilbert class field of `ℚ(√-5)`
@@ -22,10 +25,17 @@ already exhausts the degree of the Hilbert class field.
 algebra equivalence over `ℚ`. The narrow Hilbert class field has the same presentation
 (`nonempty_algEquiv_narrowHilbertClassField_sqrt_neg_five`), since the base has no real places.
 
+Combining this identification with `isPrincipal_map_hilbertClassField` verifies the Principal Ideal
+Theorem on `ℚ(√-5)`: every ideal of `𝓞 (candidateGenusFieldBase hd)` becomes principal in
+`𝓞 (candidateGenusField hd)` (`isPrincipal_map_candidateGenusField_neg_five`), in particular the
+non-principal prime ideal above `2`
+(`not_isPrincipal_and_isPrincipal_map_of_liesOver_span_two_neg_five`).
+
 ## References
 
 * D. A. Cox, *Primes of the Form x² + ny²*, §6.A (the genus field of discriminant `-20`).
-* J. Neukirch, *Algebraic Number Theory*, Chapter VI, §6 (the Hilbert class field).
+* J. Neukirch, *Algebraic Number Theory*, Chapter VI, §§6–7 (the Hilbert class field and the
+  Principal Ideal Theorem).
 -/
 
 public noncomputable section
@@ -98,5 +108,56 @@ theorem nonempty_algEquiv_narrowHilbertClassField_sqrt_neg_five :
   have := isTotallyComplex_candidateGenusFieldBase hd (by norm_num)
   rw [narrowHilbertClassField_eq_hilbertClassField]
   exact nonempty_algEquiv_hilbertClassField_sqrt_neg_five hd
+
+/-- **Principal Ideal Theorem for `ℚ(√-5)`.** Every ideal of the quadratic base
+`𝓞 (candidateGenusFieldBase hd)` becomes principal in `𝓞 (candidateGenusField hd)`. -/
+theorem isPrincipal_map_candidateGenusField_neg_five
+    (I : Ideal (𝓞 (candidateGenusFieldBase hd))) :
+    (I.map (algebraMap (𝓞 (candidateGenusFieldBase hd))
+      (𝓞 (candidateGenusField hd)))).IsPrincipal := by
+  let ι : candidateGenusField hd →ₐ[candidateGenusFieldBase hd]
+      SeparableClosure (candidateGenusFieldBase hd) := IsSepClosed.lift
+  let e : hilbertClassField (candidateGenusFieldBase hd) ≃ₐ[candidateGenusFieldBase hd]
+      candidateGenusField hd :=
+    (IntermediateField.equivOfEq
+      (fieldRange_candidateGenusField_neg_five_eq_hilbertClassField hd ι)).symm.trans
+        ι.equivFieldRange.symm
+  exact isPrincipal_map_of_algHom_hilbertClassField e.toAlgHom I
+
+/-- Extending ideal classes from `ℚ(√-5)` to its genus field `ℚ(i, √5)` kills the class group. -/
+@[simp]
+theorem extendedHom_candidateGenusField_neg_five_eq_one :
+    ClassGroup.extendedHom (𝓞 (candidateGenusFieldBase hd)) (𝓞 (candidateGenusField hd)) = 1 :=
+  (ClassGroup.extendedHom_eq_one_iff_forall_isPrincipal _ _).mpr
+    (isPrincipal_map_candidateGenusField_neg_five hd)
+
+/-- Every prime ideal of `𝓞 (candidateGenusFieldBase hd)` lying above `(2)` is non-principal in
+`ℚ(√-5)` yet becomes principal in `ℚ(i, √5)`. -/
+theorem not_isPrincipal_and_isPrincipal_map_of_liesOver_span_two_neg_five
+    (P : Ideal (𝓞 (candidateGenusFieldBase hd))) [P.IsPrime]
+    [P.LiesOver (Ideal.span {(2 : ℤ)})] :
+    ¬ P.IsPrincipal ∧
+      (P.map (algebraMap (𝓞 (candidateGenusFieldBase hd))
+        (𝓞 (candidateGenusField hd)))).IsPrincipal :=
+  ⟨TauCeti.NumberField.not_isPrincipal_of_liesOver_span_two_of_minpoly_eq_X_sq_add_five
+    (minpoly_candidateGenusFieldBaseGen hd (by norm_num))
+    (adjoin_candidateGenusFieldBaseGen_eq_top hd) P,
+   isPrincipal_map_candidateGenusField_neg_five hd P⟩
+
+/-- There exists a prime ideal of `𝓞 (candidateGenusFieldBase hd)` that is non-principal in
+`ℚ(√-5)` and becomes principal in `ℚ(i, √5)`. -/
+theorem exists_not_isPrincipal_and_isPrincipal_map_candidateGenusField_neg_five :
+    ∃ P : Ideal (𝓞 (candidateGenusFieldBase hd)), P.IsPrime ∧ ¬ P.IsPrincipal ∧
+      (P.map (algebraMap (𝓞 (candidateGenusFieldBase hd))
+        (𝓞 (candidateGenusField hd)))).IsPrincipal := by
+  let _ : (Ideal.span {(2 : ℤ)} : Ideal ℤ).IsPrime :=
+    (Ideal.span_singleton_prime (by norm_num)).mpr
+      (Int.prime_iff_natAbs_prime.mpr Nat.prime_two)
+  obtain ⟨⟨P, hPprime, hPover⟩⟩ :=
+    (inferInstance :
+      Nonempty ((Ideal.span {(2 : ℤ)} : Ideal ℤ).primesOver (𝓞 (candidateGenusFieldBase hd))))
+  let _ : P.IsPrime := hPprime
+  let _ : P.LiesOver (Ideal.span {(2 : ℤ)}) := hPover
+  exact ⟨P, hPprime, not_isPrincipal_and_isPrincipal_map_of_liesOver_span_two_neg_five hd P⟩
 
 end TauCeti.ClassFieldTheory
