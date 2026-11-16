@@ -68,8 +68,10 @@ most one. Testing the definition of `|Du|(U)` as a supremum against this represe
   (`ContDiff.exists_testFunction_dist_le_and_dist_fderiv_le`), and both sides are continuous for
   this convergence (`TauCeti.dist_integral_trace_fderiv_mul_le` and
   `TauCeti.dist_integral_inner_polarDensity_le`).
-* `TauCeti.polarDensity_congr_ae` and `TauCeti.polarDensity_const_sub`: `σ_u` only depends on `u`
-  almost everywhere on `Ω`, and `σ_{c - u} = -σ_u` against an additive Haar measure.
+* `TauCeti.polarDensity_congr_ae`, `TauCeti.polarDensity_const_sub`, and
+  `TauCeti.polarDensity_smul_measure`: `σ_u` only depends on `u` almost everywhere on `Ω`,
+  `σ_{c - u} = -σ_u` against an additive Haar measure, and scaling the reference measure by a
+  positive constant leaves `σ_u` unchanged `|Du|`-almost everywhere.
 
 ## References
 
@@ -344,6 +346,39 @@ theorem polarDensity_const_sub [μ.IsAddHaarMeasure] (c : ℝ) :
       zero_sub, integral_divergenceCLM_mul_eq_neg_integral_inner_polarDensity hu.1 hu.2,
       variationMeasure_const_sub]
     simp [inner_neg_right, integral_neg]
+  · rw [variationMeasure_eq_zero_of_not hu]
+    simp [EventuallyEq]
+
+/-- Scaling the reference measure by a positive constant leaves the polar density unchanged
+`|Du|`-almost everywhere. -/
+theorem polarDensity_smul_measure {c : NNReal} (hc : c ≠ 0) :
+    polarDensity (c • μ) Ω u =ᵐ[variationMeasure μ Ω u] polarDensity μ Ω u := by
+  have hloc : LocallyIntegrableOn u Ω (c • μ) ↔ LocallyIntegrableOn u Ω μ := by
+    simp only [locallyIntegrableOn_iff Ω.isOpen.isLocallyClosed, IntegrableOn,
+      ← Measure.coe_nnreal_smul, Measure.restrict_smul,
+      integrable_smul_measure (ENNReal.coe_ne_zero.mpr hc) ENNReal.coe_ne_top]
+  by_cases hu : LocallyIntegrableOn u Ω μ ∧
+      ∀ K, IsCompact K → K ⊆ Ω → ∃ U : Opens E, K ⊆ (U : Set E) ∧ totalVariationOn μ U u ≠ ∞
+  · have hfin_c : ∀ K, IsCompact K → K ⊆ Ω →
+        ∃ U : Opens E, K ⊆ (U : Set E) ∧ totalVariationOn (c • μ) U u ≠ ∞ := by
+      intro K hK hKΩ
+      obtain ⟨U, hKU, hU⟩ := hu.2 K hK hKΩ
+      refine ⟨U, hKU, ?_⟩
+      rw [totalVariationOn_smul_measure, ENNReal.smul_def, smul_eq_mul]
+      exact ENNReal.mul_ne_top ENNReal.coe_ne_top hU
+    have := Ω.isOpen.locallyCompactSpace
+    have hσ : LocallyIntegrable (polarDensity μ Ω u) (variationMeasure (c • μ) Ω u) := by
+      rw [variationMeasure_smul_measure, locallyIntegrable_iff]
+      intro K hK
+      rw [IntegrableOn, ← Measure.coe_nnreal_smul, Measure.restrict_smul,
+        integrable_smul_measure (ENNReal.coe_ne_zero.mpr hc) ENNReal.coe_ne_top]
+      exact locallyIntegrable_polarDensity.integrableOn_isCompact hK
+    have hae := (ae_eq_polarDensity (hloc.mpr hu.1) hfin_c hσ fun φ => by
+      rw [integral_smul_nnreal_measure,
+        integral_divergenceCLM_mul_eq_neg_integral_inner_polarDensity hu.1 hu.2,
+        variationMeasure_smul_measure, integral_smul_nnreal_measure, smul_neg]).symm
+    rwa [variationMeasure_smul_measure, ← Measure.coe_nnreal_smul,
+      EventuallyEq, Measure.ae_ennreal_smul_measure_iff (ENNReal.coe_ne_zero.mpr hc)] at hae
   · rw [variationMeasure_eq_zero_of_not hu]
     simp [EventuallyEq]
 

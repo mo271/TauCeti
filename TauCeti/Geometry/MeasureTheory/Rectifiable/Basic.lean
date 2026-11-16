@@ -17,9 +17,10 @@ Hausdorff measure `μHE[k]`, by countably many Lipschitz images of subsets of
 `EuclideanSpace ℝ (Fin k)`. The domains need not be measurable, and neither measurability
 nor local finiteness of Hausdorff measure is part of rectifiability.
 
-We prove closure under subsets, countable unions and null modifications, and transport
-by maps Lipschitz on the set. These operations allow rectifiable sets to be localized
-and their parametrizations to be composed without imposing regularity on the exceptional set.
+We prove closure under subsets, singletons, countable sets and countable unions, null
+modifications, and transport by maps Lipschitz on the set. These operations allow rectifiable
+sets to be localized and their parametrizations to be composed without imposing regularity on the
+exceptional set.
 Patches are maps from subtypes, so even an empty target requires no arbitrary base point.
 In a finite-dimensional real normed space, the patches extend to Lipschitz maps defined
 on all of `EuclideanSpace ℝ (Fin k)` (`TauCeti.CountablyRectifiable.exists_lipschitzWith_cover`).
@@ -100,6 +101,12 @@ theorem euclidean (A : Set (EuclideanSpace ℝ (Fin k))) : CountablyRectifiable 
   simpa only [image_id] using
     of_lipschitzOnWith (f := id) (K := 1) (LipschitzWith.id.lipschitzOnWith)
 
+/-- Every singleton is countably `k`-rectifiable, including for `k = 0`. -/
+@[simp]
+theorem singleton (x : X) : CountablyRectifiable k ({x} : Set X) := by
+  simpa only [image_singleton] using
+    of_lipschitzOnWith (A := {0}) (LipschitzWith.const x).lipschitzOnWith
+
 private theorem iUnion_nat {s : ℕ → Set X} (hs : ∀ n, CountablyRectifiable k (s n)) :
     CountablyRectifiable k (⋃ n, s n) := by
   classical
@@ -132,6 +139,12 @@ theorem union (hs : CountablyRectifiable k s) (ht : CountablyRectifiable k t) :
     CountablyRectifiable k (s ∪ t) := by
   simpa only [sUnion_pair] using
     sUnion (to_countable {s, t}) (by simp only [mem_insert_iff, mem_singleton_iff]; aesop)
+
+/-- Every countable set is countably `k`-rectifiable, including for `k = 0`. -/
+theorem _root_.Set.Countable.countablyRectifiable (hs : s.Countable) (k : ℕ) :
+    CountablyRectifiable k s := by
+  have : ⋃₀ ((fun x ↦ ({x} : Set X)) '' s) = s := by ext; simp
+  exact this ▸ sUnion (hs.image _) (by rintro _ ⟨x, -, rfl⟩; exact singleton x)
 
 /-- A map Lipschitz on a rectifiable set has rectifiable image. No measurability of the
 set or its patch domains is needed. -/

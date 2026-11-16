@@ -8,10 +8,14 @@ module
 public import TauCeti.Analysis.BoundedVariation.Perimeter
 public import TauCeti.Analysis.BoundedVariation.PolarDecomposition
 public import Mathlib.MeasureTheory.Integral.Average
+import Mathlib.MeasureTheory.Constructions.Polish.StronglyMeasurable
 import Mathlib.MeasureTheory.Covering.BesicovitchVectorSpace
 import Mathlib.MeasureTheory.Function.L2Space
+import Mathlib.MeasureTheory.Integral.Prod
+import Mathlib.MeasureTheory.Measure.Haar.Unique
 import TauCeti.Analysis.InnerProductSpace.CompleteSquare
 import TauCeti.MeasureTheory.Covering.Besicovitch
+import TauCeti.MeasureTheory.Integral.Average
 
 /-!
 # The reduced boundary and the measure-theoretic outer normal
@@ -61,9 +65,16 @@ proves their basic properties.
   `ν_s` tend to the unit vector `ν_s x`, and for unit vectors `‖a - ν‖² = 2 (1 - ⟪a, ν⟫)`.
 * The reduced boundary and the outer normal only depend on `s` almost everywhere on `Ω`
   (`TauCeti.reducedBoundary_congr_ae`, `TauCeti.outerNormal_congr_ae`); in particular
-  `∂*(s ∩ Ω) = ∂*s` (`TauCeti.reducedBoundary_inter_opens`). When `μ` is an additive
-  Haar measure, the complement has the same reduced boundary with the opposite normal
-  (`TauCeti.reducedBoundary_compl`, `TauCeti.outerNormal_compl`).
+  `∂*(s ∩ Ω) = ∂*s` (`TauCeti.reducedBoundary_inter_opens`). Scaling the reference measure by a
+  positive constant leaves both unchanged (`TauCeti.reducedBoundary_smul_measure`,
+  `TauCeti.outerNormal_smul_measure`), so all additive Haar measures yield the same reduced
+  boundary and outer normal (`TauCeti.reducedBoundary_eq_volume`,
+  `TauCeti.outerNormal_eq_volume`). Against an additive Haar measure, the complement has the same
+  reduced boundary with the opposite normal (`TauCeti.reducedBoundary_compl`,
+  `TauCeti.outerNormal_compl`).
+* Both the reduced boundary and the outer normal are Borel measurable
+  (`TauCeti.measurableSet_reducedBoundary`, `TauCeti.measurable_outerNormal`), since the ball
+  averages of `σ` are right-continuous in the radius near `0` and measurable in the centre.
 
 The definition uses closed balls, matching `TauCeti.HasDensityAt`; it does not require `x` to lie
 in the support of `|Dχ_s|`, since a unit limit forces this. When `s` does not have locally finite
@@ -488,5 +499,220 @@ theorem outerNormal_compl [μ.IsAddHaarMeasure] (hx : x ∈ reducedBoundary μ �
   rw [outerNormal]
   simp only [setAverage_polarDensity_compl]
   rw [(tendsto_setAverage_polarDensity hx).neg.limUnder_eq, neg_neg]
+
+/-- Scaling the reference measure by a positive constant leaves the polar-density averages
+defining the reduced boundary unchanged. -/
+private theorem setAverage_polarDensity_smul_measure {c : NNReal} (hc : c ≠ 0) (x : E) (r : ℝ) :
+    ⨍ y in ((↑) : Ω → E) ⁻¹' closedBall x r,
+        polarDensity (c • μ) Ω (s.indicator 1) y ∂variationMeasure (c • μ) Ω (s.indicator 1) =
+      ⨍ y in ((↑) : Ω → E) ⁻¹' closedBall x r,
+        polarDensity μ Ω (s.indicator 1) y ∂variationMeasure μ Ω (s.indicator 1) := by
+  rw [variationMeasure_smul_measure, ← Measure.coe_nnreal_smul,
+    setAverage_smul_measure (ENNReal.coe_ne_zero.mpr hc) ENNReal.coe_ne_top]
+  exact average_congr (ae_restrict_of_ae (polarDensity_smul_measure hc))
+
+/-- Scaling the reference measure by a positive constant does not change the reduced boundary. -/
+@[simp]
+theorem reducedBoundary_smul_measure {c : NNReal} (hc : c ≠ 0) :
+    reducedBoundary (c • μ) Ω s = reducedBoundary μ Ω s := by
+  ext y
+  simp only [mem_reducedBoundary, setAverage_polarDensity_smul_measure hc]
+
+/-- Scaling the reference measure by a positive constant does not change the outer normal. -/
+@[simp]
+theorem outerNormal_smul_measure {c : NNReal} (hc : c ≠ 0) :
+    outerNormal (c • μ) Ω s = outerNormal μ Ω s := by
+  ext y
+  simp only [outerNormal, setAverage_polarDensity_smul_measure hc]
+
+/-- Every additive Haar measure on `E` defines the same reduced boundary as Lebesgue `volume`. -/
+theorem reducedBoundary_eq_volume [μ.IsAddHaarMeasure] :
+    reducedBoundary μ Ω s = reducedBoundary volume Ω s := by
+  conv_lhs => rw [Measure.isAddLeftInvariant_eq_smul μ volume]
+  exact reducedBoundary_smul_measure
+    (Measure.addHaarScalarFactor_pos_of_isAddHaarMeasure μ volume).ne'
+
+/-- Every additive Haar measure on `E` defines the same outer normal as Lebesgue `volume`. -/
+theorem outerNormal_eq_volume [μ.IsAddHaarMeasure] :
+    outerNormal μ Ω s = outerNormal volume Ω s := by
+  conv_lhs => rw [Measure.isAddLeftInvariant_eq_smul μ volume]
+  exact outerNormal_smul_measure
+    (Measure.addHaarScalarFactor_pos_of_isAddHaarMeasure μ volume).ne'
+
+/-! ### Borel measurability of the reduced boundary and outer normal -/
+
+/-- For a fixed radius `r`, the average of the polar density of `Dχ_s` over `closedBall x r`
+against `|Dχ_s|` is Borel measurable in `x`. -/
+private theorem measurable_setAverage_polarDensity (r : ℝ) :
+    Measurable fun x : E => ⨍ y in ((↑) : Ω → E) ⁻¹' closedBall x r,
+      polarDensity μ Ω (s.indicator 1) y ∂variationMeasure μ Ω (s.indicator 1) := by
+  have := Ω.isOpen.locallyCompactSpace
+  set lam := variationMeasure μ Ω (s.indicator 1)
+  set σ := polarDensity μ Ω (s.indicator 1)
+  let B : Set (E × Ω) := {p | dist (p.2 : E) p.1 ≤ r}
+  have hBm : MeasurableSet B :=
+    (isClosed_le ((continuous_subtype_val.comp continuous_snd).dist continuous_fst)
+      continuous_const).measurableSet
+  have hpre (y : E) : Prod.mk y ⁻¹' B = ((↑) : Ω → E) ⁻¹' closedBall y r := rfl
+  have hmlam : Measurable fun y : E => lam (((↑) : Ω → E) ⁻¹' closedBall y r) := by
+    have h : (fun y : E => lam (((↑) : Ω → E) ⁻¹' closedBall y r)) =
+        fun y => ∫⁻ z, B.indicator (1 : E × Ω → ℝ≥0∞) (y, z) ∂lam := by
+      ext y
+      rw [← hpre, ← lintegral_indicator_one (hBm.preimage measurable_prodMk_left)]
+      rfl
+    rw [h]
+    exact (measurable_const.indicator hBm).lintegral_prod_right'
+  have hmint : Measurable fun y : E => ∫ z in ((↑) : Ω → E) ⁻¹' closedBall y r, σ z ∂lam := by
+    have h : (fun y : E => ∫ z in ((↑) : Ω → E) ⁻¹' closedBall y r, σ z ∂lam) =
+        fun y => ∫ z, B.indicator (fun p : E × Ω => σ p.2) (y, z) ∂lam := by
+      ext y
+      rw [← hpre, ← integral_indicator (hBm.preimage measurable_prodMk_left)]
+      rfl
+    rw [h]
+    exact (((measurable_polarDensity.comp measurable_snd).stronglyMeasurable.indicator
+      hBm).integral_prod_right').measurable
+  simp_rw [setAverage_eq, Measure.real]
+  exact hmlam.ennreal_toReal.inv.smul hmint
+
+/-- For a fixed point `x`, the radius-`r` average of the polar density over `closedBall x r` is
+right-continuous at every sufficiently small positive radius `r`. -/
+private theorem eventually_continuousWithinAt_setAverage_polarDensity (x : E) :
+    ∀ᶠ r in 𝓝[>] (0 : ℝ), ContinuousWithinAt (fun r => ⨍ y in ((↑) : Ω → E) ⁻¹' closedBall x r,
+      polarDensity μ Ω (s.indicator 1) y ∂variationMeasure μ Ω (s.indicator 1)) (Ioi r) r := by
+  set lam := variationMeasure μ Ω (s.indicator 1)
+  set σ := polarDensity μ Ω (s.indicator 1)
+  set S : ℝ → Set Ω := fun r => ((↑) : Ω → E) ⁻¹' closedBall x r
+  set g : ℝ → E := fun r => ⨍ y in S r, σ y ∂lam
+  have hSm (r : ℝ) : MeasurableSet (S r) :=
+    (isClosed_closedBall.preimage continuous_subtype_val).measurableSet
+  have hSmono : Monotone S := fun _ _ h => preimage_mono (closedBall_subset_closedBall h)
+  have hσ1 : ∀ᵐ y ∂lam, ‖σ y‖ ≤ 1 := by
+    by_cases h : LocallyIntegrableOn (s.indicator (1 : E → ℝ)) Ω μ ∧ ∀ K, IsCompact K → K ⊆ Ω →
+        ∃ U : Opens E, K ⊆ (U : Set E) ∧ totalVariationOn μ U (s.indicator 1) ≠ ∞
+    · exact (ae_norm_polarDensity_eq_one h.1 h.2).mono fun _ hy => hy.le
+    · simp [lam, variationMeasure_eq_zero_of_not h]
+  by_cases h0 : ∃ r₀ > 0, lam (S r₀) = 0
+  · obtain ⟨r₀, hr₀, h0⟩ := h0
+    filter_upwards [Ioo_mem_nhdsGT hr₀] with r hr
+    refine (continuousAt_const (y := (0 : E))).congr ?_ |>.continuousWithinAt
+    filter_upwards [isOpen_Ioo.mem_nhds hr] with u hu
+    dsimp only [g]
+    rw [Measure.restrict_eq_zero.mpr (measure_mono_null (hSmono hu.2.le) h0),
+      average_zero_measure]
+  by_cases htop : ∀ R > 0, lam (S R) = ∞
+  · filter_upwards [self_mem_nhdsWithin] with r (hr : 0 < r)
+    refine (continuousAt_const (y := (0 : E))).congr ?_ |>.continuousWithinAt
+    filter_upwards [isOpen_Ioi.mem_nhds hr] with u (hu : 0 < u)
+    simp only [g, setAverage_eq, Measure.real, htop u hu, ENNReal.toReal_top, inv_zero, zero_smul]
+  push Not at h0 htop
+  obtain ⟨R, hRpos, hRfin⟩ := htop
+  filter_upwards [Ioo_mem_nhdsGT hRpos] with r hr
+  have hInter : (⋂ u > r, S u) = S r := by simp_rw [S, ← preimage_iInter₂, biInter_gt_closedBall]
+  have hlam : Tendsto (fun u => lam (S u)) (𝓝[>] r) (𝓝 (lam (S r))) :=
+    hInter ▸ tendsto_measure_biInter_gt (fun u _ => (hSm u).nullMeasurableSet)
+      (fun _ _ _ hij => hSmono hij) ⟨R, hr.2, hRfin⟩
+  have hrfin : lam (S r) ≠ ∞ := ne_top_of_le_ne_top hRfin (measure_mono (hSmono hr.2.le))
+  have hreal : Tendsto (fun u => lam.real (S u)) (𝓝[>] r) (𝓝 (lam.real (S r))) :=
+    (ENNReal.tendsto_toReal hrfin).comp hlam
+  have hint : Tendsto (fun u => ∫ y in S u, σ y ∂lam) (𝓝[>] r) (𝓝 (∫ y in S r, σ y ∂lam)) := by
+    rw [tendsto_iff_norm_sub_tendsto_zero]
+    refine tendsto_of_tendsto_of_tendsto_of_le_of_le' tendsto_const_nhds
+      (by simpa only [sub_self] using hreal.sub_const (lam.real (S r)))
+      (.of_forall fun _ => norm_nonneg _) ?_
+    filter_upwards [Ioo_mem_nhdsGT hr.2] with u hu
+    have hu_lt : lam (S u) < ∞ := (measure_mono (hSmono hu.2.le)).trans_lt hRfin.lt_top
+    have hσu : IntegrableOn σ (S u) lam :=
+      Measure.integrableOn_of_bounded hu_lt.ne measurable_polarDensity.aestronglyMeasurable
+        (ae_restrict_of_ae hσ1)
+    rw [← setIntegral_sdiff (hSm r) hσu (hSmono hu.1.le),
+      ← measureReal_sdiff (hSmono hu.1.le) (hSm r) hu_lt.ne, ← one_mul (lam.real _)]
+    exact norm_setIntegral_le_of_norm_le_const_ae
+      ((measure_mono sdiff_subset).trans_lt hu_lt) (ae_restrict_of_ae hσ1)
+  have hreal_ne : lam.real (S r) ≠ 0 :=
+    (ENNReal.toReal_pos (h0 r hr.1) hrfin).ne'
+  rw [ContinuousWithinAt]
+  simpa only [g, setAverage_eq] using (hreal.inv₀ hreal_ne).smul hint
+
+omit [InnerProductSpace ℝ E] [FiniteDimensional ℝ E] [MeasurableSpace E] [BorelSpace E] in
+/-- For a path `g : ℝ → E` that is right-continuous near `0`, convergence along `𝓝[>] 0` is
+equivalent to convergence along positive rationals approaching `0`. -/
+private theorem tendsto_nhdsGT_zero_iff_comap_rat {g : ℝ → E}
+    (hg : ∀ᶠ r in 𝓝[>] (0 : ℝ), ContinuousWithinAt g (Ioi r) r) (c : E) :
+    Tendsto g (𝓝[>] 0) (𝓝 c) ↔
+      Tendsto (fun q : {q : ℚ // 0 < q} => g q)
+        (comap (fun q : {q : ℚ // 0 < q} => (q : ℝ)) (𝓝[>] 0)) (𝓝 c) := by
+  refine ⟨fun h => h.comp tendsto_comap, fun hq => Metric.tendsto_nhds.mpr fun ε hε => ?_⟩
+  obtain ⟨δ, hδ, hcont⟩ := mem_nhdsGT_iff_exists_Ioo_subset.mp hg
+  obtain ⟨V, hV, hVq⟩ := mem_comap.mp (Metric.tendsto_nhds.mp hq (ε / 2) (half_pos hε))
+  obtain ⟨η, hη, hηV⟩ := mem_nhdsGT_iff_exists_Ioo_subset.mp hV
+  filter_upwards [Ioo_mem_nhdsGT (lt_min hδ hη)] with r hr
+  have hgr : ContinuousWithinAt g (Ioi r) r :=
+    hcont ⟨hr.1, hr.2.trans_le (min_le_left _ _)⟩
+  obtain ⟨ρ, hρ, hρg⟩ := Metric.continuousWithinAt_iff.mp hgr (ε / 2) (half_pos hε)
+  obtain ⟨q, hqr, hqlt⟩ := exists_rat_btwn
+    (lt_min (lt_add_of_pos_right r hρ) (hr.2.trans_le (min_le_right _ _)))
+  let q' : {q : ℚ // 0 < q} := ⟨q, by exact_mod_cast hr.1.trans hqr⟩
+  have hq'1 : dist (g q') (g r) < ε / 2 :=
+    hρg hqr (by
+      rw [Real.dist_eq, abs_of_pos (sub_pos.mpr hqr)]
+      linarith [hqlt.trans_le (min_le_left _ _)])
+  have hq'2 : dist (g q') c < ε / 2 :=
+    hVq (hηV ⟨hr.1.trans hqr, hqlt.trans_le (min_le_right _ _)⟩)
+  calc dist (g r) c ≤ dist (g r) (g q') + dist (g q') c := dist_triangle _ _ _
+    _ < ε / 2 + ε / 2 := add_lt_add (by rwa [dist_comm]) hq'2
+    _ = ε := add_halves ε
+
+/-- **The measure-theoretic outer normal is Borel measurable.** -/
+@[fun_prop]
+theorem measurable_outerNormal : Measurable (outerNormal μ Ω s) := by
+  let Qpos := {q : ℚ // 0 < q}
+  let lq : Filter Qpos := comap (fun q : Qpos => (q : ℝ)) (𝓝[>] 0)
+  have : lq.NeBot := comap_neBot fun U hU => by
+    obtain ⟨δ, hδ, hδU⟩ := mem_nhdsGT_iff_exists_Ioo_subset.mp hU
+    obtain ⟨q, hq0, hqδ⟩ := exists_rat_btwn hδ
+    exact ⟨⟨q, by exact_mod_cast hq0⟩, hδU ⟨hq0, hqδ⟩⟩
+  let f (r : ℝ) (y : E) : E := ⨍ z in ((↑) : Ω → E) ⁻¹' closedBall y r,
+    polarDensity μ Ω (s.indicator 1) z ∂variationMeasure μ Ω (s.indicator 1)
+  have hlim (y : E) : limUnder (𝓝[>] (0 : ℝ)) (f · y) = limUnder lq fun q : Qpos => f q y := by
+    have hiff := tendsto_nhdsGT_zero_iff_comap_rat
+      (eventually_continuousWithinAt_setAverage_polarDensity (μ := μ) (Ω := Ω) (s := s) y)
+    by_cases hc : ∃ c, Tendsto (f · y) (𝓝[>] 0) (𝓝 c)
+    · obtain ⟨c, hc⟩ := hc
+      rw [hc.limUnder_eq, ((hiff c).mp hc).limUnder_eq]
+    · have hqc : ¬∃ c, Tendsto (fun q : Qpos => f q y) lq (𝓝 c) :=
+        fun ⟨c, h⟩ => hc ⟨c, (hiff c).mpr h⟩
+      rw [limUnder_of_not_tendsto hc, limUnder_of_not_tendsto hqc]
+  have heq : outerNormal μ Ω s = fun y => -limUnder lq fun q : Qpos => f q y := by
+    ext y
+    rw [outerNormal, hlim]
+  rw [heq]
+  exact (StronglyMeasurable.limUnder fun q : Qpos =>
+    (measurable_setAverage_polarDensity (q : ℝ)).stronglyMeasurable).measurable.neg
+
+/-- **The reduced boundary is a Borel set.** -/
+@[measurability]
+theorem measurableSet_reducedBoundary : MeasurableSet (reducedBoundary μ Ω s) := by
+  let Qpos := {q : ℚ // 0 < q}
+  let lq : Filter Qpos := comap (fun q : Qpos => (q : ℝ)) (𝓝[>] 0)
+  let f (r : ℝ) (y : E) : E := ⨍ z in ((↑) : Ω → E) ⁻¹' closedBall y r,
+    polarDensity μ Ω (s.indicator 1) z ∂variationMeasure μ Ω (s.indicator 1)
+  have heq : reducedBoundary μ Ω s =
+      (Ω : Set E) ∩ {y | ∃ c, Tendsto (fun q : Qpos => f q y) lq (𝓝 c)} ∩
+        {y | ‖outerNormal μ Ω s y‖ = 1} := by
+    ext y
+    have hiff := tendsto_nhdsGT_zero_iff_comap_rat
+      (eventually_continuousWithinAt_setAverage_polarDensity (μ := μ) (Ω := Ω) (s := s) y)
+    refine ⟨fun hy => ⟨⟨hy.1, ?_⟩, norm_outerNormal hy⟩, fun ⟨⟨hyΩ, c, hc⟩, h1⟩ => ?_⟩
+    · obtain ⟨-, ν, -, hν⟩ := hy
+      exact ⟨ν, (hiff ν).mp hν⟩
+    · have hν : Tendsto (f · y) (𝓝[>] 0) (𝓝 c) := (hiff c).mpr hc
+      refine ⟨hyΩ, c, ?_, hν⟩
+      rw [mem_ofPred_eq, outerNormal_eq_of_tendsto hν, norm_neg] at h1
+      exact h1
+  rw [heq]
+  refine (Ω.isOpen.measurableSet.inter ?_).inter
+    (measurableSet_eq_fun measurable_outerNormal.norm measurable_const)
+  exact StronglyMeasurable.measurableSet_exists_tendsto fun q : Qpos =>
+    (measurable_setAverage_polarDensity (q : ℝ)).stronglyMeasurable
 
 end TauCeti

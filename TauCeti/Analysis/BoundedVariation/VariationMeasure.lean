@@ -52,6 +52,9 @@ regular measures follows from `MeasureTheory.Measure.OuterRegular.ext_isOpen`.
   everywhere on `Ω`.
 * `TauCeti.variationMeasure_const_sub`: against an additive Haar measure, `c - u` has the same
   variation measure as `u`.
+* `TauCeti.totalVariationOn_smul_measure` and `TauCeti.variationMeasure_smul_measure`: scaling
+  the reference measure by a nonnegative constant scales the total variation and the variation
+  measure by the same factor.
 
 ## References
 
@@ -304,6 +307,57 @@ theorem variationMeasure_const_sub [μ.IsAddHaarMeasure] (c : ℝ) :
   refine variationMeasure_congr ⟨fun h => ?_, fun h => hc.sub h⟩ fun U _ =>
     totalVariationOn_const_sub c
   exact (locallyIntegrableOn_congr (ae_of_all _ fun x => sub_sub_cancel c (u x))).1 (hc.sub h)
+
+omit [BorelSpace E] in
+/-- Scaling the reference measure by a nonnegative constant `c` scales the total variation by
+`c`. -/
+@[simp]
+theorem totalVariationOn_smul_measure (c : NNReal) :
+    totalVariationOn (c • μ) Ω u = c • totalVariationOn μ Ω u := by
+  have h1 : totalVariationOn (c • μ) Ω u = totalVariationOn μ Ω ((c : ℝ) • u) := by
+    simp_rw [totalVariationOn_def, integral_smul_nnreal_measure]
+    refine iSup_congr fun φ => iSup_congr fun _ => ?_
+    rw [NNReal.smul_def, smul_eq_mul, ← integral_const_mul]
+    congr 2 with x
+    simp only [Pi.smul_apply, smul_eq_mul]
+    ring
+  rw [h1, totalVariationOn_smul_of_nonneg c.coe_nonneg, ENNReal.ofReal_coe_nnreal,
+    ENNReal.smul_def, smul_eq_mul]
+
+/-- Scaling the reference measure by a nonnegative constant `c` scales the variation measure by
+`c`. -/
+@[simp]
+theorem variationMeasure_smul_measure (c : NNReal) :
+    variationMeasure (c • μ) Ω u = c • variationMeasure μ Ω u := by
+  rcases eq_or_ne c 0 with rfl | hc
+  · simp only [zero_smul]
+    refine (eq_variationMeasure ?_ (fun K _ hKΩ => ⟨Ω, hKΩ, by simp [totalVariationOn_def]⟩)
+      fun W _ => by simp [totalVariationOn_def]).symm
+    rw [locallyIntegrableOn_iff Ω.isOpen.isLocallyClosed]
+    intro K _ _
+    simp [IntegrableOn]
+  · have hloc : LocallyIntegrableOn u Ω (c • μ) ↔ LocallyIntegrableOn u Ω μ := by
+      simp only [locallyIntegrableOn_iff Ω.isOpen.isLocallyClosed, IntegrableOn,
+        ← Measure.coe_nnreal_smul, Measure.restrict_smul,
+        integrable_smul_measure (ENNReal.coe_ne_zero.mpr hc) ENNReal.coe_ne_top]
+    have hiff : (LocallyIntegrableOn u Ω (c • μ) ∧ ∀ K, IsCompact K → K ⊆ Ω →
+        ∃ W : Opens E, K ⊆ (W : Set E) ∧ totalVariationOn (c • μ) W u ≠ ∞) ↔
+      (LocallyIntegrableOn u Ω μ ∧ ∀ K, IsCompact K → K ⊆ Ω →
+        ∃ W : Opens E, K ⊆ (W : Set E) ∧ totalVariationOn μ W u ≠ ∞) := by
+      rw [hloc]
+      refine and_congr_right fun _ => forall₃_congr fun K _ _ => exists_congr fun W =>
+        and_congr_right fun _ => ?_
+      rw [totalVariationOn_smul_measure, ENNReal.smul_def, smul_eq_mul]
+      exact ⟨fun h h0 => h (h0 ▸ ENNReal.mul_top (ENNReal.coe_ne_zero.mpr hc)),
+        fun h => ENNReal.mul_ne_top ENNReal.coe_ne_top h⟩
+    by_cases hu : LocallyIntegrableOn u Ω μ ∧
+        ∀ K, IsCompact K → K ⊆ Ω → ∃ W : Opens E, K ⊆ (W : Set E) ∧ totalVariationOn μ W u ≠ ∞
+    · have huc := hiff.mpr hu
+      exact (eq_variationMeasure huc.1 huc.2 fun W hW => by
+        rw [smul_apply, variationMeasure_preimage_coe hu.1 hu.2 hW,
+          totalVariationOn_smul_measure]).symm
+    · rw [variationMeasure_eq_zero_of_not hu, variationMeasure_eq_zero_of_not (hiff.not.mpr hu),
+        smul_zero]
 
 end Measure
 
