@@ -10,6 +10,7 @@ public import Mathlib.RepresentationTheory.Invariants
 public import TauCeti.Algebra.MonoidAlgebra.SubgroupCharSum
 public import TauCeti.GroupTheory.FiniteAbelian.CharacterOrthogonality
 public import TauCeti.RingTheory.Idempotents.Module
+public import TauCeti.RingTheory.Idempotents.SquareRootOne
 
 /-!
 # Character idempotents of a finite group algebra
@@ -60,6 +61,11 @@ algebraic closure, only a domain, because the characters here are one-dimensiona
 * `TauCeti.charIdempotent_mul`: `e_χ e_ψ = δ_{χψ} e_χ`.
 * `TauCeti.sum_charIdempotent`: for a finite commutative group with enough roots of unity, the
   character idempotents sum to `1`.
+* `TauCeti.single_one_eq_sum_charIdempotent`: Fourier expansion `c = ∑_χ χ(c) e_χ` of a group
+  element.
+* `TauCeti.halfOneAdd_single_eq_sum_charIdempotent`,
+  `TauCeti.halfOneAdd_neg_single_eq_sum_charIdempotent`: when `2` is invertible and `c ^ 2 = 1`,
+  the involution idempotents `½ (1 ± c)` expand as the sums of `e_χ` over `χ(c) = ±1`.
 * `TauCeti.completeOrthogonalIdempotents_charIdempotent`: they form a complete orthogonal family.
 * `TauCeti.mem_charIdempotent_smul_top_iff`: the eigencharacter criterion for the isotypic
   component `e_χ M`.
@@ -77,6 +83,12 @@ algebraic closure, only a domain, because the characters here are one-dimensiona
 * J. Rodrigues Jacinto, C. Williams, *An introduction to p-adic L-functions*, Lemma 13.4 and
   Definition 13.5.
 * J.-P. Serre, *Linear Representations of Finite Groups*, §2.6, Theorem 8.
+* `TauCeti.halfOneAdd_single_eq_sum_charIdempotent` and
+  `TauCeti.halfOneAdd_neg_single_eq_sum_charIdempotent` generalize the prime-level identities
+  `plusIdempotent_eq_sum_even` and `minusIdempotent_eq_sum_odd` in AINTLIB
+  (`github.com/CBirkbeck/AINTLIB`, Apache-2.0), project `FltRegularBernoulli`, module
+  `BernoulliRegular.Idempotents`, from `(ZMod p)ˣ` to any element of order dividing `2` in a finite
+  commutative group.
 -/
 
 public section
@@ -246,6 +258,54 @@ theorem isInternal_charIdempotent_smul_top {S M : Type*} [Semiring S] [AddCommMo
     DirectSum.IsInternal fun χ : H →* Oˣ ↦ charIdempotent χ • (⊤ : Submodule S M) :=
   isInternal_smul_top (completeOrthogonalIdempotents_charIdempotent hH)
 
+/-- **Fourier expansion of a group element** in `O[H]`: `c = ∑_χ χ(c) e_χ`. -/
+theorem single_one_eq_sum_charIdempotent (hH : IsUnit (Nat.card H : O)) (c : H) :
+    single c (1 : O) = ∑ χ : H →* Oˣ, (χ c : O) • charIdempotent χ := by
+  calc single c (1 : O)
+      = single c (1 : O) * 1 := (mul_one _).symm
+    _ = single c (1 : O) * ∑ χ : H →* Oˣ, charIdempotent χ := by rw [sum_charIdempotent hH]
+    _ = ∑ χ : H →* Oˣ, (χ c : O) • charIdempotent χ := by
+      rw [Finset.mul_sum]
+      simp [single_mul_charIdempotent]
+
+/-- **Plus involution idempotent as a sum of even character idempotents**: for `c ∈ H` with
+`c ^ 2 = 1`, `½ (1 + c) = ∑_{χ(c) = 1} e_χ`. -/
+theorem halfOneAdd_single_eq_sum_charIdempotent [Invertible (2 : O)] [DecidableEq Oˣ]
+    (hH : IsUnit (Nat.card H : O)) {c : H} (hc : c ^ 2 = 1) :
+    halfOneAdd O (single c (1 : O)) = ∑ χ : H →* Oˣ with χ c = 1, charIdempotent χ := by
+  have hdichotomy (χ : H →* Oˣ) : χ c = 1 ∨ χ c = -1 := by
+    have hsq : ((χ c : O)) ^ 2 = 1 := by
+      rw [← Units.val_pow_eq_pow_val, ← map_pow, hc, map_one, Units.val_one]
+    exact (sq_eq_one_iff.mp hsq).imp (fun h ↦ Units.ext h) (fun h ↦ Units.ext h)
+  have hne : (-1 : Oˣ) ≠ 1 := fun h ↦ by
+    have h' : (-1 : O) = 1 := by simpa using congrArg Units.val h
+    exact IsUnit.ne_zero (isUnit_of_invertible (2 : O)) (by linear_combination -h')
+  rw [halfOneAdd_def, single_one_eq_sum_charIdempotent hH c, ← sum_charIdempotent hH,
+    ← Finset.sum_add_distrib, Finset.smul_sum, Finset.sum_filter]
+  refine Finset.sum_congr rfl fun χ _ ↦ ?_
+  rcases hdichotomy χ with h1 | hm1
+  · simp [h1, ← two_smul O, invOf_smul_smul]
+  · simp [hm1, hne]
+
+/-- **Minus involution idempotent as a sum of odd character idempotents**: for `c ∈ H` with
+`c ^ 2 = 1`, `½ (1 - c) = ∑_{χ(c) = -1} e_χ`. -/
+theorem halfOneAdd_neg_single_eq_sum_charIdempotent [Invertible (2 : O)] [DecidableEq Oˣ]
+    (hH : IsUnit (Nat.card H : O)) {c : H} (hc : c ^ 2 = 1) :
+    halfOneAdd O (-single c (1 : O)) = ∑ χ : H →* Oˣ with χ c = -1, charIdempotent χ := by
+  have hdichotomy (χ : H →* Oˣ) : χ c = 1 ∨ χ c = -1 := by
+    have hsq : ((χ c : O)) ^ 2 = 1 := by
+      rw [← Units.val_pow_eq_pow_val, ← map_pow, hc, map_one, Units.val_one]
+    exact (sq_eq_one_iff.mp hsq).imp (fun h ↦ Units.ext h) (fun h ↦ Units.ext h)
+  have hne : (1 : Oˣ) ≠ -1 := fun h ↦ by
+    have h' : (1 : O) = -1 := by simpa using congrArg Units.val h
+    exact IsUnit.ne_zero (isUnit_of_invertible (2 : O)) (by linear_combination h')
+  rw [halfOneAdd_def, single_one_eq_sum_charIdempotent hH c, ← sum_charIdempotent hH,
+    ← sub_eq_add_neg, ← Finset.sum_sub_distrib, Finset.smul_sum, Finset.sum_filter]
+  refine Finset.sum_congr rfl fun χ _ ↦ ?_
+  rcases hdichotomy χ with h1 | hm1
+  · simp [h1, hne]
+  · simp [hm1, ← two_smul O, invOf_smul_smul]
+
 end CommGroup
 
 end TauCeti
@@ -255,6 +315,8 @@ end TauCeti
 namespace Representation
 
 open TauCeti MonoidAlgebra Module
+
+section Group
 
 variable {k H V : Type*} [CommRing k] [Group H] [Fintype H] [AddCommGroup V] [Module k V]
   (ρ : Representation k H V)
@@ -307,5 +369,29 @@ theorem range_asAlgebraHom_charIdempotent (hH : IsUnit (Nat.card H : k)) (χ : H
   le_antisymm (LinearMap.range_le_iff_comap.2 <| Submodule.eq_top_iff'.2 fun v ↦
       asAlgebraHom_charIdempotent_apply_mem ρ χ v)
     fun v hv ↦ ⟨v, asAlgebraHom_charIdempotent_apply_of_mem ρ hH hv⟩
+
+end Group
+
+section CommGroup
+
+variable {k H V : Type*} [CommRing k] [IsDomain k] [Invertible (2 : k)] [DecidableEq kˣ]
+  [CommGroup H] [Fintype H] [HasEnoughRootsOfUnity k (Monoid.exponent H)]
+  [AddCommGroup V] [Module k V] (ρ : Representation k H V)
+
+/-- Under a representation `ρ`, the plus projector `½ (1 + ρ(c))` of an involution `c ∈ H`
+is the sum of the character projectors over even characters (`χ(c) = 1`). -/
+theorem asAlgebraHom_halfOneAdd_single (hH : IsUnit (Nat.card H : k)) {c : H} (hc : c ^ 2 = 1) :
+    (⅟2 : k) • (1 + ρ c) = ∑ χ : H →* kˣ with χ c = 1, ρ.asAlgebraHom (charIdempotent χ) := by
+  simpa [halfOneAdd_def, map_add, map_smul, map_sum] using
+    congrArg ρ.asAlgebraHom (halfOneAdd_single_eq_sum_charIdempotent (O := k) hH hc)
+
+/-- Under a representation `ρ`, the minus projector `½ (1 - ρ(c))` of an involution `c ∈ H`
+is the sum of the character projectors over odd characters (`χ(c) = -1`). -/
+theorem asAlgebraHom_halfOneAdd_neg_single (hH : IsUnit (Nat.card H : k)) {c : H} (hc : c ^ 2 = 1) :
+    (⅟2 : k) • (1 - ρ c) = ∑ χ : H →* kˣ with χ c = -1, ρ.asAlgebraHom (charIdempotent χ) := by
+  simpa [halfOneAdd_def, sub_eq_add_neg, map_add, map_neg, map_smul, map_sum] using
+    congrArg ρ.asAlgebraHom (halfOneAdd_neg_single_eq_sum_charIdempotent (O := k) hH hc)
+
+end CommGroup
 
 end Representation
