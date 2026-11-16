@@ -811,4 +811,167 @@ theorem exists_strictly_rising_of_isAChain (hlam : lam ∈ dominantChamber P b)
   · exact add_one_le_sum_coroot'_of_isAChain hlam ht hchain hmono hs i ⟨z, hk₀z⟩ habove hk₀₁
       hk₁z hk₁j hjs
 
+/-- **The falling piece of a Lakshmibai–Seshadri path at a raising step.** With the chains of
+`TauCeti.exists_sum_sub_mul_eq_intCast_of_isAChain`, strictly increasing times and an integral final
+time, write `H j = ∑_{k < j} (t_{k+1} - t_k) ⟨τ_k λ, αᵢ^∨⟩` and suppose that some height `H j`,
+`j ≤ s`, is at most `-1`. Then there are vertices `k₀ < k₁ ≤ s` such that `H k₁` is the minimal
+height, an integer, the height stays at least `H k₁ + 1` up to `k₀`, and it falls strictly from
+`k₀` to `k₁` while lying strictly between `H k₁` and `H k₁ + 1` at the internal vertices
+`k₀ < j < k₁`. One may take for `k₁` the first vertex of minimal height and for `k₀` the last
+earlier vertex of height at least `H k₁ + 1`. -/
+theorem exists_strictly_falling_of_isAChain (hlam : lam ∈ dominantChamber P b)
+    {s : ℕ} {τ : ℕ → P.weylGroup} {t : ℕ → ℚ} (ht : t 0 = 0)
+    (hchain : ∀ k, k + 1 < s → ∃ C : (weylCoxeterSystem P b).MinimalCosetRepChain
+      (P.wallIndices b lam), C.head.1 = τ k ∧ C.last.1 = τ (k + 1) ∧ IsAChain (t (k + 1)) lam C)
+    (hmono : ∀ k < s, t k < t (k + 1)) (hs : ∃ z : ℤ, t s = z) (i : b.support)
+    (hgap : ∃ j ≤ s,
+      ∑ k ∈ Finset.range j, (t (k + 1) - t k) * (P.coroot' i (τ k • lam) : ℚ) ≤ -1) :
+    ∃ k₀ k₁, k₀ < k₁ ∧ k₁ ≤ s ∧
+      IsLeast ((fun j ↦ ∑ k ∈ Finset.range j, (t (k + 1) - t k) *
+        (P.coroot' i (τ k • lam) : ℚ)) '' Set.Iic s)
+        (∑ k ∈ Finset.range k₁, (t (k + 1) - t k) * (P.coroot' i (τ k • lam) : ℚ)) ∧
+      (∀ j ≤ k₀,
+        ∑ k ∈ Finset.range k₁, (t (k + 1) - t k) * (P.coroot' i (τ k • lam) : ℚ) + 1 ≤
+          ∑ k ∈ Finset.range j, (t (k + 1) - t k) * (P.coroot' i (τ k • lam) : ℚ)) ∧
+      (∀ j, k₀ ≤ j → j < k₁ →
+        ∑ k ∈ Finset.range (j + 1), (t (k + 1) - t k) * (P.coroot' i (τ k • lam) : ℚ) <
+          ∑ k ∈ Finset.range j, (t (k + 1) - t k) * (P.coroot' i (τ k • lam) : ℚ)) ∧
+      ∀ j, k₀ < j → j < k₁ →
+        ∑ k ∈ Finset.range k₁, (t (k + 1) - t k) * (P.coroot' i (τ k • lam) : ℚ) <
+          ∑ k ∈ Finset.range j, (t (k + 1) - t k) * (P.coroot' i (τ k • lam) : ℚ) ∧
+        ∑ k ∈ Finset.range j, (t (k + 1) - t k) * (P.coroot' i (τ k • lam) : ℚ) <
+          ∑ k ∈ Finset.range k₁, (t (k + 1) - t k) * (P.coroot' i (τ k • lam) : ℚ) + 1 := by
+  set H : ℕ → ℚ := fun j ↦ ∑ k ∈ Finset.range j, (t (k + 1) - t k) * (P.coroot' i (τ k • lam) : ℚ)
+  have hH0 : H 0 = 0 := by simp [H]
+  -- The integral global minimum `z` of `H`, and the first vertex `k₁` where it is attained.
+  obtain ⟨z, hz⟩ := exists_isLeast_sum_coroot'_eq_intCast_of_isAChain hlam ht hchain hmono hs i
+  have hz_le : (z : ℚ) + 1 ≤ 0 := by
+    obtain ⟨j, hjs, hjle⟩ := hgap
+    linarith [hz.2 ⟨j, hjs, rfl⟩]
+  obtain ⟨k_min, hk_min_s, hk_min_z⟩ := hz.1
+  have hex₁ : ∃ k, k ≤ s ∧ H k = z := ⟨k_min, hk_min_s, hk_min_z⟩
+  classical
+  set k₁ := Nat.find hex₁
+  have hk₁s : k₁ ≤ s := (Nat.find_spec hex₁).1
+  have hk₁z : H k₁ = z := (Nat.find_spec hex₁).2
+  have hk₁pos : 0 < k₁ := Nat.pos_of_ne_zero fun h0 ↦ by
+    have : H 0 = z := h0 ▸ hk₁z
+    linarith
+  have habove_k₁ : ∀ k < k₁, (z : ℚ) < H k := fun k hkk₁ ↦
+    lt_of_le_of_ne (hz.2 ⟨k, hkk₁.le.trans hk₁s, rfl⟩) fun heq ↦
+      Nat.find_min hex₁ hkk₁ ⟨hkk₁.le.trans hk₁s, heq.symm⟩
+  -- The last vertex `k₀ < k₁` at which `H` is at least `z + 1`.
+  set S := (Finset.range k₁).filter fun k ↦ (z : ℚ) + 1 ≤ H k
+  have h0S : 0 ∈ S := Finset.mem_filter.mpr ⟨Finset.mem_range.mpr hk₁pos, by linarith⟩
+  set k₀ := S.max' ⟨0, h0S⟩
+  have hk₀_mem : k₀ ∈ S := S.max'_mem ⟨0, h0S⟩
+  have hk₀₁ : k₀ < k₁ := Finset.mem_range.mp (Finset.mem_filter.mp hk₀_mem).1
+  have hk₀_ge : (z : ℚ) + 1 ≤ H k₀ := (Finset.mem_filter.mp hk₀_mem).2
+  have hbetween : ∀ j, k₀ < j → j < k₁ → (z : ℚ) < H j ∧ H j < z + 1 := by
+    intro j hk₀j hjk₁
+    refine ⟨habove_k₁ j hjk₁, lt_of_not_ge fun hge ↦ ?_⟩
+    have hjS : j ∈ S := Finset.mem_filter.mpr ⟨Finset.mem_range.mpr hjk₁, hge⟩
+    exact hk₀j.not_ge (S.le_max' j hjS)
+  -- Before `k₀`, any local minimum would be an integer strictly above `z`, hence `≥ z + 1`.
+  have hbefore : ∀ j ≤ k₀, (z : ℚ) + 1 ≤ H j := by
+    obtain ⟨n, hn, hmin_n⟩ := (Finset.Iic k₀).exists_min_image H ⟨0, by simp⟩
+    simp only [Finset.mem_Iic] at hn hmin_n
+    have hex₀ : ∃ m, m ≤ k₀ ∧ H m = H n := ⟨n, hn, rfl⟩
+    set m := Nat.find hex₀
+    have hmk₀ : m ≤ k₀ := (Nat.find_spec hex₀).1
+    have hmn : H m = H n := (Nat.find_spec hex₀).2
+    have hm_ge : (z : ℚ) + 1 ≤ H m := by
+      rcases Nat.eq_zero_or_pos m with hm0 | hmpos
+      · rw [hm0]
+        linarith
+      rcases hmk₀.eq_or_lt with hmk₀_eq | hmlt
+      · rw [hmk₀_eq]
+        exact hk₀_ge
+      obtain ⟨m', hm'⟩ := Nat.exists_eq_add_one_of_ne_zero hmpos.ne'
+      have hdec : H (m' + 1) < H m' := lt_of_not_ge fun hge ↦
+        Nat.find_min hex₀ (by omega : m' < m)
+          ⟨by omega, le_antisymm (hge.trans (hm' ▸ hmn).le) (hmin_n m' (by omega))⟩
+      have hinc : H (m' + 1) ≤ H (m' + 2) := (hm' ▸ hmn).le.trans (hmin_n (m' + 2) (by omega))
+      have hstep₁ : H (m' + 1) = H m' + (t (m' + 1) - t m') * (P.coroot' i (τ m' • lam) : ℚ) :=
+        Finset.sum_range_succ _ _
+      have hstep₂ : H (m' + 2) =
+          H (m' + 1) + (t (m' + 2) - t (m' + 1)) * (P.coroot' i (τ (m' + 1) • lam) : ℚ) :=
+        Finset.sum_range_succ _ _
+      have hneg : P.coroot' i (τ m' • lam) < 0 := by
+        have := hmono m' (by omega)
+        by_contra! hnn
+        have : 0 ≤ (t (m' + 1) - t m') * (P.coroot' i (τ m' • lam) : ℚ) :=
+          mul_nonneg (by linarith) (by exact_mod_cast hnn)
+        linarith
+      have hnonneg : 0 ≤ P.coroot' i (τ (m' + 1) • lam) := by
+        have := hmono (m' + 1) (by omega)
+        by_contra! hn'
+        have : (t (m' + 2) - t (m' + 1)) * (P.coroot' i (τ (m' + 1) • lam) : ℚ) < 0 :=
+          mul_neg_of_pos_of_neg (by linarith) (by exact_mod_cast hn')
+        linarith
+      obtain ⟨c, hc⟩ :=
+        exists_sum_coroot'_eq_intCast_of_isAChain hlam ht hchain i (by omega) hneg hnonneg
+      have hmc : H m = c := (congrArg H hm').trans hc
+      have hzc : z < c := by
+        have : (z : ℚ) < c := hmc ▸ habove_k₁ m (by omega)
+        exact_mod_cast this
+      have hzc1 : (z : ℚ) + 1 ≤ c := by exact_mod_cast hzc
+      linarith
+    intro j hjk₀
+    exact hm_ge.trans (hmn.le.trans (hmin_n j hjk₀))
+  -- From `k₀` to `k₁`, `H` falls strictly: stopping would produce an integral local minimum in
+  -- `(z, z + 1)`.
+  have hfall_add : ∀ d, k₀ + d < k₁ → H (k₀ + d + 1) < H (k₀ + d) := by
+    intro d
+    induction d with
+    | zero =>
+      intro hlt
+      simp only [Nat.add_zero]
+      rcases (Nat.succ_le_of_lt hlt).eq_or_lt with heq | hlt'
+      · rw [show k₀ + 1 = k₁ by omega, hk₁z]
+        linarith
+      · linarith [(hbetween (k₀ + 1) (Nat.lt_succ_self _) hlt').2]
+    | succ d ih =>
+      intro hlt
+      have hprev := ih (by omega)
+      by_contra! hle
+      rw [show k₀ + (d + 1) = k₀ + d + 1 by omega] at hle
+      have hstep₁ : H (k₀ + d + 1) =
+          H (k₀ + d) + (t (k₀ + d + 1) - t (k₀ + d)) * (P.coroot' i (τ (k₀ + d) • lam) : ℚ) :=
+        Finset.sum_range_succ _ _
+      have hstep₂ : H (k₀ + d + 1 + 1) = H (k₀ + d + 1) +
+          (t (k₀ + d + 1 + 1) - t (k₀ + d + 1)) * (P.coroot' i (τ (k₀ + d + 1) • lam) : ℚ) :=
+        Finset.sum_range_succ _ _
+      have hneg : P.coroot' i (τ (k₀ + d) • lam) < 0 := by
+        have := hmono (k₀ + d) (by omega)
+        by_contra! hnn
+        have : 0 ≤ (t (k₀ + d + 1) - t (k₀ + d)) * (P.coroot' i (τ (k₀ + d) • lam) : ℚ) :=
+          mul_nonneg (by linarith) (by exact_mod_cast hnn)
+        linarith
+      have hnonneg : 0 ≤ P.coroot' i (τ (k₀ + d + 1) • lam) := by
+        have := hmono (k₀ + d + 1) (by omega)
+        by_contra! hn'
+        have :
+            (t (k₀ + d + 1 + 1) - t (k₀ + d + 1)) * (P.coroot' i (τ (k₀ + d + 1) • lam) : ℚ) < 0 :=
+          mul_neg_of_pos_of_neg (by linarith) (by exact_mod_cast hn')
+        linarith
+      obtain ⟨c, hc⟩ :=
+        exists_sum_coroot'_eq_intCast_of_isAChain hlam ht hchain i (by omega) hneg hnonneg
+      obtain ⟨h₁, h₂⟩ := hbetween (k₀ + d + 1) (by omega) (by omega)
+      have hc₁ : z < c := by
+        have : (z : ℚ) < c := hc ▸ h₁
+        exact_mod_cast this
+      have hc₂ : c < z + 1 := by
+        have : (c : ℚ) < z + 1 := hc ▸ h₂
+        exact_mod_cast this
+      omega
+  refine ⟨k₀, k₁, hk₀₁, hk₁s, ⟨⟨k₁, hk₁s, rfl⟩, fun y hy ↦ hk₁z.le.trans (hz.2 hy)⟩,
+    fun j hjk₀ ↦ ?_, fun j hk₀j hjk₁ ↦ ?_, fun j hk₀j hjk₁ ↦ ?_⟩
+  · have hj := hbefore j hjk₀
+    linarith
+  · have h := hfall_add (j - k₀) (by omega)
+    rwa [Nat.add_sub_of_le hk₀j] at h
+  · obtain ⟨h₁, h₂⟩ := hbetween j hk₀j hjk₁
+    exact ⟨by linarith, by linarith⟩
+
 end TauCeti

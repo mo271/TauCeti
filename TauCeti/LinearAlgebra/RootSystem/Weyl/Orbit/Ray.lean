@@ -5,8 +5,11 @@ Authors: The Tau Ceti contributors
 -/
 module
 
+public import Mathlib.LinearAlgebra.RootSystem.Base
 public import Mathlib.LinearAlgebra.RootSystem.WeylGroup
 public import TauCeti.LinearAlgebra.Ray
+import TauCeti.LinearAlgebra.RootSystem.Positive
+import TauCeti.LinearAlgebra.RootSystem.Weyl.Group
 
 /-!
 # Rays and translates of Weyl orbits of weights
@@ -23,8 +26,10 @@ presentation, and its central shift by `χ` has velocities in `W (λ + χ)`; see
 Each Weyl orbit is stable under root reflections. For a root pairing over `ℤ`, an additive map
 `f` from the weight lattice to a vector space carries
 the reflection `s_i` in the root `αᵢ` to the reflection in `f αᵢ` along a linear form agreeing
-with the coroot `αᵢ^∨`, so the image `f (W λ)` is stable under the latter. This is the hypothesis
-under which the root operators preserve paths with velocities in `f (W λ)`; see
+with the coroot `αᵢ^∨`, so the image `f (W λ)` is stable under the latter. When `ι` is finite and
+linear forms on `V` induce all simple coroots of a base `b`, no two distinct points of the realized
+orbit `f (W λ)` lie in the same ray either, even when `f` is not injective on `M`. This is the
+hypothesis under which the root operators preserve paths with velocities in `f (W λ)`; see
 `TauCeti/RepresentationTheory/LSPath/OrbitStable.lean`.
 
 ## Main results
@@ -36,6 +41,8 @@ under which the root operators preserve paths with velocities in `f (W λ)`; see
 * `RootPairing.mapsTo_preReflection_image_orbit_weylGroup`: the image `f (W λ)` of a Weyl orbit
   in a vector space is stable under the reflection in an image root `f αᵢ`, along a linear form
   agreeing with the coroot `αᵢ^∨`.
+* `RootPairing.pairwise_not_sameRay_image_orbit_weylGroup`: when `ι` is finite and linear forms
+  agree with the simple coroots of a base, no two distinct points of `f (W λ)` lie in the same ray.
 -/
 
 public section
@@ -105,6 +112,84 @@ theorem mapsTo_preReflection_image_orbit_weylGroup (i : ι) {F : Module.Dual �
   dsimp only
   rw [mul_smul, weylGroup.ofIdx_smul, Equiv.reflection_smul,
     P.map_reflection_eq_preReflection i hF]
+
+/-- When `ι` is finite and linear forms `F i` on `V` agree with all simple coroots of a base `b`,
+no two distinct points of the realized Weyl orbit `f (W λ)` lie in the same ray, even when `f` is
+not injective on `M`. -/
+theorem pairwise_not_sameRay_image_orbit_weylGroup [Finite ι] [LinearOrder 𝕜]
+    [IsStrictOrderedRing 𝕜] (b : P.Base) {F : b.support → Module.Dual 𝕜 V}
+    (hF : ∀ (i : b.support) (m : M), F i (f m) = (P.coroot' i m : 𝕜)) (lam : M) :
+    (f '' MulAction.orbit P.weylGroup lam).Pairwise fun u v ↦ ¬ SameRay 𝕜 u v := by
+  let := Fintype.ofFinite ι
+  rintro _ ⟨_, ⟨w₁, rfl⟩, rfl⟩ _ ⟨_, ⟨w₂, rfl⟩, rfl⟩ huv hray
+  dsimp only at huv hray
+  -- If every simple coroot kills `w₁ • lam` (or `w₂ • lam`), the Weyl group fixes it, so `u = v`.
+  by_cases hc₁ : ∀ i ∈ b.support, P.coroot' i (w₁ • lam) = 0
+  · refine huv (congrArg f ?_)
+    have hfix := TauCeti.smul_eq_self_of_forall_coroot'_eq_zero b hc₁ (w₂ * w₁⁻¹)
+    rw [mul_smul, inv_smul_smul] at hfix
+    exact hfix.symm
+  by_cases hc₂ : ∀ i ∈ b.support, P.coroot' i (w₂ • lam) = 0
+  · refine huv (congrArg f ?_)
+    have hfix := TauCeti.smul_eq_self_of_forall_coroot'_eq_zero b hc₂ (w₁ * w₂⁻¹)
+    rw [mul_smul, inv_smul_smul] at hfix
+    exact hfix
+  push Not at hc₁ hc₂
+  obtain ⟨i₁, hi₁, hne₁⟩ := hc₁
+  obtain ⟨i₂, hi₂, hne₂⟩ := hc₂
+  have hu₀ : f (w₁ • lam) ≠ 0 := fun h0 ↦ by
+    have := hF ⟨i₁, hi₁⟩ (w₁ • lam)
+    rw [h0, map_zero] at this
+    exact hne₁ (Int.cast_eq_zero.mp this.symm)
+  have hv₀ : f (w₂ • lam) ≠ 0 := fun h0 ↦ by
+    have := hF ⟨i₂, hi₂⟩ (w₂ • lam)
+    rw [h0, map_zero] at this
+    exact hne₂ (Int.cast_eq_zero.mp this.symm)
+  obtain ⟨r, hr, hrv⟩ := hray.exists_pos_left hu₀ hv₀
+  -- Every coroot is a `ℤ`-linear combination of simple coroots, so `w₂ • lam` scales all coroot
+  -- pairings of `w₁ • lam` by `r`.
+  have hscale : ∀ j : ι, (P.coroot' j (w₂ • lam) : 𝕜) = r * (P.coroot' j (w₁ • lam) : 𝕜) := by
+    intro j
+    suffices ∀ y ∈ Submodule.span ℤ (P.coroot '' b.support),
+        (P.toLinearMap (w₂ • lam) y : 𝕜) = r * (P.toLinearMap (w₁ • lam) y : 𝕜) from
+      this _ (b.coroot_mem_span_int j)
+    intro y hy
+    induction hy using Submodule.span_induction with
+    | mem y hy =>
+      obtain ⟨i, hi, rfl⟩ := hy
+      have := congrArg (F ⟨i, hi⟩) hrv
+      simp only [map_smul, smul_eq_mul, hF ⟨i, hi⟩] at this
+      exact this.symm
+    | zero => simp
+    | add y₁ y₂ _ _ h₁ h₂ =>
+      simp only [map_add, Int.cast_add, h₁, h₂, mul_add]
+    | smul z y _ hy =>
+      simp only [map_zsmul, smul_eq_mul, Int.cast_mul, hy]
+      ring
+  -- The sum of squares of all coroot pairings is Weyl-invariant and strictly positive on
+  -- `w₁ • lam`.
+  have hinv : ∀ w : P.weylGroup,
+      ∑ j : ι, (P.coroot' j (w • lam) : 𝕜) ^ 2 = ∑ j : ι, (P.coroot' j lam : 𝕜) ^ 2 := by
+    intro w
+    rw [← (P.weylGroupToPerm w).sum_comp]
+    refine Finset.sum_congr rfl fun j _ ↦ ?_
+    rw [P.coroot'_weylGroupToPerm_smul]
+  have hsum_eq : ∑ j : ι, (P.coroot' j (w₁ • lam) : 𝕜) ^ 2 =
+      r ^ 2 * ∑ j : ι, (P.coroot' j (w₁ • lam) : 𝕜) ^ 2 := by
+    calc
+      ∑ j : ι, (P.coroot' j (w₁ • lam) : 𝕜) ^ 2
+        = ∑ j : ι, (P.coroot' j (w₂ • lam) : 𝕜) ^ 2 := (hinv w₁).trans (hinv w₂).symm
+      _ = ∑ j : ι, (r * (P.coroot' j (w₁ • lam) : 𝕜)) ^ 2 := by
+        refine Finset.sum_congr rfl fun j _ ↦ by rw [hscale j]
+      _ = r ^ 2 * ∑ j : ι, (P.coroot' j (w₁ • lam) : 𝕜) ^ 2 := by
+        simp only [mul_pow, ← Finset.mul_sum]
+  have hpos_sum : 0 < ∑ j : ι, (P.coroot' j (w₁ • lam) : 𝕜) ^ 2 := by
+    refine lt_of_lt_of_le (sq_pos_of_ne_zero (Int.cast_ne_zero.mpr hne₁)) ?_
+    exact Finset.single_le_sum (f := fun j ↦ (P.coroot' j (w₁ • lam) : 𝕜) ^ 2)
+      (fun j _ ↦ sq_nonneg _) (Finset.mem_univ i₁)
+  have hr2 : r ^ 2 = 1 := by nlinarith
+  have hr1 : r = 1 := by nlinarith
+  exact huv (by rw [← hrv, hr1, one_smul])
 
 end Realization
 

@@ -7,6 +7,7 @@ module
 
 public import TauCeti.RepresentationTheory.LSPath.Distinguished
 import TauCeti.LinearAlgebra.RootSystem.Reduced
+import TauCeti.LinearAlgebra.RootSystem.Weyl.Orbit.Ray
 
 /-!
 # Faithful realization of Lakshmibai–Seshadri encodings
@@ -115,5 +116,26 @@ theorem toPLPath_inj (hlam : lam ∈ dominantChamber P b)
       fun u v ↦ ¬ SameRay 𝕜 u v) {π π' : LSPath P b lam} :
     π.toPLPath 𝕜 f = π'.toPLPath 𝕜 f ↔ π = π' :=
   (toPLPath_injective hlam hf hS).eq_iff
+
+/-- When `F` realizes the simple coroots on `f(M)`, distinct points of the realized Weyl orbit
+cannot lie in the same ray (`RootPairing.pairwise_not_sameRay_image_orbit_weylGroup`), so
+injectivity of `f` on `W λ` suffices for `toPLPath` to be injective on LS paths of dominant
+shape `λ`. -/
+theorem toPLPath_injective_of_coroot' (hlam : lam ∈ dominantChamber P b)
+    (hf : Set.InjOn f (Set.range fun w : P.weylGroup ↦ w • lam))
+    {F : b.support → Module.Dual 𝕜 V}
+    (hF : ∀ (i : b.support) (m : M), F i (f m) = (P.coroot' i m : 𝕜)) :
+    Function.Injective (fun π : LSPath P b lam ↦ π.toPLPath 𝕜 f) := by
+  have hS := P.pairwise_not_sameRay_image_orbit_weylGroup b hF lam
+  rw [MulAction.orbit, ← Set.range_comp] at hS
+  exact toPLPath_injective hlam hf hS
+
+theorem toPLPath_inj_of_coroot' (hlam : lam ∈ dominantChamber P b)
+    (hf : Set.InjOn f (Set.range fun w : P.weylGroup ↦ w • lam))
+    {F : b.support → Module.Dual 𝕜 V}
+    (hF : ∀ (i : b.support) (m : M), F i (f m) = (P.coroot' i m : 𝕜))
+    {π π' : LSPath P b lam} :
+    π.toPLPath 𝕜 f = π'.toPLPath 𝕜 f ↔ π = π' :=
+  (toPLPath_injective_of_coroot' hlam hf hF).eq_iff
 
 end TauCeti.LSPath

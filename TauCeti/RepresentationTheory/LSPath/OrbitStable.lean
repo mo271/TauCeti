@@ -138,6 +138,71 @@ theorem hasDistinguished_of_raise_eq_some (h : HasDistinguished S π)
     simpa [Set.mem_neg, map_neg] using hS (Set.mem_neg.1 hu)
   simpa using (hasDistinguished_of_lower_eq_some h.reverse hS' hρ).reverse
 
+/-! ### Root operators and the central shift -/
+
+private theorem pairwise_not_sameRay_neg (hS : S.Pairwise fun u v ↦ ¬ SameRay 𝕜 u v) :
+    (-S).Pairwise fun u v ↦ ¬ SameRay 𝕜 u v :=
+  fun _ hu _ hv huv hray ↦
+    hS (Set.mem_neg.1 hu) (Set.mem_neg.1 hv) (neg_inj.ne.2 huv) (sameRay_neg_iff.2 hray)
+
+/-- Reversing the central shift by `χ` of a path with a distinguished presentation for `S` is the
+central shift by `-χ` of its reverse, for `-S`. -/
+theorem reverse_shiftDistinguished (h : HasDistinguished S π)
+    (hS' : S.Pairwise fun u v ↦ ¬ SameRay 𝕜 u v) (χ : V) :
+    (shiftDistinguished S χ π).reverse = shiftDistinguished (-S) (-χ) π.reverse := by
+  have hp := isDistinguished_distinguished h
+  have hrev_shift :
+      reverseTimed (shiftTimed χ (distinguished S π)) =
+        shiftTimed (-χ) (reverseTimed (distinguished S π)) := by
+    simp [reverseTimed_def, shiftTimed_def, List.map_reverse, Function.comp_def, smul_neg,
+      add_comm]
+  conv_lhs => rw [← ofSegments_distinguished h, shiftDistinguished_ofSegments hp hS' χ]
+  rw [← ofSegments_map_snd_reverseTimed, hrev_shift,
+    ← shiftDistinguished_ofSegments hp.reverseTimed (pairwise_not_sameRay_neg hS') (-χ),
+    ofSegments_map_snd_reverseTimed, ofSegments_distinguished h]
+
+/-- **Lowering commutes with the central shift on distinguished presentations.** When `S` is stable
+under `preReflection x f`, has no two distinct points in the same ray, and `f χ = 0`, shifting by
+`χ` commutes with `lower f x`. -/
+theorem lower_shiftDistinguished (h : HasDistinguished S π)
+    (hS : MapsTo (preReflection x f) S S) (hS' : S.Pairwise fun u v ↦ ¬ SameRay 𝕜 u v)
+    {χ : V} (hχ : f χ = 0) :
+    lower f x (shiftDistinguished S χ π) = (lower f x π).map (shiftDistinguished S χ) := by
+  have hp := isDistinguished_distinguished h
+  conv_lhs => rw [← ofSegments_distinguished h, shiftDistinguished_ofSegments hp hS' χ,
+    lower_ofSegments_shiftTimed _ hχ x]
+  conv_rhs => rw [← ofSegments_distinguished h, lower_ofSegments_map_snd]
+  cases hΓ : lower (f.comp (LinearMap.snd 𝕜 𝕜 V)) (0, x) (ofSegments 𝕜 (distinguished S π)) with
+  | none => rfl
+  | some Γ =>
+    have hΓd := isDistinguished_segments_of_lower_eq_some hS hp.isTimed hp.duration_eq_one
+      hp.slope_mem hΓ
+    simp only [Option.map_some]
+    rw [← ofSegments_segments Γ, shiftGraph_ofSegments, ofSegments_segments Γ, map_ofSegments,
+      map_def, LinearMap.coe_snd, shiftDistinguished_ofSegments hΓd hS']
+
+/-- **Raising commutes with the central shift on distinguished presentations.** -/
+theorem raise_shiftDistinguished (h : HasDistinguished S π)
+    (hS : MapsTo (preReflection x f) S S) (hS' : S.Pairwise fun u v ↦ ¬ SameRay 𝕜 u v)
+    {χ : V} (hχ : f χ = 0) :
+    raise f x (shiftDistinguished S χ π) = (raise f x π).map (shiftDistinguished S χ) := by
+  have hS_neg : MapsTo (preReflection x f) (-S) (-S) := fun u hu ↦ by
+    simpa [Set.mem_neg, map_neg] using hS (Set.mem_neg.1 hu)
+  rw [raise_def, reverse_shiftDistinguished h hS',
+    lower_shiftDistinguished h.reverse hS_neg (pairwise_not_sameRay_neg hS') (by simp [hχ]),
+    Option.map_map]
+  cases hq : raise f x π with
+  | none =>
+    rw [raise_def, Option.map_eq_none_iff] at hq
+    simp [hq]
+  | some q =>
+    have hqd : HasDistinguished S q := hasDistinguished_of_raise_eq_some h hS hq
+    rw [raise_def, Option.map_eq_some_iff] at hq
+    obtain ⟨ρ, hρ, rfl⟩ := hq
+    simp only [hρ, Option.map_some, Function.comp_apply]
+    rw [← reverse_reverse (shiftDistinguished S χ ρ.reverse),
+      reverse_shiftDistinguished hqd hS', reverse_reverse]
+
 end TauCeti.PLPath
 
 namespace TauCeti.LSPath
