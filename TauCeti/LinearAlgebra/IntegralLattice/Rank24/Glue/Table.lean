@@ -53,7 +53,9 @@ computations by `decide`.
 * `TauCeti.RootfulNiemeierType.glueWords`: the digit words denoted by a row's glue columns.
 * `TauCeti.RootfulNiemeierType.glueModule`: the glue words of a row's ordered components.
 * `TauCeti.RootfulNiemeierType.glueSubgroup`: the glue subgroup `H_r` of a row, trivial only for
-  `E₈³` (`TauCeti.RootfulNiemeierType.glueSubgroup_eq_bot_iff_eq_e8Cubed`).
+  `E₈³` (`TauCeti.RootfulNiemeierType.glueSubgroup_eq_bot_iff_eq_e8Cubed`), and preserved by any
+  additive self-equivalence of `r.glueModule` that preserves membership in `r.glueWords`
+  (`TauCeti.RootfulNiemeierType.mem_glueSubgroup_iff_of_glueWords`).
 * `TauCeti.RootfulNiemeierType.glueModuleIsometry`: the glue words of a row as the glue words of
   an explicit family of its components, with `map_glueSubgroup_glueModuleIsometry` describing
   `H_r` in these coordinates; the lemmas `*_of_map_glueModuleIsometry` transfer the order, the
@@ -336,6 +338,28 @@ theorem glueSubgroup_eq_zmultiples (r : RootfulNiemeierType) {l : List ℕ}
     r.glueSubgroup = AddSubgroup.zmultiples w := by
   rw [glueSubgroup_def, r.glueGenerators_eq_singleton hl hw,
     AddSubgroup.zmultiples_eq_closure]
+
+/-- **Invariance of the glue subgroup from the digit words**: any additive self-equivalence `φ` of
+`r.glueModule` whose image of a word encodes into `r.glueWords` if and only if the word itself does
+preserves `r.glueSubgroup`. -/
+theorem mem_glueSubgroup_iff_of_glueWords (r : RootfulNiemeierType) {F : Type*}
+    [EquivLike F r.glueModule r.glueModule] [AddEquivClass F r.glueModule r.glueModule] (φ : F)
+    (hφ : ∀ v : r.glueModule,
+      encodeGlueWord r.componentType r.isSimplyLaced_componentType (φ v) ∈ r.glueWords ↔
+        encodeGlueWord r.componentType r.isSimplyLaced_componentType v ∈ r.glueWords)
+    (w : r.glueModule) :
+    φ w ∈ r.glueSubgroup ↔ w ∈ r.glueSubgroup := by
+  have hgen : φ ⁻¹' r.glueGenerators = r.glueGenerators := by
+    ext v
+    rw [Set.mem_preimage, mem_glueGenerators_iff, mem_glueGenerators_iff]
+    exact hφ v
+  have hmap : r.glueSubgroup.map (φ : r.glueModule →+ r.glueModule) = r.glueSubgroup := by
+    rw [glueSubgroup_def, AddMonoidHom.map_closure, AddMonoidHom.coe_ofClass]
+    exact congrArg AddSubgroup.closure
+      ((congrArg _ hgen.symm).trans (Set.image_preimage_eq _ (EquivLike.surjective φ)))
+  have h := AddSubgroup.mem_map_iff_mem (f := (φ : r.glueModule →+ r.glueModule))
+    (by rw [AddMonoidHom.coe_ofClass]; exact EquivLike.injective φ) (K := r.glueSubgroup) (x := w)
+  rwa [hmap, AddMonoidHom.coe_ofClass] at h
 
 /-! ### Glue words of a row in the coordinates of an explicit family -/
 

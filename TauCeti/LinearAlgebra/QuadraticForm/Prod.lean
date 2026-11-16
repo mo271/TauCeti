@@ -51,7 +51,8 @@ the two summands gives an orthogonal family of the orthogonal sum.
 * `QuadraticMap.IsometryEquiv.uniqueProd` and `QuadraticMap.IsometryEquiv.prodUnique`:
   `LinearEquiv.uniqueProd` and `LinearEquiv.prodUnique` are isometric.
 * `QuadraticMap.IsometryEquiv.consPi`: `Fin.consLinearEquiv` is isometric.
-* `QuadraticMap.IsometryEquiv.piCongrLeft`: `LinearEquiv.piCongrLeft` is isometric.
+* `QuadraticMap.IsometryEquiv.piCongrLeft` and `QuadraticMap.IsometryEquiv.piCongr`:
+  `LinearEquiv.piCongrLeft` and `Equiv.piCongr` are isometric.
 * `QuadraticMap.IsometryEquiv.piSubtype`: deleting the summands of an orthogonal sum that are
   carried by trivial modules is isometric.
 * `QuadraticMap.IsometryEquiv.prodRestrictOrthogonal`: an orthogonal direct sum is isometric to
@@ -323,6 +324,68 @@ theorem IsometryEquiv.piCongrLeft_apply_apply {ι ι' : Type*} [Fintype ι] [Fin
     (Q : ∀ i, QuadraticMap R (M i) P) (e : ι' ≃ ι) (x : ∀ i', M (e i')) (i' : ι') :
     IsometryEquiv.piCongrLeft Q e x (e i') = x i' :=
   Equiv.piCongrLeft_apply_apply M e x i'
+
+/-- `Equiv.piCongr` is isometric: an equivalence `e : ι ≃ ι'` of finite index types together with
+summandwise isometric equivalences `f i : (Q i).IsometryEquiv (Q' (e i))` induces an isometric
+equivalence of orthogonal sums, moving coordinate `i` by `f i` to coordinate `e i`. -/
+def IsometryEquiv.piCongr {ι ι' : Type*} [Fintype ι] [Fintype ι'] {M : ι → Type*}
+    {N : ι' → Type*} [∀ i, AddCommMonoid (M i)] [∀ i', AddCommMonoid (N i')]
+    [∀ i, Module R (M i)] [∀ i', Module R (N i')] {Q : ∀ i, QuadraticMap R (M i) P}
+    {Q' : ∀ i', QuadraticMap R (N i') P} (e : ι ≃ ι')
+    (f : ∀ i, (Q i).IsometryEquiv (Q' (e i))) :
+    (QuadraticMap.pi Q).IsometryEquiv (QuadraticMap.pi Q') :=
+  (IsometryEquiv.pi f).trans (IsometryEquiv.piCongrLeft Q' e)
+
+/-- Evaluating `QuadraticMap.IsometryEquiv.piCongr` at `e i` applies `f i` to coordinate `i`. -/
+@[simp]
+theorem IsometryEquiv.piCongr_apply_apply {ι ι' : Type*} [Fintype ι] [Fintype ι'] {M : ι → Type*}
+    {N : ι' → Type*} [∀ i, AddCommMonoid (M i)] [∀ i', AddCommMonoid (N i')]
+    [∀ i, Module R (M i)] [∀ i', Module R (N i')] {Q : ∀ i, QuadraticMap R (M i) P}
+    {Q' : ∀ i', QuadraticMap R (N i') P} (e : ι ≃ ι')
+    (f : ∀ i, (Q i).IsometryEquiv (Q' (e i))) (x : ∀ i, M i) (i : ι) :
+    IsometryEquiv.piCongr e f x (e i) = f i (x i) :=
+  IsometryEquiv.piCongrLeft_apply_apply Q' e (IsometryEquiv.pi f x) i
+
+/-- The inverse of `QuadraticMap.IsometryEquiv.piCongr` reads coordinate `i` by applying
+`(f i).symm` at `e i`. -/
+@[simp]
+theorem IsometryEquiv.piCongr_symm_apply {ι ι' : Type*} [Fintype ι] [Fintype ι'] {M : ι → Type*}
+    {N : ι' → Type*} [∀ i, AddCommMonoid (M i)] [∀ i', AddCommMonoid (N i')]
+    [∀ i, Module R (M i)] [∀ i', Module R (N i')] {Q : ∀ i, QuadraticMap R (M i) P}
+    {Q' : ∀ i', QuadraticMap R (N i') P} (e : ι ≃ ι')
+    (f : ∀ i, (Q i).IsometryEquiv (Q' (e i))) (y : ∀ i', N i') (i : ι) :
+    (IsometryEquiv.piCongr e f).symm y i = (f i).symm (y (e i)) := by
+  conv_rhs => rw [← (IsometryEquiv.piCongr e f).apply_symm_apply y]
+  rw [IsometryEquiv.piCongr_apply_apply, IsometryEquiv.symm_apply_apply]
+
+/-- `QuadraticMap.IsometryEquiv.piCongr` along the identity equivalence and identity summand
+isometries is the identity. -/
+@[simp]
+theorem IsometryEquiv.piCongr_refl {ι : Type*} [Fintype ι] {M : ι → Type*}
+    [∀ i, AddCommMonoid (M i)] [∀ i, Module R (M i)] (Q : ∀ i, QuadraticMap R (M i) P) :
+    IsometryEquiv.piCongr (Equiv.refl ι) (fun i ↦ IsometryEquiv.refl (Q i)) =
+      IsometryEquiv.refl (QuadraticMap.pi Q) :=
+  DFunLike.ext _ _ fun x ↦ funext fun i ↦
+    IsometryEquiv.piCongr_apply_apply (Equiv.refl ι) (fun i ↦ IsometryEquiv.refl (Q i)) x i
+
+/-- Composing two `QuadraticMap.IsometryEquiv.piCongr` equivalences composes the index equivalences
+and the summand isometries. -/
+@[simp]
+theorem IsometryEquiv.piCongr_trans {ι ι' ι'' : Type*} [Fintype ι] [Fintype ι'] [Fintype ι'']
+    {M : ι → Type*} {N : ι' → Type*} {K : ι'' → Type*}
+    [∀ i, AddCommMonoid (M i)] [∀ i', AddCommMonoid (N i')] [∀ i'', AddCommMonoid (K i'')]
+    [∀ i, Module R (M i)] [∀ i', Module R (N i')] [∀ i'', Module R (K i'')]
+    {Q : ∀ i, QuadraticMap R (M i) P} {Q' : ∀ i', QuadraticMap R (N i') P}
+    {Q'' : ∀ i'', QuadraticMap R (K i'') P} (e : ι ≃ ι')
+    (f : ∀ i, (Q i).IsometryEquiv (Q' (e i))) (e' : ι' ≃ ι'')
+    (g : ∀ i', (Q' i').IsometryEquiv (Q'' (e' i'))) :
+    (IsometryEquiv.piCongr e f).trans (IsometryEquiv.piCongr e' g) =
+      IsometryEquiv.piCongr (e.trans e') fun i ↦ (f i).trans (g (e i)) := by
+  refine DFunLike.ext _ _ fun x ↦ funext fun i'' ↦ ?_
+  obtain ⟨i, rfl⟩ := (e.trans e').surjective i''
+  exact ((IsometryEquiv.piCongr_apply_apply e' g _ (e i)).trans
+    (congrArg (g (e i)) (IsometryEquiv.piCongr_apply_apply e f x i))).trans
+    (IsometryEquiv.piCongr_apply_apply (e.trans e') (fun i ↦ (f i).trans (g (e i))) x i).symm
 
 /-- Restriction to the summands indexed by `{i // S i}` is isometric when every other summand is
 carried by a trivial module: such summands may be deleted from an orthogonal sum. -/
