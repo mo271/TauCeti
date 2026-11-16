@@ -6,6 +6,7 @@ Authors: The Tau Ceti contributors
 module
 
 public import TauCeti.FieldTheory.FunctionField.Place.Completion.Extension
+import Mathlib.FieldTheory.SeparableClosure
 import TauCeti.RingTheory.AdicCompletion.Pi
 
 /-!
@@ -48,11 +49,16 @@ completed extension.
   over `F̂_P`.
 * `TauCeti.Place.linearIndependent_completionIntegersEmbedding_mul_pow` and
   `TauCeti.Place.span_completionIntegers_eq_top`: they form a basis of `𝒪̂_{P'}` over `𝒪̂_P`.
-* `TauCeti.Place.moduleFinite_completionIntegers`, `TauCeti.Place.moduleFree_completionIntegers`
-  and `TauCeti.Place.finrank_completionIntegers`: `𝒪̂_{P'}` is finite free over `𝒪̂_P` of rank
-  `e(P' ∣ P) f(P' ∣ P)`.
-* `TauCeti.Place.finiteDimensional_completion` and `TauCeti.Place.finrank_completion`: **the
-  local degree** `[F̂'_{P'} : F̂_P] = e(P' ∣ P) f(P' ∣ P)`.
+* `TauCeti.Place.moduleFinite_completionIntegers`, `TauCeti.Place.moduleFree_completionIntegers`,
+  `TauCeti.Place.finrank_completionIntegers`, and
+  `TauCeti.Place.isIntegralClosure_completionIntegers`: `𝒪̂_{P'}` is finite free over `𝒪̂_P` of
+  rank `e(P' ∣ P) f(P' ∣ P)` and is the integral closure of `𝒪̂_P` in `F̂'_{P'}`.
+* `TauCeti.Place.finiteDimensional_completion`, `TauCeti.Place.finrank_completion`, and
+  `TauCeti.Place.isSeparable_completion`: **the local degree**
+  `[F̂'_{P'} : F̂_P] = e(P' ∣ P) f(P' ∣ P)`, and separability of `F̂'_{P'} / F̂_P` when `F' / F` is
+  separable.
+* `TauCeti.Place.restrict_completionPlace`: when `k' = k`, the completed place upstairs restricts
+  to the completed place downstairs.
 
 ## References
 
@@ -482,6 +488,67 @@ theorem finrank_completion :
   (Module.finrank_eq_card_basis (nonempty_basis_completion P P' hP).some).trans
     (by simp [mul_comm])
 
+attribute [local instance 10] algebraIntegersExtension isScalarTowerIntegersExtension in
+/-- The completed valuation ring `𝒪̂_{P'}` is the integral closure of `𝒪̂_P` in `F̂'_{P'}`. -/
+theorem isIntegralClosure_completionIntegers :
+    letI := P.completionExtensionAlgebra P' hP
+    letI := P.completionIntegersExtensionAlgebra P' hP
+    IsIntegralClosure P'.completionPlace.integers P.completionPlace.integers P'.Completion := by
+  let _ := P.completionExtensionAlgebra P' hP
+  let _ := P.completionIntegersExtensionAlgebra P' hP
+  have := moduleFinite_completionIntegers P P' hP
+  refine ⟨ValuationSubring.subtype_injective _, fun {x} ↦ ⟨fun hx ↦ ?_, ?_⟩⟩
+  · refine ⟨⟨x, P'.completionPlace.mem_integers_of_isIntegral (fun a ↦ ?_) hx⟩, rfl⟩
+    rw [IsScalarTower.algebraMap_apply P.completionPlace.integers P.Completion P'.Completion,
+      P.algebraMap_completionExtensionAlgebra P' hP]
+    exact P.completionExtension_mem_integers P' hP a.2
+  · rintro ⟨y, rfl⟩
+    have : Algebra.IsIntegral P.completionPlace.integers P'.completionPlace.integers :=
+      Algebra.IsIntegral.of_finite _ _
+    exact (IsIntegral.algebraMap (Algebra.IsIntegral.isIntegral
+      (R := P.completionPlace.integers) y)).tower_top
+
+/-- **Completion preserves separability of the field extension**: if `F' / F` is separable and
+the residue extension at `P'` is finite, then `F̂'_{P'} / F̂_P` is separable, with no separability
+hypothesis on the residue extension itself. -/
+theorem isSeparable_completion [Algebra.IsSeparable F F'] :
+    letI := P.completionExtensionAlgebra P' hP
+    Algebra.IsSeparable P.Completion P'.Completion := by
+  let _ := P.completionExtensionAlgebra P' hP
+  obtain ⟨u, t, -, hsp, ht⟩ := exists_residue_basis (k := k) (F := F) P'
+  rw [← separableClosure.eq_top_iff, eq_top_iff]
+  intro x _
+  have hmem : x ∈ (separableClosure P.Completion P'.Completion).toSubmodule :=
+    ((span_completion_eq_top P P' hP u hsp ht).ge.trans (Submodule.span_le.mpr fun _ ⟨_, h⟩ ↦
+      h ▸ mem_separableClosure_iff.mpr
+        (P.isSeparable_completionEmbedding P' hP _))) Submodule.mem_top
+  exact hmem
+
 end Degree
+
+section Constants
+
+variable {k F F' : Type*} [Field k] [Field F] [Field F']
+  [Algebra k F] [Algebra k F'] [Algebra F F'] [IsScalarTower k F F']
+  [Algebra.IsIntegral F F'] (P : Place k F) (P' : Place k F')
+  (hP : P'.restrict k F = P) [FiniteDimensional (P'.restrict k F).ResidueField P'.ResidueField]
+
+/-- When the constant fields agree, the completed place upstairs restricts to the completed
+place downstairs. -/
+theorem restrict_completionPlace :
+    letI := P.completionExtensionAlgebra P' hP
+    letI := P.isScalarTower_completionExtensionAlgebra P' hP
+    letI := finiteDimensional_completion P P' hP
+    P'.completionPlace.restrict k P.Completion = P.completionPlace := by
+  let _ := P.completionExtensionAlgebra P' hP
+  let _ := P.isScalarTower_completionExtensionAlgebra P' hP
+  have := finiteDimensional_completion P P' hP
+  have := Algebra.IsIntegral.of_finite P.Completion P'.Completion
+  refine (restrict_eq_iff_integers_le k P.Completion P'.completionPlace P.completionPlace).mpr
+    fun x hx ↦ ?_
+  rw [P.algebraMap_completionExtensionAlgebra P' hP]
+  exact P.completionExtension_mem_integers P' hP hx
+
+end Constants
 
 end TauCeti.Place
