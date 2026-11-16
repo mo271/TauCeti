@@ -7,6 +7,8 @@ module
 
 public import TauCeti.Topology.VectorBundle.FiniteRank.Pullback
 public import TauCeti.Analysis.Normed.Operator.Kronecker
+public import TauCeti.Analysis.Normed.Module.TensorProduct.Kronecker
+public import TauCeti.Topology.VectorBundle.TensorProduct.Operations
 
 /-!
 # Tensor products of finite-rank bundle cores
@@ -24,13 +26,24 @@ identities and composition, is additive in each variable, preserves isomorphisms
 strictly with pullback along continuous maps of bases (`pullback_tensor`,
 `pullbackMap_tensorHom`). The base is arbitrary, and the scalar field need not be complete.
 
+When each algebraic tensor fibre `A.core.Fiber x ⊗[𝕜] D.core.Fiber x` carries the `𝕜`-module
+topology, `tensorFiberEquiv` identifies `(tensor A D).core.Fiber x` continuously and `𝕜`-linearly
+with `A.core.Fiber x ⊗[𝕜] D.core.Fiber x` via `TauCeti.kroneckerTensorEquiv`, without completeness
+of `𝕜`, reading in preferred coordinates as `TauCeti.ProjectiveTensor.kroneckerEquiv`
+(`tensorFiberEquiv_inCoordinates`) and intertwining `tensorHom f g` with `TauCeti.bundleTensorMap`
+(`tensorFiberEquiv_fiberMap_tensorHom`). Over a complete scalar field, `tensorTotalSpaceHomeomorph`
+glues these fibrewise equivalences into a homeomorphism between `(tensor A D).core.TotalSpace` and
+the total space of the tensor-product vector bundle `fun x ↦ A.core.Fiber x ⊗[𝕜] D.core.Fiber x`,
+natural in morphisms and compatible with `pullbackLift`.
+
 The construction uses Mathlib's coordinate cores and the coordinate morphisms
 `VectorBundleCore.CoordinateHom`.
 -/
 
 public section
 
-open CategoryTheory VectorBundleCore Set
+open Bundle CategoryTheory VectorBundleCore Set
+open scoped TensorProduct
 
 namespace TauCeti.FiniteRankBundleCore
 
@@ -194,6 +207,226 @@ commutes with forming the tensor product. -/
 instance (f : A ⟶ A') (g : D ⟶ D') [IsIso f] [IsIso g] : IsIso (tensorHom f g) :=
   ⟨tensorHom (inv f) (inv g), by simp, by simp⟩
 
+section TensorProductBundle
+
+/-- Canonical continuous `𝕜`-linear equivalence between the coordinate fibre of `tensor A D` at `x`
+and the algebraic tensor product `A.core.Fiber x ⊗[𝕜] D.core.Fiber x` equipped with the `𝕜`-module
+topology. No completeness of `𝕜` is required. -/
+noncomputable def tensorFiberEquiv (A D : FiniteRankBundleCore 𝕜 B)
+    [∀ x, TopologicalSpace (A.core.Fiber x ⊗[𝕜] D.core.Fiber x)]
+    [∀ x, IsModuleTopology 𝕜 (A.core.Fiber x ⊗[𝕜] D.core.Fiber x)] (x : B) :
+    (tensor A D).core.Fiber x ≃L[𝕜] (A.core.Fiber x ⊗[𝕜] D.core.Fiber x) :=
+  LinearEquiv.toContinuousLinearEquivOfIsModuleTopology
+    (kroneckerTensorEquiv 𝕜 A.rank D.rank :
+      (tensor A D).core.Fiber x ≃ₗ[𝕜] A.core.Fiber x ⊗[𝕜] D.core.Fiber x)
+
+/-- `tensorFiberEquiv` acts on coordinate vectors by `kroneckerTensorEquiv`. -/
+theorem tensorFiberEquiv_apply (A D : FiniteRankBundleCore 𝕜 B)
+    [∀ x, TopologicalSpace (A.core.Fiber x ⊗[𝕜] D.core.Fiber x)]
+    [∀ x, IsModuleTopology 𝕜 (A.core.Fiber x ⊗[𝕜] D.core.Fiber x)]
+    (x : B) (v : (tensor A D).core.Fiber x) :
+    tensorFiberEquiv A D x v = kroneckerTensorEquiv 𝕜 A.rank D.rank v :=
+  let e : (tensor A D).core.Fiber x ≃ₗ[𝕜] A.core.Fiber x ⊗[𝕜] D.core.Fiber x :=
+    kroneckerTensorEquiv 𝕜 A.rank D.rank
+  congrFun (LinearEquiv.coe_toContinuousLinearEquivOfIsModuleTopology e) v
+
+/-- The inverse of `tensorFiberEquiv` acts by `(kroneckerTensorEquiv 𝕜 A.rank D.rank).symm`. -/
+theorem tensorFiberEquiv_symm_apply (A D : FiniteRankBundleCore 𝕜 B)
+    [∀ x, TopologicalSpace (A.core.Fiber x ⊗[𝕜] D.core.Fiber x)]
+    [∀ x, IsModuleTopology 𝕜 (A.core.Fiber x ⊗[𝕜] D.core.Fiber x)]
+    (x : B) (t : A.core.Fiber x ⊗[𝕜] D.core.Fiber x) :
+    (tensorFiberEquiv A D x).symm t = (kroneckerTensorEquiv 𝕜 A.rank D.rank).symm t :=
+  let e : (tensor A D).core.Fiber x ≃ₗ[𝕜] A.core.Fiber x ⊗[𝕜] D.core.Fiber x :=
+    kroneckerTensorEquiv 𝕜 A.rank D.rank
+  (congrFun (congrArg DFunLike.coe (LinearEquiv.symm_toContinuousLinearEquivOfIsModuleTopology e))
+    t).trans (congrFun (LinearEquiv.coe_toContinuousLinearEquivOfIsModuleTopology e.symm) t)
+
+/-- The inverse of `tensorFiberEquiv` evaluates a pure tensor `u ⊗ₜ w` at `finProdFinEquiv (i, j)`
+to `u i * w j`. -/
+@[simp]
+theorem tensorFiberEquiv_symm_tmul_apply (A D : FiniteRankBundleCore 𝕜 B)
+    [∀ x, TopologicalSpace (A.core.Fiber x ⊗[𝕜] D.core.Fiber x)]
+    [∀ x, IsModuleTopology 𝕜 (A.core.Fiber x ⊗[𝕜] D.core.Fiber x)]
+    (x : B) (u : A.core.Fiber x) (w : D.core.Fiber x) (i : Fin A.rank) (j : Fin D.rank) :
+    (tensorFiberEquiv A D x).symm (u ⊗ₜ[𝕜] w) (finProdFinEquiv (i, j)) = u i * w j :=
+  (congrFun (tensorFiberEquiv_symm_apply A D x (u ⊗ₜ[𝕜] w)) (finProdFinEquiv (i, j))).trans
+    (kroneckerTensorEquiv_symm_tmul_apply u w i j)
+
+/-- `tensorFiberEquiv` sends the standard basis vector at `finProdFinEquiv (i, j)` with coefficient
+`c` to `c • (Pi.single i 1 ⊗ₜ Pi.single j 1)`. -/
+@[simp]
+theorem tensorFiberEquiv_single (A D : FiniteRankBundleCore 𝕜 B)
+    [∀ x, TopologicalSpace (A.core.Fiber x ⊗[𝕜] D.core.Fiber x)]
+    [∀ x, IsModuleTopology 𝕜 (A.core.Fiber x ⊗[𝕜] D.core.Fiber x)]
+    (x : B) (i : Fin A.rank) (j : Fin D.rank) (c : 𝕜) :
+    tensorFiberEquiv A D x (Pi.single (finProdFinEquiv (i, j)) c) =
+      c • ((Pi.single i 1 : A.core.Fiber x) ⊗ₜ[𝕜] (Pi.single j 1 : D.core.Fiber x)) :=
+  (tensorFiberEquiv_apply A D x _).trans (kroneckerTensorEquiv_single i j c)
+
+/-- On the common domain of the charts of `A` and `D` at `a`, reading `tensorFiberEquiv A D x v` in
+`TensorProduct.inCoordinates` gives `ProjectiveTensor.kroneckerEquiv` applied to the tensor-core
+coordinates of `v` in chart `a`. -/
+theorem tensorFiberEquiv_inCoordinates (A D : FiniteRankBundleCore 𝕜 B)
+    [∀ y, TopologicalSpace (A.core.Fiber y ⊗[𝕜] D.core.Fiber y)]
+    [∀ y, IsModuleTopology 𝕜 (A.core.Fiber y ⊗[𝕜] D.core.Fiber y)]
+    (a x : B) (hx : x ∈ A.core.baseSet a ∩ D.core.baseSet a)
+    (v : (tensor A D).core.Fiber x) :
+    TensorProduct.inCoordinates (Fin A.rank → 𝕜) A.core.Fiber (Fin D.rank → 𝕜) D.core.Fiber
+        a x a x (tensorFiberEquiv A D x v) =
+      ProjectiveTensor.kroneckerEquiv 𝕜 A.rank D.rank
+        (((tensor A D).core.localTriv a) ⟨x, v⟩).2 := by
+  have hA : x ∈ (trivializationAt (Fin A.rank → 𝕜) A.core.Fiber a).baseSet := by
+    rw [A.trivializationAt_core]
+    exact hx.1
+  have hD : x ∈ (trivializationAt (Fin D.rank → 𝕜) D.core.Fiber a).baseSet := by
+    rw [D.trivializationAt_core]
+    exact hx.2
+  obtain ⟨t, ht⟩ := (kroneckerTensorEquiv 𝕜 A.rank D.rank).symm.surjective v
+  let t' : A.core.Fiber x ⊗[𝕜] D.core.Fiber x := t
+  have hlhs : tensorFiberEquiv A D x v = t' := by
+    rw [← ht]
+    exact (tensorFiberEquiv_apply A D x _).trans
+      ((kroneckerTensorEquiv 𝕜 A.rank D.rank).apply_symm_apply t)
+  have hrhs : ProjectiveTensor.kroneckerEquiv 𝕜 A.rank D.rank
+      (((tensor A D).core.localTriv a) ⟨x, v⟩).2 =
+      ⟨_root_.TensorProduct.map (A.core.coordChange x a x).toLinearMap
+        (D.core.coordChange x a x).toLinearMap t'⟩ := by
+    have htriv : (((tensor A D).core.localTriv a) ⟨x, v⟩).2 =
+        ((A.core.coordChange x a x).kronecker (D.core.coordChange x a x))
+          ((kroneckerTensorEquiv 𝕜 A.rank D.rank).symm t) := by
+      simp only [VectorBundleCore.localTriv_apply, (tensor A D).indexAt_eq, coordChange_tensor,
+        ← ht]
+      rfl
+    apply ProjectiveTensor.ext
+    rw [htriv, ProjectiveTensor.toTensorProduct_kroneckerEquiv, ← kroneckerTensorEquiv_symm_map,
+      LinearEquiv.apply_symm_apply]
+  rw [hlhs, hrhs]
+  clear_value t'
+  clear ht hlhs hrhs t v
+  induction t' using _root_.TensorProduct.inductionOn with
+  | tmul u w =>
+      have htmul := TensorProduct.inCoordinates_tmul_of_mem (𝕜 := 𝕜) hA hD u w
+      rw [A.trivializationAt_core, D.trivializationAt_core] at htmul
+      refine htmul.trans ?_
+      apply ProjectiveTensor.ext
+      simp only [VectorBundleCore.localTriv_apply, A.indexAt_eq, D.indexAt_eq]
+      exact (_root_.TensorProduct.map_tmul (A.core.coordChange x a x).toLinearMap
+        (D.core.coordChange x a x).toLinearMap u w).symm
+  | add p q hp hq =>
+      rw [map_add, hp, hq, ← ProjectiveTensor.mk_add]
+      exact congrArg ProjectiveTensor.mk ((_root_.TensorProduct.map _ _).map_add p q).symm
+
+/-- `tensorFiberEquiv` intertwines the fibre map of `tensorHom f g` with `bundleTensorMap` of the
+factor fibre maps. -/
+theorem tensorFiberEquiv_fiberMap_tensorHom
+    [∀ x, TopologicalSpace (A.core.Fiber x ⊗[𝕜] D.core.Fiber x)]
+    [∀ x, IsModuleTopology 𝕜 (A.core.Fiber x ⊗[𝕜] D.core.Fiber x)]
+    [∀ x, TopologicalSpace (A'.core.Fiber x ⊗[𝕜] D'.core.Fiber x)]
+    [∀ x, IsModuleTopology 𝕜 (A'.core.Fiber x ⊗[𝕜] D'.core.Fiber x)]
+    (f : A ⟶ A') (g : D ⟶ D') (x : B) (v : (tensor A D).core.Fiber x) :
+    tensorFiberEquiv A' D' x ((tensorHom f g).fiberMap x v) =
+      bundleTensorMap (E₁ := A.core.Fiber) (E₁' := A'.core.Fiber)
+        (E₂ := D.core.Fiber) (E₂' := D'.core.Fiber)
+        f.fiberMap g.fiberMap x (tensorFiberEquiv A D x v) := by
+  refine (tensorFiberEquiv_apply A' D' x _).trans ?_
+  refine (congrArg (kroneckerTensorEquiv 𝕜 A'.rank D'.rank)
+    (DFunLike.congr_fun (fiberMap_tensorHom f g x) v)).trans ?_
+  refine (kroneckerTensorEquiv_kronecker (f.fiberMap x) (g.fiberMap x) v).trans ?_
+  refine Eq.trans ?_ (congrArg (bundleTensorMap (E₁ := A.core.Fiber) (E₁' := A'.core.Fiber)
+    (E₂ := D.core.Fiber) (E₂' := D'.core.Fiber) f.fiberMap g.fiberMap x)
+    (tensorFiberEquiv_apply A D x v)).symm
+  suffices ∀ t : A.core.Fiber x ⊗[𝕜] D.core.Fiber x,
+      _root_.TensorProduct.map (f.fiberMap x).toLinearMap (g.fiberMap x).toLinearMap t =
+        bundleTensorMap (E₁ := A.core.Fiber) (E₁' := A'.core.Fiber)
+          (E₂ := D.core.Fiber) (E₂' := D'.core.Fiber) f.fiberMap g.fiberMap x t from
+    this (kroneckerTensorEquiv 𝕜 A.rank D.rank v)
+  intro t
+  induction t using _root_.TensorProduct.inductionOn with
+  | tmul u w =>
+      exact (bundleTensorMap_tmul (E₁ := A.core.Fiber) (E₁' := A'.core.Fiber)
+        (E₂ := D.core.Fiber) (E₂' := D'.core.Fiber) f.fiberMap g.fiberMap x u w).symm
+  | add p q hp hq =>
+      rw [map_add, ← hp, ← hq]
+      exact (_root_.TensorProduct.map _ _).map_add p q
+
+section TotalSpaceHomeomorph
+
+variable [CompleteSpace 𝕜]
+
+/-- Reading tensor-core coordinate vectors as elements of `A.core.Fiber x ⊗[𝕜] D.core.Fiber x` is
+continuous on total spaces. -/
+theorem continuous_tensorFiberEquiv (A D : FiniteRankBundleCore 𝕜 B)
+    [∀ x, TopologicalSpace (A.core.Fiber x ⊗[𝕜] D.core.Fiber x)]
+    [∀ x, IsModuleTopology 𝕜 (A.core.Fiber x ⊗[𝕜] D.core.Fiber x)] :
+    Continuous fun p : (tensor A D).core.TotalSpace ↦
+      TotalSpace.mk' (ProjectiveTensor 𝕜 (Fin A.rank → 𝕜) (Fin D.rank → 𝕜))
+        (E := fun x ↦ A.core.Fiber x ⊗[𝕜] D.core.Fiber x) p.proj
+        (tensorFiberEquiv A D p.proj p.2) := by
+  refine continuous_iff_continuousAt.2 fun p ↦ ?_
+  rw [continuousAt_tensorProduct_bundle]
+  refine ⟨(tensor A D).core.continuous_proj.continuousAt, ?_⟩
+  have hp : p ∈ ((tensor A D).core.localTriv p.proj).source :=
+    ((tensor A D).core.mem_localTriv_source p.proj p).2 ((tensor A D).core.mem_baseSet_at p.proj)
+  have hU := ((tensor A D).core.localTriv p.proj).open_source.mem_nhds hp
+  have hc := (((tensor A D).core.localTriv p.proj).continuousOn.continuousAt hU).snd
+  refine ((ProjectiveTensor.kroneckerEquiv 𝕜 A.rank D.rank).continuous.continuousAt.comp hc).congr
+    ?_
+  filter_upwards [hU] with q hq
+  exact (tensorFiberEquiv_inCoordinates A D p.proj q.proj
+    (((tensor A D).core.mem_localTriv_source p.proj q).1 hq) q.2).symm
+
+/-- Homeomorphism between the reconstructed total space of `tensor A D` and the total space of the
+tensor-product vector bundle `fun x ↦ A.core.Fiber x ⊗[𝕜] D.core.Fiber x`, over the identity of `B`
+and by `tensorFiberEquiv A D` on each fibre. -/
+noncomputable def tensorTotalSpaceHomeomorph (A D : FiniteRankBundleCore 𝕜 B)
+    [∀ x, TopologicalSpace (A.core.Fiber x ⊗[𝕜] D.core.Fiber x)]
+    [∀ x, IsModuleTopology 𝕜 (A.core.Fiber x ⊗[𝕜] D.core.Fiber x)] :
+    (tensor A D).core.TotalSpace ≃ₜ
+      TotalSpace (ProjectiveTensor 𝕜 (Fin A.rank → 𝕜) (Fin D.rank → 𝕜))
+        (fun x ↦ A.core.Fiber x ⊗[𝕜] D.core.Fiber x) :=
+  bundleHomeomorph (tensorFiberEquiv A D) (continuous_tensorFiberEquiv A D)
+
+/-- `tensorTotalSpaceHomeomorph` acts on each fibre by `tensorFiberEquiv`. -/
+@[simp]
+theorem tensorTotalSpaceHomeomorph_apply (A D : FiniteRankBundleCore 𝕜 B)
+    [∀ x, TopologicalSpace (A.core.Fiber x ⊗[𝕜] D.core.Fiber x)]
+    [∀ x, IsModuleTopology 𝕜 (A.core.Fiber x ⊗[𝕜] D.core.Fiber x)]
+    (p : (tensor A D).core.TotalSpace) :
+    tensorTotalSpaceHomeomorph A D p = ⟨p.proj, tensorFiberEquiv A D p.proj p.2⟩ :=
+  bundleHomeomorph_apply _ _ p
+
+/-- The inverse of `tensorTotalSpaceHomeomorph` acts on each fibre by
+`(tensorFiberEquiv A D p.proj).symm`. -/
+@[simp]
+theorem tensorTotalSpaceHomeomorph_symm_apply (A D : FiniteRankBundleCore 𝕜 B)
+    [∀ x, TopologicalSpace (A.core.Fiber x ⊗[𝕜] D.core.Fiber x)]
+    [∀ x, IsModuleTopology 𝕜 (A.core.Fiber x ⊗[𝕜] D.core.Fiber x)]
+    (p : TotalSpace (ProjectiveTensor 𝕜 (Fin A.rank → 𝕜) (Fin D.rank → 𝕜))
+      (fun x ↦ A.core.Fiber x ⊗[𝕜] D.core.Fiber x)) :
+    (tensorTotalSpaceHomeomorph A D).symm p = ⟨p.proj, (tensorFiberEquiv A D p.proj).symm p.2⟩ :=
+  bundleHomeomorph_symm_apply _ _ p
+
+/-- `tensorTotalSpaceHomeomorph` intertwines `(tensorHom f g).totalSpaceMap` on tensor cores with
+`bundleTensorMap f.fiberMap g.fiberMap` on tensor-product vector bundles. -/
+theorem tensorTotalSpaceHomeomorph_naturality
+    [∀ x, TopologicalSpace (A.core.Fiber x ⊗[𝕜] D.core.Fiber x)]
+    [∀ x, IsModuleTopology 𝕜 (A.core.Fiber x ⊗[𝕜] D.core.Fiber x)]
+    [∀ x, TopologicalSpace (A'.core.Fiber x ⊗[𝕜] D'.core.Fiber x)]
+    [∀ x, IsModuleTopology 𝕜 (A'.core.Fiber x ⊗[𝕜] D'.core.Fiber x)]
+    (f : A ⟶ A') (g : D ⟶ D') (p : (tensor A D).core.TotalSpace) :
+    tensorTotalSpaceHomeomorph A' D' ((tensorHom f g).totalSpaceMap p) =
+      ⟨p.proj, bundleTensorMap (E₁ := A.core.Fiber) (E₁' := A'.core.Fiber)
+        (E₂ := D.core.Fiber) (E₂' := D'.core.Fiber)
+        f.fiberMap g.fiberMap p.proj (tensorTotalSpaceHomeomorph A D p).2⟩ := by
+  rcases p with ⟨x, v⟩
+  rw [CoordinateHom.totalSpaceMap_mk, tensorTotalSpaceHomeomorph_apply,
+    tensorTotalSpaceHomeomorph_apply]
+  exact congrArg (TotalSpace.mk' _ x) (tensorFiberEquiv_fiberMap_tensorHom f g x v)
+
+end TotalSpaceHomeomorph
+
+end TensorProductBundle
+
 section Pullback
 
 variable {X : Type*} {Y : Type*} [TopologicalSpace X] [TopologicalSpace Y]
@@ -213,6 +446,42 @@ variable {X : Type*} {Y : Type*} [TopologicalSpace X] [TopologicalSpace Y]
   -- `(tensor A D).pullback f` is definitionally `tensor (A.pullback f) (D.pullback f)`
   -- (`pullback_tensor`), identifying the implicit cores of `fiberMap` on the right.
   exact Eq.symm (fiberMap_tensorHom _ _ x)
+
+/-- On every fibre, `tensorFiberEquiv` on a pulled-back tensor product agrees with
+`tensorFiberEquiv` at the image base point. -/
+@[simp]
+theorem tensorFiberEquiv_pullback_apply (A D : FiniteRankBundleCore 𝕜 Y) (f : C(X, Y))
+    [∀ x, TopologicalSpace ((A.pullback f).core.Fiber x ⊗[𝕜] (D.pullback f).core.Fiber x)]
+    [∀ x, IsModuleTopology 𝕜 ((A.pullback f).core.Fiber x ⊗[𝕜] (D.pullback f).core.Fiber x)]
+    [∀ y, TopologicalSpace (A.core.Fiber y ⊗[𝕜] D.core.Fiber y)]
+    [∀ y, IsModuleTopology 𝕜 (A.core.Fiber y ⊗[𝕜] D.core.Fiber y)]
+    (x : X) (v : (tensor (A.pullback f) (D.pullback f)).core.Fiber x) :
+    tensorFiberEquiv (A.pullback f) (D.pullback f) x v = tensorFiberEquiv A D (f x) v := by
+  rw [tensorFiberEquiv_apply]
+  -- Both fibres are `Fin (A.rank * D.rank) → 𝕜` (`rank_pullback`), matching
+  -- `tensorFiberEquiv_apply` on the right.
+  exact Eq.symm (tensorFiberEquiv_apply A D (f x) v)
+
+/-- On a pulled-back tensor product, `tensorTotalSpaceHomeomorph` over `X` and over `Y` agree along
+`pullbackLift`. -/
+theorem tensorTotalSpaceHomeomorph_pullbackLift [CompleteSpace 𝕜]
+    (A D : FiniteRankBundleCore 𝕜 Y) (f : C(X, Y))
+    [∀ x, TopologicalSpace ((A.pullback f).core.Fiber x ⊗[𝕜] (D.pullback f).core.Fiber x)]
+    [∀ x, IsModuleTopology 𝕜 ((A.pullback f).core.Fiber x ⊗[𝕜] (D.pullback f).core.Fiber x)]
+    [∀ y, TopologicalSpace (A.core.Fiber y ⊗[𝕜] D.core.Fiber y)]
+    [∀ y, IsModuleTopology 𝕜 (A.core.Fiber y ⊗[𝕜] D.core.Fiber y)]
+    (p : ((tensor A D).pullback f).core.TotalSpace) :
+    tensorTotalSpaceHomeomorph A D ((tensor A D).pullbackLift f p) =
+      ⟨f p.proj, (tensorTotalSpaceHomeomorph (A.pullback f) (D.pullback f) p).2⟩ := by
+  rcases p with ⟨x, v⟩
+  rw [pullbackLift_mk]
+  -- Rebind the point across the definitional equality `pullback_tensor` so the pullback-side
+  -- `tensorTotalSpaceHomeomorph_apply` matches at reducible transparency.
+  let q : (tensor (A.pullback f) (D.pullback f)).core.TotalSpace := ⟨x, v⟩
+  change tensorTotalSpaceHomeomorph A D ⟨f x, v⟩ =
+    ⟨f x, (tensorTotalSpaceHomeomorph (A.pullback f) (D.pullback f) q).2⟩
+  rw [tensorTotalSpaceHomeomorph_apply, tensorTotalSpaceHomeomorph_apply]
+  exact congrArg (TotalSpace.mk' _ (f x)) (tensorFiberEquiv_pullback_apply A D f x q.2).symm
 
 end Pullback
 

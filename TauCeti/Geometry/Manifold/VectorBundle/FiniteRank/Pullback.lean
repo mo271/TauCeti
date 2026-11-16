@@ -8,6 +8,7 @@ module
 public import TauCeti.Topology.VectorBundle.FiniteRank.Pullback
 public import TauCeti.Geometry.Manifold.VectorBundle.FiniteRank.Biproduct
 public import TauCeti.Geometry.Manifold.VectorBundle.FiniteRank.Dual
+public import TauCeti.Geometry.Manifold.VectorBundle.FiniteRank.Tensor
 public import TauCeti.Geometry.Manifold.VectorBundle.Pullback
 
 /-!
@@ -45,9 +46,10 @@ Via `pullbackTotalSpaceDiffeomorph`, Mathlib's pullback universal property trans
   `IsLocalDiffeomorph.contMDiff_totalSpaceMap_pullbackMap_iff`);
 * `FiniteRankBundleCore.pullbackIdDiffeomorph` (built from `Bundle.Pullback.idDiffeomorph`) and the
   compatibility lemmas with `Bundle.Pullback.compDiffeomorph`,
-  `FiniteRankBundleCore.whitneySumTotalSpaceDiffeomorph`, and
-  `FiniteRankBundleCore.dualTotalSpaceDiffeomorph` align identity, composition, Whitney-sum, and
-  dual pullbacks on the reconstructed core and Mathlib pullback carriers.
+  `FiniteRankBundleCore.whitneySumTotalSpaceDiffeomorph`,
+  `FiniteRankBundleCore.dualTotalSpaceDiffeomorph`, and
+  `FiniteRankBundleCore.tensorTotalSpaceDiffeomorph` align identity, composition, Whitney-sum,
+  dual, and tensor-product pullbacks on the reconstructed core and shared vector-bundle carriers.
 
 ## References
 
@@ -60,7 +62,7 @@ Via `pullbackTotalSpaceDiffeomorph`, Mathlib's pullback universal property trans
 public section
 
 open Bundle CategoryTheory VectorBundleCore Set
-open scoped Manifold ContDiff Topology
+open scoped Manifold ContDiff Topology TensorProduct
 
 namespace TauCeti.FiniteRankBundleCore
 
@@ -585,6 +587,27 @@ theorem dualTotalSpaceDiffeomorph_pullbackLift [CompleteSpace 𝕜] (A : FiniteR
     (A.dualTotalSpaceDiffeomorph IY n ⟨f x, w⟩).2 v
   rw [dualTotalSpaceDiffeomorph_apply, dualTotalSpaceDiffeomorph_apply]
   exact dualFiberEquiv_pullback_apply A f x w v
+
+/-- On a pulled-back tensor product, `tensorTotalSpaceDiffeomorph` over `X` and over `Y` agree along
+`pullbackLift`. -/
+theorem tensorTotalSpaceDiffeomorph_pullbackLift [CompleteSpace 𝕜]
+    (A D : FiniteRankBundleCore 𝕜 Y) (f : C(X, Y))
+    [∀ x, TopologicalSpace ((A.pullback f).core.Fiber x ⊗[𝕜] (D.pullback f).core.Fiber x)]
+    [∀ x, IsModuleTopology 𝕜 ((A.pullback f).core.Fiber x ⊗[𝕜] (D.pullback f).core.Fiber x)]
+    [∀ y, TopologicalSpace (A.core.Fiber y ⊗[𝕜] D.core.Fiber y)]
+    [∀ y, IsModuleTopology 𝕜 (A.core.Fiber y ⊗[𝕜] D.core.Fiber y)]
+    (p : ((tensor A D).pullback f).core.TotalSpace) :
+    tensorTotalSpaceDiffeomorph IY n A D ((tensor A D).pullbackLift f p) =
+      ⟨f p.proj, (tensorTotalSpaceDiffeomorph IX n (A.pullback f) (D.pullback f) p).2⟩ := by
+  rcases p with ⟨x, v⟩
+  rw [pullbackLift_mk]
+  -- Rebind the point across the definitional equality `pullback_tensor` so the pullback-side
+  -- `tensorTotalSpaceDiffeomorph_apply` matches at reducible transparency.
+  let q : (tensor (A.pullback f) (D.pullback f)).core.TotalSpace := ⟨x, v⟩
+  change tensorTotalSpaceDiffeomorph IY n A D ⟨f x, v⟩ =
+    ⟨f x, (tensorTotalSpaceDiffeomorph IX n (A.pullback f) (D.pullback f) q).2⟩
+  rw [tensorTotalSpaceDiffeomorph_apply, tensorTotalSpaceDiffeomorph_apply]
+  exact congrArg (TotalSpace.mk' _ (f x)) (tensorFiberEquiv_pullback_apply A D f x q.2).symm
 
 end CoherenceAndOperations
 

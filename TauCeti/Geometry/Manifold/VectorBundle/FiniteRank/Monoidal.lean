@@ -20,7 +20,10 @@ Over a complex manifold at regularity `∞` these are biholomorphic bundle equiv
 
 The comparisons act in each fibre by the corresponding Kronecker coordinate equivalence.
 The tensor product retains the shared core carrier and the tensor unit is the trivial line.
-No completeness of the scalar field or manifold structure on the base is required.
+No completeness of the scalar field or manifold structure on the base is required for the core
+coherence equivalences themselves. Over a complete scalar field, `tensorTotalSpaceDiffeomorph`
+intertwines `tensorBraidingDiffeomorph` and `tensorAssociatorDiffeomorph` with the tensor-product
+bundle diffeomorphisms `bundleTensorCommDiffeomorph` and `bundleTensorAssocDiffeomorph`.
 
 ## References
 
@@ -30,8 +33,8 @@ No completeness of the scalar field or manifold structure on the base is require
 
 public section
 
-open CategoryTheory ContinuousLinearEquiv ContinuousLinearMap
-open scoped Manifold ContDiff MonoidalCategory
+open Bundle VectorBundleCore CategoryTheory ContinuousLinearEquiv ContinuousLinearMap
+open scoped Manifold ContDiff MonoidalCategory TensorProduct
 
 namespace TauCeti.FiniteRankBundleCore
 
@@ -136,5 +139,96 @@ theorem coe_tensorBraidingDiffeomorph_symm :
     (coe_constIsoDiffeomorph_symm (I := I) (n := n) (A := tensor A D) (D := tensor D A)
       (fun _ ↦ Set.inter_comm _ _) (kroneckerComm 𝕜 A.rank D.rank)
       (fun _ _ _ _ _ ↦ kroneckerComm_comp_kronecker _ _))
+
+section TensorProductBundle
+
+variable [CompleteSpace 𝕜]
+
+omit [C.core.IsContMDiff I n] in
+/-- `tensorTotalSpaceDiffeomorph` intertwines the smooth monoidal braiding
+`tensorBraidingDiffeomorph` with `bundleTensorCommDiffeomorph`. -/
+theorem tensorTotalSpaceDiffeomorph_tensorBraidingDiffeomorph
+    [∀ x, TopologicalSpace (A.core.Fiber x ⊗[𝕜] D.core.Fiber x)]
+    [∀ x, IsModuleTopology 𝕜 (A.core.Fiber x ⊗[𝕜] D.core.Fiber x)]
+    [∀ x, TopologicalSpace (D.core.Fiber x ⊗[𝕜] A.core.Fiber x)]
+    [∀ x, IsModuleTopology 𝕜 (D.core.Fiber x ⊗[𝕜] A.core.Fiber x)]
+    (p : (A ⊗ D).core.TotalSpace) :
+    tensorTotalSpaceDiffeomorph I n D A (tensorBraidingDiffeomorph (I := I) (n := n) A D p) =
+      bundleTensorCommDiffeomorph I n (Fin A.rank → 𝕜) A.core.Fiber (Fin D.rank → 𝕜) D.core.Fiber
+        (tensorTotalSpaceDiffeomorph I n A D p) := by
+  rcases p with ⟨x, v⟩
+  have hp : tensorBraidingDiffeomorph (I := I) (n := n) A D ⟨x, v⟩ =
+      ⟨x, (β_ A D).hom.fiberMap x v⟩ :=
+    (congrFun (coe_tensorBraidingDiffeomorph (I := I) (n := n) A D) ⟨x, v⟩).trans
+      (CoordinateHom.totalSpaceMap_mk _ x v)
+  rw [hp, tensorTotalSpaceDiffeomorph_apply, tensorTotalSpaceDiffeomorph_apply]
+  refine Eq.trans ?_ (bundleTensorCommDiffeomorph_apply (IB := I) (n := n)
+    (F₁ := Fin A.rank → 𝕜) (E₁ := A.core.Fiber) (F₂ := Fin D.rank → 𝕜) (E₂ := D.core.Fiber) _).symm
+  exact congrArg (TotalSpace.mk' _ x) (tensorFiberEquiv_braiding_hom A D x v)
+
+/-- `tensorTotalSpaceDiffeomorph` and `bundleTensorCongr` intertwine the smooth monoidal associator
+`tensorAssociatorDiffeomorph` with `bundleTensorAssocDiffeomorph`. -/
+theorem tensorTotalSpaceDiffeomorph_tensorAssociatorDiffeomorph
+    [∀ x, TopologicalSpace (A.core.Fiber x ⊗[𝕜] D.core.Fiber x)]
+    [∀ x, IsModuleTopology 𝕜 (A.core.Fiber x ⊗[𝕜] D.core.Fiber x)]
+    [∀ x, TopologicalSpace (D.core.Fiber x ⊗[𝕜] C.core.Fiber x)]
+    [∀ x, IsModuleTopology 𝕜 (D.core.Fiber x ⊗[𝕜] C.core.Fiber x)]
+    [∀ x, TopologicalSpace ((A ⊗ D).core.Fiber x ⊗[𝕜] C.core.Fiber x)]
+    [∀ x, IsModuleTopology 𝕜 ((A ⊗ D).core.Fiber x ⊗[𝕜] C.core.Fiber x)]
+    [∀ x, TopologicalSpace (A.core.Fiber x ⊗[𝕜] (D ⊗ C).core.Fiber x)]
+    [∀ x, IsModuleTopology 𝕜 (A.core.Fiber x ⊗[𝕜] (D ⊗ C).core.Fiber x)]
+    [∀ x, TopologicalSpace ((A.core.Fiber x ⊗[𝕜] D.core.Fiber x) ⊗[𝕜] C.core.Fiber x)]
+    [∀ x, IsModuleTopology 𝕜 ((A.core.Fiber x ⊗[𝕜] D.core.Fiber x) ⊗[𝕜] C.core.Fiber x)]
+    [∀ x, TopologicalSpace (A.core.Fiber x ⊗[𝕜] (D.core.Fiber x ⊗[𝕜] C.core.Fiber x))]
+    [∀ x, IsModuleTopology 𝕜 (A.core.Fiber x ⊗[𝕜] (D.core.Fiber x ⊗[𝕜] C.core.Fiber x))]
+    (p : ((A ⊗ D) ⊗ C).core.TotalSpace) :
+    (⟨p.proj, bundleTensorCongr (fun y ↦ ContinuousLinearEquiv.refl 𝕜 (A.core.Fiber y))
+        (tensorFiberEquiv D C) p.proj
+        (tensorTotalSpaceDiffeomorph I n A (D ⊗ C)
+          (tensorAssociatorDiffeomorph (I := I) (n := n) A D C p)).2⟩ :
+        TotalSpace (ProjectiveTensor 𝕜 (Fin A.rank → 𝕜)
+          (ProjectiveTensor 𝕜 (Fin D.rank → 𝕜) (Fin C.rank → 𝕜)))
+          (fun x ↦ A.core.Fiber x ⊗[𝕜] (D.core.Fiber x ⊗[𝕜] C.core.Fiber x))) =
+      bundleTensorAssocDiffeomorph I n (Fin A.rank → 𝕜) A.core.Fiber
+        (Fin D.rank → 𝕜) D.core.Fiber (Fin C.rank → 𝕜) C.core.Fiber
+        ⟨p.proj, bundleTensorCongr (tensorFiberEquiv A D)
+          (fun y ↦ ContinuousLinearEquiv.refl 𝕜 (C.core.Fiber y)) p.proj
+          (tensorTotalSpaceDiffeomorph I n (A ⊗ D) C p).2⟩ := by
+  rcases p with ⟨x, v⟩
+  let ΦL : TotalSpace (ProjectiveTensor 𝕜 (Fin A.rank → 𝕜) (Fin (D ⊗ C).rank → 𝕜))
+      (fun y ↦ A.core.Fiber y ⊗[𝕜] (D ⊗ C).core.Fiber y) →
+      TotalSpace (ProjectiveTensor 𝕜 (Fin A.rank → 𝕜)
+        (ProjectiveTensor 𝕜 (Fin D.rank → 𝕜) (Fin C.rank → 𝕜)))
+        (fun y ↦ A.core.Fiber y ⊗[𝕜] (D.core.Fiber y ⊗[𝕜] C.core.Fiber y)) :=
+    fun q ↦ ⟨x, bundleTensorCongr (fun y ↦ ContinuousLinearEquiv.refl 𝕜 (A.core.Fiber y))
+      (tensorFiberEquiv D C) x q.2⟩
+  let ΦR : TotalSpace (ProjectiveTensor 𝕜 (Fin (A ⊗ D).rank → 𝕜) (Fin C.rank → 𝕜))
+      (fun y ↦ (A ⊗ D).core.Fiber y ⊗[𝕜] C.core.Fiber y) →
+      TotalSpace (ProjectiveTensor 𝕜 (Fin A.rank → 𝕜)
+        (ProjectiveTensor 𝕜 (Fin D.rank → 𝕜) (Fin C.rank → 𝕜)))
+        (fun y ↦ A.core.Fiber y ⊗[𝕜] (D.core.Fiber y ⊗[𝕜] C.core.Fiber y)) :=
+    fun q ↦ bundleTensorAssocDiffeomorph I n (Fin A.rank → 𝕜) A.core.Fiber
+      (Fin D.rank → 𝕜) D.core.Fiber (Fin C.rank → 𝕜) C.core.Fiber
+      ⟨x, bundleTensorCongr (tensorFiberEquiv A D)
+        (fun y ↦ ContinuousLinearEquiv.refl 𝕜 (C.core.Fiber y)) x q.2⟩
+  have hL : tensorTotalSpaceDiffeomorph I n A (D ⊗ C)
+      (tensorAssociatorDiffeomorph (I := I) (n := n) A D C ⟨x, v⟩) =
+      ⟨x, tensorFiberEquiv A (D ⊗ C) x ((α_ A D C).hom.fiberMap x v)⟩ := by
+    have hp : tensorAssociatorDiffeomorph (I := I) (n := n) A D C ⟨x, v⟩ =
+        ⟨x, (α_ A D C).hom.fiberMap x v⟩ :=
+      (congrFun (coe_tensorAssociatorDiffeomorph (I := I) (n := n) A D C) ⟨x, v⟩).trans
+        (CoordinateHom.totalSpaceMap_mk _ x v)
+    rw [hp, tensorTotalSpaceDiffeomorph_apply]
+  have hR : tensorTotalSpaceDiffeomorph I n (A ⊗ D) C ⟨x, v⟩ =
+      ⟨x, tensorFiberEquiv (A ⊗ D) C x v⟩ :=
+    tensorTotalSpaceDiffeomorph_apply I n (A ⊗ D) C ⟨x, v⟩
+  refine (congrArg ΦL hL).trans ?_
+  refine Eq.trans ?_ (congrArg ΦR hR).symm
+  refine Eq.trans ?_ (bundleTensorAssocDiffeomorph_apply (IB := I) (n := n)
+    (F₁ := Fin A.rank → 𝕜) (E₁ := A.core.Fiber) (F₂ := Fin D.rank → 𝕜) (E₂ := D.core.Fiber)
+    (F₃ := Fin C.rank → 𝕜) (E₃ := C.core.Fiber) _).symm
+  exact congrArg (TotalSpace.mk' _ x) (tensorFiberEquiv_associator_hom A D C x v)
+
+end TensorProductBundle
 
 end TauCeti.FiniteRankBundleCore

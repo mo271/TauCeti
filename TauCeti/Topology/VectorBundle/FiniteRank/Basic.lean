@@ -103,6 +103,18 @@ theorem trivializationAt_core (A : FiniteRankBundleCore 𝕜 B) (x : B) :
     trivializationAt (Fin A.rank → 𝕜) A.core.Fiber x = A.core.localTriv x := by
   rw [A.core.trivializationAt, ← A.core.localTrivAt_def, A.indexAt_eq]
 
+/-- Each fibre of a finite-rank core carries the `𝕜`-module topology, inherited from its coordinate
+space `Fin A.rank → 𝕜`. -/
+instance isModuleTopology_core_fiber (A : FiniteRankBundleCore 𝕜 B) (x : B) :
+    IsModuleTopology 𝕜 (A.core.Fiber x) :=
+  inferInstanceAs (IsModuleTopology 𝕜 (Fin A.rank → 𝕜))
+
+/-- Each fibre of a finite-rank core is a topological additive group, inherited from its coordinate
+space `Fin A.rank → 𝕜`. -/
+instance isTopologicalAddGroup_core_fiber (A : FiniteRankBundleCore 𝕜 B) (x : B) :
+    IsTopologicalAddGroup (A.core.Fiber x) :=
+  inferInstanceAs (IsTopologicalAddGroup (Fin A.rank → 𝕜))
+
 /-- Expressing a fibre map between point-indexed cores in charts `i` and `j` conjugates by the
 transitions through `x` without mentioning `indexAt`. -/
 theorem inChartCoordinates_core (A D : FiniteRankBundleCore 𝕜 B) (i j x : B)

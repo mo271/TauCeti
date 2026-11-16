@@ -196,6 +196,18 @@ variable {R} {m n p : ℕ}
     ring
   exact congrArg v h
 
+/-- `kroneckerAssoc` sends the standard basis vector at `((i, j), l)` to the standard basis vector
+at `(i, (j, l))`. -/
+@[simp] theorem kroneckerAssoc_single (i : Fin m) (j : Fin n) (l : Fin p) (c : R) :
+    kroneckerAssoc R m n p (Pi.single (finProdFinEquiv (finProdFinEquiv (i, j), l)) c) =
+      Pi.single (finProdFinEquiv (i, finProdFinEquiv (j, l))) c := by
+  ext k
+  obtain ⟨⟨i', jl⟩, rfl⟩ := finProdFinEquiv.surjective k
+  obtain ⟨⟨j', l'⟩, rfl⟩ := finProdFinEquiv.surjective jl
+  rw [kroneckerAssoc_apply]
+  by_cases hi : i' = i <;> by_cases hj : j' = j <;> by_cases hl : l' = l <;>
+    simp [hi, hj, hl]
+
 @[simp] theorem kroneckerComm_apply (v : Fin (m * n) → R) (i : Fin m) (j : Fin n) :
     kroneckerComm R m n v (finProdFinEquiv (j, i)) = v (finProdFinEquiv (i, j)) :=
   congrArg v (by simp)
