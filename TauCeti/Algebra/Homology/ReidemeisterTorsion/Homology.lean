@@ -247,7 +247,7 @@ variable (hn : {i | n i ≠ 0}.Finite)
 
 include hn in
 /-- For a bounded complex, the alternating brackets have finite multiplicative support. -/
-private theorem hasFiniteMulSupport_torsionBracketWithHomology {r : ℤ → ℕ}
+theorem hasFiniteMulSupport_torsionBracketWithHomology {r : ℤ → ℕ}
     (b : ∀ j, Basis (Fin (r j)) F (LinearMap.range (C.d (j + 1) j).hom))
     (y : ∀ i, Fin (m i) → C.cycles i) (hy : ∀ i k, C.homologyπ i (y i k) = h i k)
     (s : ∀ j, Fin (r j) → C.X (j + 1)) (hs : ∀ j k, (C.d (j + 1) j).hom (s j k) = b j k) :
