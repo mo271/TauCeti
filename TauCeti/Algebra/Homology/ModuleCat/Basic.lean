@@ -79,8 +79,11 @@ sends the class of a cycle of `X₃` with lift `x₂` to the class of the cycle 
 represented by the image of an element `x₂` of `X₂` whose differential is exactly the image of
 `z₁` (`CategoryTheory.ShortComplex.ShortExact.moduleCat_exists_d_eq_of_δ_eq`), and such `x₂` is
 unique up to boundaries and images of cycles of `X₁`
-(`CategoryTheory.ShortComplex.ShortExact.moduleCat_exists_sub_eq_d_add`). For the chains of a
-pair of spaces, this produces chains relative to a subspace with a prescribed boundary in the
+(`CategoryTheory.ShortComplex.ShortExact.moduleCat_exists_sub_eq_d_add`). Consequently, the
+boundaries of `X₂` killed by `X₂ ⟶ X₃` are precisely the images of cycles of `X₁` whose homology
+classes lie in the image of the connecting map
+(`CategoryTheory.ShortComplex.ShortExact.moduleCat_mem_range_d_and_g_eq_zero_iff`). For the chains
+of a pair of spaces, this produces chains relative to a subspace with a prescribed boundary in the
 subspace, such as fundamental chains of a manifold with boundary.
 -/
 
@@ -776,5 +779,41 @@ theorem moduleCat_exists_sub_eq_d_add (i j p : ι) (hp : c.prev i = p)
       HomologicalComplex.d_comp_d_apply, sub_zero, map_zero]
   · rw [ha]
     abel
+
+include hS in
+/-- **Boundaries of the middle term that vanish in the quotient.** Let `0 ⟶ S.X₁ ⟶ S.X₂ ⟶ S.X₃ ⟶ 0`
+be a short exact sequence of complexes of modules, and let `i, j, k` be consecutive degrees
+(`c.Rel i j` and `c.next j = k`). An element `y` of `S.X₂.X j` is a boundary from degree `i` that
+maps to `0` in `S.X₃.X j` if and only if it is the image of a cycle `z` of `S.X₁` in degree `j`
+whose homology class lies in the image of the connecting homomorphism `hS.δ i j hij`. -/
+theorem moduleCat_mem_range_d_and_g_eq_zero_iff (i j k : ι) (hij : c.Rel i j) (hjk : c.next j = k)
+    (y : S.X₂.X j) :
+    (y ∈ LinearMap.range (S.X₂.d i j).hom ∧ (S.g.f j).hom y = 0) ↔
+      ∃ z : LinearMap.ker (S.X₁.d j k).hom,
+        (S.f.f j).hom z = y ∧
+          S.X₁.moduleCatKerHomologyClass hjk z ∈ LinearMap.range (hS.δ i j hij).hom := by
+  have hSj := (HomologicalComplex.shortExact_iff_degreewise_shortExact S).1 hS j
+  constructor
+  · rintro ⟨⟨x₂, hx₂⟩, hgy⟩
+    obtain ⟨z₀, hz₀⟩ : ∃ z₀ : S.X₁.X j, (S.f.f j).hom z₀ = y :=
+      (ShortComplex.moduleCat_exact_iff _).1 hSj.exact y hgy
+    have hdz₀ : (S.X₁.d j k).hom z₀ = 0 :=
+      hS.d_eq_zero_of_f_eq_d_apply i j x₂ z₀ (hz₀.trans hx₂.symm) k
+    have hd₃ : (S.X₃.d i j).hom ((S.g.f i).hom x₂) = 0 := by
+      rw [HomologicalComplex.Hom.comm_apply, hx₂, hgy]
+    let z₃ := S.X₃.moduleCatCyclesMk ((S.g.f i).hom x₂) j (c.next_eq' hij) hd₃
+    let z₁ := S.X₁.moduleCatCyclesMk z₀ k hjk hdz₀
+    have hδ := hS.moduleCat_δ_homologyπ i j hij z₃ x₂
+      (by simp [z₃, HomologicalComplex.iCycles_moduleCatCyclesMk]) z₁
+      (by simp [z₁, HomologicalComplex.iCycles_moduleCatCyclesMk, hz₀, hx₂])
+    exact ⟨⟨z₀, hdz₀⟩, hz₀, (S.X₃.homologyπ i).hom z₃, hδ⟩
+  · rintro ⟨z, hfz, x₃, hx₃⟩
+    let z₁ := S.X₁.moduleCatCyclesMk z.1 k hjk z.2
+    obtain ⟨x₂, -, hx₂, -, -⟩ := hS.moduleCat_exists_d_eq_of_δ_eq i j hij x₃ z₁ hx₃
+    have hz₁ : (S.X₁.iCycles j).hom z₁ = z.1 := S.X₁.iCycles_moduleCatCyclesMk j z.1 k hjk z.2
+    rw [hz₁, hfz] at hx₂
+    refine ⟨⟨x₂, hx₂⟩, ?_⟩
+    rw [← hfz, ← ModuleCat.comp_apply, ← HomologicalComplex.comp_f, S.zero]
+    rfl
 
 end CategoryTheory.ShortComplex.ShortExact

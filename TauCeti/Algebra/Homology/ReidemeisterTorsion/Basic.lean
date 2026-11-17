@@ -404,6 +404,30 @@ theorem reidemeisterTorsion_eq_finprod {r : ℤ → ℕ}
       (fun j ↦ chosenBoundaryLift_spec C c (j + 1) j)]
   exact finprod_congr fun j ↦ by rw [torsionBracket_reindex]
 
+include hn in
+/-- If a bounded complex is based in every degree `j + 1` by a basis `b (j + 1)` of the boundaries
+`Bⱼ₊₁` followed by lifts `s j` of a basis `b j` of `Bⱼ`, then the complex is acyclic and its
+Reidemeister torsion is `1`. -/
+theorem reidemeisterTorsion_eq_one_of_eq_append {r : ℤ → ℕ}
+    (b : ∀ j, Basis (Fin (r j)) F (LinearMap.range (C.d (j + 1) j).hom))
+    (s : ∀ j, Fin (r j) → C.X (j + 1))
+    (hs : ∀ j k, (C.d (j + 1) j).hom (s j k) = b j k)
+    (hr : ∀ j, n (j + 1) = r (j + 1) + r j)
+    (hc : ∀ j, ⇑(c (j + 1)) =
+      Fin.append (fun k ↦ (b (j + 1) k : C.X (j + 1))) (s j) ∘ Fin.cast (hr j)) :
+    C.reidemeisterTorsion c = 1 := by
+  have hC : C.Acyclic := fun i ↦ by
+    obtain ⟨j, rfl⟩ : ∃ j, i = j + 1 := ⟨i - 1, by omega⟩
+    have : Module.Finite F (C.X (j + 1)) := .of_basis (c (j + 1))
+    rw [exactAt_iff_finrank_add_finrank C (i := j + 1 + 1) (k := j) (by simp) (by simp),
+      finrank_eq_card_basis (b (j + 1)), finrank_eq_card_basis (b j),
+      finrank_eq_card_basis (c (j + 1)), Fintype.card_fin, Fintype.card_fin, Fintype.card_fin,
+      hr j]
+  rw [reidemeisterTorsion_eq_finprod hn hC b s hs]
+  refine finprod_eq_one_of_forall_eq_one fun j ↦ ?_
+  rw [torsionBracket_eq_det_append c (by simp) (by simp) (hC (j + 1)) (b (j + 1)) (b j) (s j) (hs j)
+    (hr j), ← hc j, Basis.det_self, one_zpow]
+
 end Bounded
 
 section BasisChange
