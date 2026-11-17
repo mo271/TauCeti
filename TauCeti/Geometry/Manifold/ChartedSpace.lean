@@ -38,6 +38,8 @@ charted space, second countability.
 * `ChartedSpace.nontrivial`: a nonempty such charted space has two distinct points.
 * `ChartedSpace.secondCountable_of_lindelof`: a Lindelöf charted space over a second-countable
   model space is second countable.
+* `ChartedSpace.t2Space_chartAt_source` and `ChartedSpace.exists_isOpen_mem_t2Space`: a charted
+  space over a Hausdorff model space is locally Hausdorff, with Hausdorff preferred-chart domains.
 -/
 
 public section
@@ -137,3 +139,18 @@ theorem ChartedSpace.secondCountable_of_lindelof (H X : Type*) [TopologicalSpace
   obtain ⟨s, hsc, hsU⟩ := LindelofSpace.elim_nhds_subcover (fun x : X ↦ (chartAt H x).source)
     fun x ↦ chart_source_mem_nhds H x
   exact ChartedSpace.secondCountable_of_countable_cover H hsU hsc
+
+/-- The domain of a preferred chart of a charted space modelled on a Hausdorff space is Hausdorff
+in its subspace topology. -/
+theorem ChartedSpace.t2Space_chartAt_source (H : Type*) {X : Type*} [TopologicalSpace H]
+    [T2Space H] [TopologicalSpace X] [ChartedSpace H X] (x : X) :
+    T2Space (chartAt H x).source :=
+  (chartAt H x).toHomeomorphSourceTarget.symm.t2Space
+
+/-- A charted space modelled on a Hausdorff space is locally Hausdorff: every point has an open
+Hausdorff neighbourhood. -/
+theorem ChartedSpace.exists_isOpen_mem_t2Space (H : Type*) {X : Type*} [TopologicalSpace H]
+    [T2Space H] [TopologicalSpace X] [ChartedSpace H X] (x : X) :
+    ∃ U : Set X, IsOpen U ∧ x ∈ U ∧ T2Space U :=
+  ⟨(chartAt H x).source, (chartAt H x).open_source, mem_chart_source H x,
+    ChartedSpace.t2Space_chartAt_source H x⟩

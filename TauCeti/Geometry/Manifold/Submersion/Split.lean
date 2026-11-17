@@ -32,6 +32,14 @@ The normal-form construction uses `ContinuousLinearMap.implicitCoordEquiv` to id
 model with the target model times the derivative kernel, then applies the manifold inverse function
 theorem to the map consisting of the target coordinates and the kernel projection.
 
+Over any `NontriviallyNormedField`, surjectivity of the differential of a `C^n` submersion (`n ≠ 0`)
+implies `finrank 𝕜 F ≤ finrank 𝕜 E` whenever `E` is finite-dimensional
+(`Manifold.IsSubmersionAt.finrank_le`, `Manifold.IsSubmersion.finrank_le`). Over `ℝ` or `ℂ`, the
+normal-form equivalence further yields composition of submersions (`Manifold.IsSubmersion.comp`)
+and the characterization of equidimensional submersions as local diffeomorphisms
+(`Manifold.IsSubmersionAt.isLocalDiffeomorphAt_iff_finrank_eq`,
+`Manifold.IsSubmersion.isLocalDiffeomorph_iff_finrank_eq`).
+
 ## References
 
 * J. M. Lee, *Introduction to Smooth Manifolds*, second edition, Springer GTM 218 (2013),
@@ -103,6 +111,21 @@ theorem isDiffSubmersionAt_iff_isRegularPoint [CompleteSpace 𝕜] [FiniteDimens
   rw [isDiffSubmersionAt_iff, isRegularPoint_iff]
   exact ⟨ContinuousLinearMap.HasRightInverse.surjective,
     ContinuousLinearMap.HasRightInverse.of_surjective_of_finiteDimensional⟩
+
+/-- At any point where `f` is a `C^n` submersion (`n ≠ 0`) from a finite-dimensional model space,
+the dimension of the target model is at most that of the source model. -/
+theorem _root_.Manifold.IsSubmersionAt.finrank_le [FiniteDimensional 𝕜 E] {n : ℕ∞ω}
+    (h : IsSubmersionAt I J n f x) (hn : n ≠ 0) :
+    Module.finrank 𝕜 F ≤ Module.finrank 𝕜 E := by
+  have : FiniteDimensional 𝕜 (TangentSpace I x) := inferInstanceAs (FiniteDimensional 𝕜 E)
+  exact LinearMap.finrank_le_finrank_of_surjective (h.surjective_mfderiv hn)
+
+/-- For a `C^n` submersion (`n ≠ 0`) with nonempty finite-dimensional source, the dimension of the
+target model is at most that of the source model. -/
+theorem _root_.Manifold.IsSubmersion.finrank_le [FiniteDimensional 𝕜 E] [Nonempty M] {n : ℕ∞ω}
+    (h : IsSubmersion I J n f) (hn : n ≠ 0) :
+    Module.finrank 𝕜 F ≤ Module.finrank 𝕜 E :=
+  (h.isSubmersionAt (Classical.arbitrary M)).finrank_le hn
 
 end Differential
 
@@ -264,6 +287,52 @@ theorem submersion_iff_split_mfderiv (hf : ContMDiff I J n f) (hn : 1 ≤ n) :
   refine ⟨fun h x ↦ h.hasRightInverse_mfderiv (ne_of_gt (zero_lt_one.trans_le hn)) x, fun h ↦ ?_⟩
   exact (hf.isSubmersionOfComplement_of_surjective_mfderiv hn
     (fun x ↦ (isRegularPoint_iff.mp (isDiffSubmersionAt_iff_isRegularPoint.mp (h x))))).isSubmersion
+
+omit [FiniteDimensional 𝕜 F] [IsManifold J n N] in
+/-- **Composition of submersions.** The composite of two `C^n` submersions (`1 ≤ n`) over a real or
+complex scalar field, with finite-dimensional boundaryless source `M` and finite-dimensional target
+`P`, is a `C^n` submersion. The intermediate manifold `N` needs neither finite-dimensionality nor
+`IsManifold` nor boundarylessness. -/
+theorem _root_.Manifold.IsSubmersion.comp
+    {E' H' P : Type*} [NormedAddCommGroup E'] [NormedSpace 𝕜 E'] [FiniteDimensional 𝕜 E']
+    [TopologicalSpace H'] {K : ModelWithCorners 𝕜 E' H'}
+    [TopologicalSpace P] [ChartedSpace H' P] [IsManifold K n P]
+    {g : N → P} (hg : IsSubmersion J K n g) (hf : IsSubmersion I J n f) (hn : 1 ≤ n) :
+    IsSubmersion I K n (g ∘ f) := by
+  have hn0 : n ≠ 0 := ne_of_gt (zero_lt_one.trans_le hn)
+  rw [submersion_iff_split_mfderiv (hg.contMDiff.comp hf.contMDiff) hn]
+  intro x
+  exact (hg.hasRightInverse_mfderiv hn0 (f x)).comp (hf.hasRightInverse_mfderiv hn0 x) |>
+    fun h ↦ by
+      rw [isDiffSubmersionAt_iff, mfderiv_comp x (hg.contMDiff.mdifferentiable hn0 (f x))
+        (hf.contMDiff.mdifferentiable hn0 x)]
+      exact h
+
+/-- A `C^n` submersion (`1 ≤ n`) at a point `x` of a boundaryless finite-dimensional manifold is a
+`C^n` local diffeomorphism at `x` if and only if the source and target models have the same
+dimension. -/
+theorem _root_.Manifold.IsSubmersionAt.isLocalDiffeomorphAt_iff_finrank_eq
+    (h : IsSubmersionAt I J n f x) (hn : 1 ≤ n) :
+    IsLocalDiffeomorphAt I J n f x ↔ Module.finrank 𝕜 E = Module.finrank 𝕜 F := by
+  have hn0 : n ≠ 0 := ne_of_gt (zero_lt_one.trans_le hn)
+  constructor
+  · intro hloc
+    exact (hloc.mfderivToContinuousLinearEquiv hn0).toLinearEquiv.finrank_eq
+  · intro hdim
+    have := FiniteDimensional.completeSpace 𝕜 E
+    have hreg : IsRegularPoint I J f x := isRegularPoint_iff.2 (h.surjective_mfderiv hn0)
+    obtain ⟨e, he⟩ := (isRegularPoint_iff_isInvertible_mfderiv hdim).mp hreg
+    exact isLocalDiffeomorphAt_of_mfderiv_eq h.contMDiffOn h.domChart.open_source
+      h.mem_domChart_source BoundarylessManifold.isInteriorPoint hn he
+
+/-- A `C^n` submersion (`1 ≤ n`) from a nonempty boundaryless finite-dimensional manifold is a
+`C^n` local diffeomorphism if and only if the source and target models have the same dimension. -/
+theorem _root_.Manifold.IsSubmersion.isLocalDiffeomorph_iff_finrank_eq [Nonempty M]
+    (h : IsSubmersion I J n f) (hn : 1 ≤ n) :
+    IsLocalDiffeomorph I J n f ↔ Module.finrank 𝕜 E = Module.finrank 𝕜 F :=
+  ⟨fun hloc ↦ ((h.isSubmersionAt (Classical.arbitrary M)).isLocalDiffeomorphAt_iff_finrank_eq hn).mp
+      (hloc _),
+    fun hdim x ↦ ((h.isSubmersionAt x).isLocalDiffeomorphAt_iff_finrank_eq hn).mpr hdim⟩
 
 end NormalForm
 

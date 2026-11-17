@@ -20,7 +20,9 @@ product. No Hausdorff or countability assumptions are needed.
 
 The tangent-image formulas also apply when neither map is a submersion. In them the
 explicit `tangentSpaceCast` identifies the two target tangent spaces at a pair with
-`f x = g y`.
+`f x = g y`. In addition, over any `NontriviallyNormedField`, a `C^n` submersion (`1 ≤ n`) is
+automatically transverse to any map into the same target
+(`transverse_of_isSubmersion_left`, `transverse_of_isSubmersion_right`).
 
 ## References
 
@@ -34,6 +36,8 @@ open Function Module Set
 open scoped Manifold ContDiff
 
 namespace TauCeti
+
+section BaseChange
 
 variable {EX HX X EY HY Y EN HN N : Type*}
   [NormedAddCommGroup EX] [NormedSpace ℝ EX] [TopologicalSpace HX]
@@ -155,5 +159,44 @@ theorem isSubmersion_snd_transverseFiberProduct (hfs : Manifold.IsSubmersion IX 
   rw [range_mfderiv_snd_transverseFiberProduct hn hf hg htrans,
     LinearMap.range_eq_top.2
       (hfs.surjective_mfderiv (ne_of_gt (zero_lt_one.trans_le hn)) p.1.1), Submodule.comap_top]
+
+end BaseChange
+
+section General
+
+variable {𝕜 : Type*} [NontriviallyNormedField 𝕜]
+  {EX HX X EY HY Y EN HN N : Type*}
+  [NormedAddCommGroup EX] [NormedSpace 𝕜 EX] [TopologicalSpace HX]
+  [NormedAddCommGroup EY] [NormedSpace 𝕜 EY] [TopologicalSpace HY]
+  [NormedAddCommGroup EN] [NormedSpace 𝕜 EN] [TopologicalSpace HN]
+  {IX : ModelWithCorners 𝕜 EX HX} {IY : ModelWithCorners 𝕜 EY HY}
+  {IN : ModelWithCorners 𝕜 EN HN}
+  [TopologicalSpace X] [ChartedSpace HX X]
+  [TopologicalSpace Y] [ChartedSpace HY Y]
+  [TopologicalSpace N] [ChartedSpace HN N]
+  {n : ℕ∞ω} {f : X → N} {g : Y → N}
+
+/-- A `C^n` submersion (`1 ≤ n`) is transverse to any map into the same target. -/
+theorem transverse_of_isSubmersion_left (hn : 1 ≤ n) (hfs : Manifold.IsSubmersion IX IN n f)
+    (p : X × Y) (_ : f p.1 = g p.2) :
+    (mfderiv IX IN f p.1).range ⊔
+      (((tangentSpaceCast IN (g p.2) (f p.1)).toContinuousLinearMap).comp
+        (mfderiv IY IN g p.2)).range = ⊤ := by
+  rw [LinearMap.range_eq_top.2 (hfs.surjective_mfderiv (ne_of_gt (zero_lt_one.trans_le hn)) p.1),
+    top_sup_eq]
+
+/-- Any map is transverse to a `C^n` submersion (`1 ≤ n`) into the same target. -/
+theorem transverse_of_isSubmersion_right (hn : 1 ≤ n) (hgs : Manifold.IsSubmersion IY IN n g)
+    (p : X × Y) (_ : f p.1 = g p.2) :
+    (mfderiv IX IN f p.1).range ⊔
+      (((tangentSpaceCast IN (g p.2) (f p.1)).toContinuousLinearMap).comp
+        (mfderiv IY IN g p.2)).range = ⊤ := by
+  have hs := (tangentSpaceCast IN (g p.2) (f p.1)).surjective.comp
+    (hgs.surjective_mfderiv (ne_of_gt (zero_lt_one.trans_le hn)) p.2)
+  have hr : (((tangentSpaceCast IN (g p.2) (f p.1)).toContinuousLinearMap).comp
+      (mfderiv IY IN g p.2)).range = ⊤ := LinearMap.range_eq_top.2 hs
+  rw [hr, sup_top_eq]
+
+end General
 
 end TauCeti
