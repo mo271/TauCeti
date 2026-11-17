@@ -42,9 +42,12 @@ mean of `u` over a ball containing both points gives the Hölder estimate.
 
 ## Main declarations
 
-* `TauCeti.setLIntegral_mul_enorm_sub_rpow_one_sub_finrank_le`: for `p > n`, the Riesz potential
-  of order one of `g`, over a set of radius `D` about the pole, is at most
-  `K ^ (1 - 1 / p) * D ^ (1 - n / p) * ‖g‖_{Lᵖ}`.
+* `TauCeti.setLIntegral_mul_enorm_sub_rpow_sub_finrank_le`: for `1 < p` and `α p > n`, the
+  order-`α` Riesz potential of `g`, over a set of radius `D` about the pole, is at most
+  `K ^ (1 - 1 / p) * D ^ (α - n / p) * ‖g‖_{Lᵖ}`.
+* `TauCeti.setLIntegral_mul_enorm_sub_rpow_sub_finrank_le_of_le`: for `α ≥ n`, the order-`α` Riesz
+  potential of `g`, over a set of radius `D` about the pole, is at most `D ^ (α - n) * ‖g‖_{L¹}`.
+* `TauCeti.setLIntegral_mul_enorm_sub_rpow_one_sub_finrank_le`: the order-one case `α = 1`, `p > n`.
 * `TauCeti.enorm_sub_setAverage_le_of_starConvex_of_finrank_lt`: the deviation of `u x` from the
   mean of `u` over a subset of a star-convex domain, bounded by `‖Du‖_{Lᵖ}`.
 * `TauCeti.enorm_sub_setAverage_le_of_convex_of_finrank_lt`: the same on a bounded convex domain.
@@ -73,6 +76,94 @@ variable {E F : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E] [FiniteDimensi
   [MeasurableSpace E] [BorelSpace E] [NormedAddCommGroup F] [NormedSpace ℝ F]
   {μ : Measure E} [μ.IsAddHaarMeasure] {u : E → F} {Ω S : Set E} {x : E} {D : ℝ} {p : ℝ≥0}
 
+/-- **The Riesz potential of order `α` is bounded on `Lᵖ` when `p > 1` and `α p > n`.** If `Ω`
+lies in `closedBall x D`, `1 < p`, and `α p` exceeds the dimension `n` of the space, then the
+order-`α` Riesz potential at `x` of a function `g` on `Ω` is at most
+`K ^ (1 - 1 / p) * D ^ (α - n / p)` times the `Lᵖ(Ω)` norm of `g`, where
+`K = n μ(B(0, 1)) (p - 1) / (α p - n)`. -/
+theorem setLIntegral_mul_enorm_sub_rpow_sub_finrank_le {α : ℝ} (hD : Ω ⊆ closedBall x D)
+    {g : E → ℝ≥0∞} (hg : AEMeasurable g (μ.restrict Ω)) (hp1 : 1 < p)
+    (hp : (finrank ℝ E : ℝ) < α * p) :
+    ∫⁻ y in Ω, g y * ‖x - y‖ₑ ^ (α - (finrank ℝ E : ℝ)) ∂μ ≤
+      ENNReal.ofReal ((finrank ℝ E * μ.real (ball 0 1) * (p - 1) / (α * p - finrank ℝ E)) ^
+          (1 - 1 / (p : ℝ)) * D ^ (α - finrank ℝ E / (p : ℝ))) *
+        (∫⁻ y in Ω, g y ^ (p : ℝ) ∂μ) ^ (1 / (p : ℝ)) := by
+  set n := finrank ℝ E with hn_def
+  have hp1' : 1 < (p : ℝ) := by exact_mod_cast hp1
+  rcases subsingleton_or_nontrivial E with hE | _
+  · have hα : 0 < α := by
+      have hpos : (0 : ℝ) < α * p := by simpa [n, finrank_zero_of_subsingleton] using hp
+      exact pos_of_mul_pos_left hpos (by positivity)
+    have hzero : ∀ y, g y * ‖x - y‖ₑ ^ (α - (n : ℝ)) = 0 := fun y => by
+      simp [n, Subsingleton.elim x y, finrank_zero_of_subsingleton, ENNReal.zero_rpow_of_pos hα]
+    simp [hzero]
+  rcases lt_or_ge D 0 with hD0 | hD0
+  · have hΩ : Ω = ∅ := eq_empty_of_subset_empty (hD.trans (closedBall_eq_empty.2 hD0).subset)
+    simp [hΩ]
+  set q : ℝ := p / (p - 1) with hq_def
+  have hpq : (p : ℝ).HolderConjugate q := (Real.holderConjugate_iff_eq_conjExponent hp1').2 rfl
+  have he : (n : ℝ) + (α - n) * q = (α * p - n) / (p - 1) := by
+    rw [hq_def]
+    field_simp [(by linarith : (p : ℝ) - 1 ≠ 0)]
+    ring_nf
+  have hs : -(n : ℝ) < (α - n) * q := by
+    have : 0 < (n : ℝ) + (α - n) * q := he ▸ div_pos (by linarith) (by linarith)
+    linarith
+  have hk : AEMeasurable (fun y => ‖x - y‖ₑ ^ (α - (n : ℝ))) (μ.restrict Ω) := by fun_prop
+  set K : ℝ := n * μ.real (ball 0 1) * (p - 1) / (α * p - n)
+  have hK : 0 ≤ K := div_nonneg (mul_nonneg (by positivity) (by linarith)) (by linarith)
+  have hkernel : ∫⁻ y in Ω, (‖x - y‖ₑ ^ (α - (n : ℝ))) ^ q ∂μ ≤
+      ENNReal.ofReal (K * D ^ ((α * p - n) / ((p : ℝ) - 1))) :=
+    calc
+      _ ≤ ∫⁻ y in closedBall x D, ‖x - y‖ₑ ^ ((α - n) * q) ∂μ := by
+        simp_rw [← ENNReal.rpow_mul]
+        exact lintegral_mono_set hD
+      _ = _ := by
+        rw [setLIntegral_closedBall_enorm_sub_rpow hs hD0, ← hn_def, he]
+        congr 1
+        simp only [K]
+        field_simp
+  have hexp : (α * p - n) / (p - 1) * (1 / q) = α - n / p := by
+    rw [hq_def]
+    field_simp [(by linarith : (p : ℝ) - 1 ≠ 0)]
+  have hq' : 1 / q = 1 - 1 / (p : ℝ) := by
+    rw [hq_def]
+    field_simp
+  calc
+    _ ≤ (∫⁻ y in Ω, g y ^ (p : ℝ) ∂μ) ^ (1 / (p : ℝ)) *
+        (∫⁻ y in Ω, (‖x - y‖ₑ ^ (α - (n : ℝ))) ^ q ∂μ) ^ (1 / q) :=
+      ENNReal.lintegral_mul_le_Lp_mul_Lq _ hpq hg hk
+    _ ≤ (∫⁻ y in Ω, g y ^ (p : ℝ) ∂μ) ^ (1 / (p : ℝ)) *
+        ENNReal.ofReal (K * D ^ ((α * p - n) / ((p : ℝ) - 1))) ^ (1 / q) := by
+      gcongr
+    _ = _ := by
+      rw [mul_comm, ENNReal.ofReal_rpow_of_nonneg (mul_nonneg hK (Real.rpow_nonneg hD0 _))
+        (one_div_nonneg.2 hpq.symm.nonneg), Real.mul_rpow hK (by positivity),
+        ← Real.rpow_mul hD0, hexp, hq']
+
+omit [FiniteDimensional ℝ E] [μ.IsAddHaarMeasure] in
+/-- **The Riesz potential of order `α ≥ n` is bounded on `L¹`.** If `Ω` lies in `closedBall x D`
+and `α` is at least the dimension `n` of the space, then the order-`α` Riesz potential at `x` of a
+function `g` on `Ω` is at most `D ^ (α - n)` times the `L¹(Ω)` integral of `g`. -/
+theorem setLIntegral_mul_enorm_sub_rpow_sub_finrank_le_of_le {α : ℝ} (hD : Ω ⊆ closedBall x D)
+    (g : E → ℝ≥0∞) (hα : (finrank ℝ E : ℝ) ≤ α) :
+    ∫⁻ y in Ω, g y * ‖x - y‖ₑ ^ (α - (finrank ℝ E : ℝ)) ∂μ ≤
+      ENNReal.ofReal (D ^ (α - (finrank ℝ E : ℝ))) * ∫⁻ y in Ω, g y ∂μ := by
+  rcases lt_or_ge D 0 with hD0 | hD0
+  · have hΩ : Ω = ∅ := eq_empty_of_subset_empty (hD.trans (closedBall_eq_empty.2 hD0).subset)
+    simp [hΩ]
+  have hmem : ∀ᵐ y ∂μ.restrict Ω, y ∈ closedBall x D :=
+    ae_restrict_of_ae_restrict_of_subset hD (ae_restrict_mem measurableSet_closedBall)
+  calc
+    _ ≤ ∫⁻ y in Ω, ENNReal.ofReal (D ^ (α - (finrank ℝ E : ℝ))) * g y ∂μ := by
+      refine lintegral_mono_ae (hmem.mono fun y hy => ?_)
+      rw [mul_comm]
+      gcongr
+      rw [← ENNReal.ofReal_rpow_of_nonneg hD0 (sub_nonneg.2 hα)]
+      exact ENNReal.rpow_le_rpow (ofReal_norm (x - y) ▸
+        ENNReal.ofReal_le_ofReal (mem_closedBall_iff_norm'.1 hy)) (sub_nonneg.2 hα)
+    _ = _ := lintegral_const_mul' _ _ ENNReal.ofReal_ne_top
+
 /-- **The Riesz potential of order one is bounded on `Lᵖ` for `p > n`.** If `Ω` lies in
 `closedBall x D` and `p` exceeds the dimension `n` of the space, then the Riesz potential at `x`
 of a function `g` on `Ω` is at most `K ^ (1 - 1 / p) * D ^ (1 - n / p)` times the `Lᵖ(Ω)` norm of
@@ -83,60 +174,13 @@ theorem setLIntegral_mul_enorm_sub_rpow_one_sub_finrank_le (hD : Ω ⊆ closedBa
       ENNReal.ofReal ((finrank ℝ E * μ.real (ball 0 1) * (p - 1) / (p - finrank ℝ E)) ^
           (1 - 1 / (p : ℝ)) * D ^ (1 - finrank ℝ E / (p : ℝ))) *
         (∫⁻ y in Ω, g y ^ (p : ℝ) ∂μ) ^ (1 / (p : ℝ)) := by
-  set n := finrank ℝ E with hn_def
   rcases subsingleton_or_nontrivial E with hE | hE
-  · -- In dimension zero the kernel vanishes.
-    have hzero : ∀ y, g y * ‖x - y‖ₑ ^ (1 - (n : ℝ)) = 0 := fun y => by
-      simp [n, Subsingleton.elim x y, finrank_zero_of_subsingleton]
+  · have hzero : ∀ y, g y * ‖x - y‖ₑ ^ (1 - (finrank ℝ E : ℝ)) = 0 := fun y => by
+      simp [Subsingleton.elim x y, finrank_zero_of_subsingleton]
     simp [hzero]
-  rcases lt_or_ge D 0 with hD0 | hD0
-  · have hΩ : Ω = ∅ := eq_empty_of_subset_empty (hD.trans (closedBall_eq_empty.2 hD0).subset)
-    simp [hΩ]
-  have hn : (1 : ℝ) ≤ n := by exact_mod_cast finrank_pos
-  have hpn : (n : ℝ) < p := by exact_mod_cast hp
-  have hp1 : 1 < (p : ℝ) := hn.trans_lt hpn
-  -- The exponent conjugate to `p`, and the power of the kernel that it produces.
-  set q : ℝ := p / (p - 1) with hq_def
-  have hpq : (p : ℝ).HolderConjugate q := (Real.holderConjugate_iff_eq_conjExponent hp1).2 rfl
-  have he : (n : ℝ) + (1 - n) * q = (p - n) / (p - 1) := by
-    rw [hq_def]
-    field_simp [(by linarith : (p : ℝ) - 1 ≠ 0)]
-    ring_nf
-  have hs : -(n : ℝ) < (1 - n) * q := by
-    have : 0 < (n : ℝ) + (1 - n) * q := he ▸ div_pos (by linarith) (by linarith)
-    linarith
-  have hk : AEMeasurable (fun y => ‖x - y‖ₑ ^ (1 - (n : ℝ))) (μ.restrict Ω) := by fun_prop
-  -- The integral of the conjugate power of the kernel.
-  set K : ℝ := n * μ.real (ball 0 1) * (p - 1) / (p - n)
-  have hK : 0 ≤ K := div_nonneg (mul_nonneg (by positivity) (by linarith)) (by linarith)
-  have hkernel : ∫⁻ y in Ω, (‖x - y‖ₑ ^ (1 - (n : ℝ))) ^ q ∂μ ≤
-      ENNReal.ofReal (K * D ^ (((p : ℝ) - n) / ((p : ℝ) - 1))) :=
-    calc
-      _ ≤ ∫⁻ y in closedBall x D, ‖x - y‖ₑ ^ ((1 - n) * q) ∂μ := by
-        simp_rw [← ENNReal.rpow_mul]
-        exact lintegral_mono_set hD
-      _ = _ := by
-        rw [setLIntegral_closedBall_enorm_sub_rpow hs hD0, ← hn_def, he]
-        congr 1
-        simp only [K]
-        field_simp
-  have hexp : ((p : ℝ) - n) / (p - 1) * (1 / q) = 1 - n / p := by
-    rw [hq_def]
-    field_simp [(by linarith : (p : ℝ) - 1 ≠ 0)]
-  have hq' : 1 / q = 1 - 1 / (p : ℝ) := by
-    rw [hq_def]
-    field_simp
-  calc
-    _ ≤ (∫⁻ y in Ω, g y ^ (p : ℝ) ∂μ) ^ (1 / (p : ℝ)) *
-        (∫⁻ y in Ω, (‖x - y‖ₑ ^ (1 - (n : ℝ))) ^ q ∂μ) ^ (1 / q) :=
-      ENNReal.lintegral_mul_le_Lp_mul_Lq _ hpq hg hk
-    _ ≤ (∫⁻ y in Ω, g y ^ (p : ℝ) ∂μ) ^ (1 / (p : ℝ)) *
-        ENNReal.ofReal (K * D ^ (((p : ℝ) - n) / ((p : ℝ) - 1))) ^ (1 / q) := by
-      gcongr
-    _ = _ := by
-      rw [mul_comm, ENNReal.ofReal_rpow_of_nonneg (mul_nonneg hK (Real.rpow_nonneg hD0 _))
-        (one_div_nonneg.2 hpq.symm.nonneg), Real.mul_rpow hK (by positivity),
-        ← Real.rpow_mul hD0, hexp, hq']
+  have hp1 : 1 < p := lt_of_le_of_lt (by exact_mod_cast finrank_pos (R := ℝ) (M := E)) hp
+  have hp' : (finrank ℝ E : ℝ) < 1 * p := by simpa only [one_mul] using (by exact_mod_cast hp)
+  simpa only [one_mul] using setLIntegral_mul_enorm_sub_rpow_sub_finrank_le hD hg hp1 hp'
 
 /-- **The Morrey potential estimate for the mean.** If `u` is `C¹` on an open set `Ω` which is
 star-convex about `x` and contained in `closedBall x D`, and `p` exceeds the dimension `n` of the

@@ -48,9 +48,10 @@ kernel is assumed.
 
 ## Main declarations
 
-* `TauCeti.setLIntegral_closedBall_lintegral_segment_le`: integrating a function along the
-  segments from `x` to the points of `closedBall x D` gives at most `D ^ n / n` times its Riesz
-  potential at `x`.
+* `TauCeti.setLIntegral_closedBall_lintegral_segment_rpow_le`: integrating a function along the
+  segments from `x` to the points of `closedBall x D` with weight `t ^ (α - 1) * ‖x - y‖ ^ α`
+  (`0 < α`) gives at most `D ^ n / n` times its order-`α` Riesz potential at `x`.
+* `TauCeti.setLIntegral_closedBall_lintegral_segment_le`: the order-one case `α = 1`.
 * `TauCeti.setLIntegral_enorm_sub_le_of_starConvex`: the integrated oscillation bound.
 * `TauCeti.enorm_sub_setAverage_le_of_starConvex`: the bound on the deviation from the mean over
   any subset of positive measure.
@@ -79,32 +80,38 @@ variable {E F : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E] [FiniteDimensi
 
 /-- The substitution `w = x + t • (y - x)`, of Jacobian `t ^ n`, in the integral over
 `y ∈ closedBall x D` of `g` at the point of parameter `t` on the segment from `x` to `y`,
-weighted by the length of the segment. -/
-theorem lintegral_comp_add_smul_sub_mul_ite (μ : Measure E) [μ.IsAddHaarMeasure]
-    (g : E → ℝ≥0∞) (x : E) (D : ℝ) {t : ℝ} (ht : 0 < t) :
-    ∫⁻ y, g (x + t • (y - x)) * (if ‖x - y‖ ≤ D then ENNReal.ofReal ‖x - y‖ else 0) ∂μ =
+weighted by `t ^ (α - 1) * ‖x - y‖ ^ α` (`0 ≤ α`). The order `α` cancels from the power of `t`,
+leaving `t ^ (-n - 1)`. -/
+theorem lintegral_comp_add_smul_sub_rpow_mul_ite (μ : Measure E) [μ.IsAddHaarMeasure]
+    (g : E → ℝ≥0∞) (x : E) (D : ℝ) {α t : ℝ} (hα : 0 ≤ α) (ht : 0 < t) :
+    ∫⁻ y, ENNReal.ofReal (t ^ (α - 1)) * g (x + t • (y - x)) *
+        (if ‖x - y‖ ≤ D then ‖x - y‖ₑ ^ α else 0) ∂μ =
       ∫⁻ w, ENNReal.ofReal (t ^ (-(finrank ℝ E : ℝ) - 1)) *
-        (g w * if ‖x - w‖ ≤ t * D then ENNReal.ofReal ‖x - w‖ else 0) ∂μ := by
+        (g w * if ‖x - w‖ ≤ t * D then ‖x - w‖ₑ ^ α else 0) ∂μ := by
   set f : E → ℝ≥0∞ := fun w =>
-    g w * if ‖x - w‖ ≤ t * D then ENNReal.ofReal ‖x - w‖ else 0
-  have hKf : ∀ y, g (x + t • (y - x)) *
-      (if ‖x - y‖ ≤ D then ENNReal.ofReal ‖x - y‖ else 0) =
+    g w * if ‖x - w‖ ≤ t * D then ‖x - w‖ₑ ^ α else 0
+  have hKf : ∀ y, ENNReal.ofReal (t ^ (α - 1)) * g (x + t • (y - x)) *
+      (if ‖x - y‖ ≤ D then ‖x - y‖ₑ ^ α else 0) =
       ENNReal.ofReal t⁻¹ * f (AffineMap.homothety x t y) := by
     intro y
     have hw : AffineMap.homothety x t y = x + t • (y - x) := by
       rw [AffineMap.homothety_apply, vsub_eq_sub, vadd_eq_add, add_comm]
     have hnorm : ‖x - (x + t • (y - x))‖ = t * ‖x - y‖ := by
       rw [sub_add_cancel_left, norm_neg, norm_smul, Real.norm_of_nonneg ht.le, norm_sub_rev]
+    have hen : ‖x - (x + t • (y - x))‖ₑ ^ α = ENNReal.ofReal (t ^ α) * ‖x - y‖ₑ ^ α := by
+      rw [← ofReal_norm, hnorm, ENNReal.ofReal_mul ht.le, ofReal_norm,
+        ENNReal.mul_rpow_of_nonneg _ _ hα, ENNReal.ofReal_rpow_of_pos ht]
+    have hpow : ENNReal.ofReal t⁻¹ * ENNReal.ofReal (t ^ α) = ENNReal.ofReal (t ^ (α - 1)) := by
+      rw [← ENNReal.ofReal_mul (inv_nonneg.2 ht.le), ← Real.rpow_neg_one, ← Real.rpow_add ht,
+        neg_add_eq_sub]
     simp only [f, hw, hnorm, mul_le_mul_iff_right₀ ht]
     split_ifs
-    · have h1 : ENNReal.ofReal t⁻¹ * ENNReal.ofReal t = 1 := by
-        rw [← ENNReal.ofReal_mul (inv_nonneg.2 ht.le), inv_mul_cancel₀ ht.ne',
-          ENNReal.ofReal_one]
-      rw [ENNReal.ofReal_mul ht.le]
-      calc
-        _ = ENNReal.ofReal t⁻¹ * ENNReal.ofReal t * (g (x + t • (y - x)) *
-            ENNReal.ofReal ‖x - y‖) := by rw [h1, one_mul]
-        _ = _ := by ring
+    · calc
+        _ = ENNReal.ofReal t⁻¹ * ENNReal.ofReal (t ^ α) *
+            (g (x + t • (y - x)) * ‖x - y‖ₑ ^ α) := by rw [hpow]; ring
+        _ = ENNReal.ofReal t⁻¹ *
+            (g (x + t • (y - x)) * (ENNReal.ofReal (t ^ α) * ‖x - y‖ₑ ^ α)) := by ring
+        _ = _ := by rw [← hen]
     · simp
   calc
     _ = ∫⁻ y, ENNReal.ofReal t⁻¹ * f (AffineMap.homothety x t y) ∂μ := lintegral_congr hKf
@@ -118,6 +125,105 @@ theorem lintegral_comp_add_smul_sub_mul_ite (μ : Measure E) [μ.IsAddHaarMeasur
       rw [abs_of_nonneg (by positivity), Real.rpow_sub ht, Real.rpow_neg ht.le,
         Real.rpow_natCast, Real.rpow_one, div_eq_mul_inv, mul_comm]
 
+/-- The substitution `w = x + t • (y - x)`, of Jacobian `t ^ n`, in the integral over
+`y ∈ closedBall x D` of `g` at the point of parameter `t` on the segment from `x` to `y`,
+weighted by the length of the segment. -/
+theorem lintegral_comp_add_smul_sub_mul_ite (μ : Measure E) [μ.IsAddHaarMeasure]
+    (g : E → ℝ≥0∞) (x : E) (D : ℝ) {t : ℝ} (ht : 0 < t) :
+    ∫⁻ y, g (x + t • (y - x)) * (if ‖x - y‖ ≤ D then ENNReal.ofReal ‖x - y‖ else 0) ∂μ =
+      ∫⁻ w, ENNReal.ofReal (t ^ (-(finrank ℝ E : ℝ) - 1)) *
+        (g w * if ‖x - w‖ ≤ t * D then ENNReal.ofReal ‖x - w‖ else 0) ∂μ := by
+  simpa only [sub_self, Real.rpow_zero, ENNReal.ofReal_one, one_mul, ENNReal.rpow_one,
+    ofReal_norm] using lintegral_comp_add_smul_sub_rpow_mul_ite μ g x D zero_le_one ht
+
+/-- Pointwise inner integral bound for `setLIntegral_closedBall_lintegral_segment_rpow_le`:
+integrating `t ^ (-n - 1)` over `t ∈ (0, 1]` with cutoff `‖x - w‖ ≤ t * D` and weight
+`g w * ‖x - w‖ ^ α` produces at most `D ^ n / n * g w * ‖x - w‖ ^ (α - n)`. -/
+private theorem setLIntegral_Ioc_rpow_mul_ite_rpow_le {n : ℕ} (hn : 0 < n) {α : ℝ} (hα : 0 < α)
+    (a : ℝ≥0∞) (r : ℝ) (hr : 0 ≤ r) (D : ℝ) :
+    ∫⁻ t in Ioc (0 : ℝ) 1, ENNReal.ofReal (t ^ (-(n : ℝ) - 1)) *
+        (a * if r ≤ t * D then ENNReal.ofReal r ^ α else 0) ≤
+      ENNReal.ofReal (D ^ n / n) * (a * ENNReal.ofReal r ^ (α - (n : ℝ))) := by
+  rcases hr.eq_or_lt with rfl | hr_pos
+  · simp [ENNReal.zero_rpow_of_pos hα]
+  have hr0 : ENNReal.ofReal r ≠ 0 := (ENNReal.ofReal_pos.2 hr_pos).ne'
+  have hpow : ENNReal.ofReal r ^ α = ENNReal.ofReal r ^ (α - 1) * ENNReal.ofReal r := by
+    conv_lhs => rw [← sub_add_cancel α 1]
+    rw [ENNReal.rpow_add _ _ hr0 ENNReal.ofReal_ne_top, ENNReal.rpow_one]
+  have hsum : ENNReal.ofReal r ^ (α - 1) * ENNReal.ofReal r ^ (1 - (n : ℝ)) =
+      ENNReal.ofReal r ^ (α - (n : ℝ)) := by
+    rw [← ENNReal.rpow_add _ _ hr0 ENNReal.ofReal_ne_top]
+    ring_nf
+  have hite : ∀ t : ℝ, a * (if r ≤ t * D then ENNReal.ofReal r ^ α else 0) =
+      a * ENNReal.ofReal r ^ (α - 1) * if r ≤ t * D then ENNReal.ofReal r else 0 := fun t => by
+    split_ifs <;> simp [hpow, mul_assoc]
+  simp_rw [hite]
+  refine (lintegral_mono_set Ioc_subset_Ioi_self).trans ?_
+  simpa only [Real.rpow_natCast, mul_assoc a, hsum] using
+    setLIntegral_Ioi_rpow_mul_ite_le (Nat.cast_pos.2 hn) (a * ENNReal.ofReal r ^ (α - 1)) hr D
+
+/-- **Higher-order segment averaging produces the Riesz potential of order `α`.** Integrating a
+function `g` along the segments from `x` to the points `y` of `closedBall x D`, weighted by
+`t ^ (α - 1) * ‖x - y‖ ^ α` (`0 < α`), gives at most `D ^ n / n` times the order-`α` Riesz
+potential `∫ w, g w * ‖x - w‖ ^ (α - n)`, where `n` is the dimension of the space. -/
+theorem setLIntegral_closedBall_lintegral_segment_rpow_le {g : E → ℝ≥0∞}
+    (hg : Measurable g) (x : E) (D : ℝ) {α : ℝ} (hα : 0 < α) :
+    ∫⁻ y in closedBall x D,
+        (∫⁻ t in Ioc (0 : ℝ) 1, ENNReal.ofReal (t ^ (α - 1)) * g (x + t • (y - x))) *
+          ‖x - y‖ₑ ^ α ∂μ ≤
+      ENNReal.ofReal (D ^ finrank ℝ E / finrank ℝ E) *
+        ∫⁻ w, g w * ‖x - w‖ₑ ^ (α - (finrank ℝ E : ℝ)) ∂μ := by
+  rcases subsingleton_or_nontrivial E with hE | hE
+  · have hzero : ∀ y : E, ‖x - y‖ₑ ^ α = 0 := fun y => by
+      rw [Subsingleton.elim x y, sub_self, eNorm_zero, ENNReal.zero_rpow_of_pos hα]
+    simp [hzero]
+  set n := finrank ℝ E
+  have hn : 0 < n := finrank_pos
+  set K : ℝ → E → ℝ≥0∞ := fun t y =>
+    ENNReal.ofReal (t ^ (α - 1)) * g (x + t • (y - x)) *
+      if ‖x - y‖ ≤ D then ‖x - y‖ₑ ^ α else 0
+  set L : ℝ → E → ℝ≥0∞ := fun t w => ENNReal.ofReal (t ^ (-(n : ℝ) - 1)) *
+    (g w * if ‖x - w‖ ≤ t * D then ‖x - w‖ₑ ^ α else 0) with hL_def
+  have hKmeas : Measurable (Function.uncurry fun y t => K t y) := by
+    refine (((?_ : Measurable fun q : E × ℝ => ENNReal.ofReal (q.2 ^ (α - 1))).mul
+      (hg.comp (?_ : Measurable fun q : E × ℝ => x + q.2 • (q.1 - x)))).mul
+      (Measurable.ite (measurableSet_le (?_ : Measurable fun q : E × ℝ => ‖x - q.1‖)
+        measurable_const) (?_ : Measurable fun q : E × ℝ => ‖x - q.1‖ₑ ^ α)
+        measurable_const))
+    all_goals fun_prop
+  have hLmeas : Measurable (Function.uncurry fun w t => L t w) := by
+    refine (?_ : Measurable fun q : E × ℝ => ENNReal.ofReal (q.2 ^ (-(n : ℝ) - 1))).mul
+      ((hg.comp measurable_fst).mul (Measurable.ite
+        (measurableSet_le (?_ : Measurable fun q : E × ℝ => ‖x - q.1‖)
+          (?_ : Measurable fun q : E × ℝ => q.2 * D))
+        (?_ : Measurable fun q : E × ℝ => ‖x - q.1‖ₑ ^ α) measurable_const))
+    all_goals fun_prop
+  have hK : ∀ y, (closedBall x D).indicator
+      (fun y => (∫⁻ t in Ioc (0 : ℝ) 1,
+        ENNReal.ofReal (t ^ (α - 1)) * g (x + t • (y - x))) * ‖x - y‖ₑ ^ α) y =
+        ∫⁻ t in Ioc (0 : ℝ) 1, K t y := by
+    intro y
+    by_cases hy : y ∈ closedBall x D
+    · rw [indicator_of_mem hy,
+        ← lintegral_mul_const' _ _ (ENNReal.rpow_ne_top_of_nonneg hα.le eNorm_ne_top)]
+      simp only [K, ite_eq_left (mem_closedBall_iff_norm'.1 hy)]
+    · rw [indicator_of_notMem hy]
+      simp [K, ite_eq_right (mt mem_closedBall_iff_norm'.2 hy)]
+  calc
+    _ = ∫⁻ y, (∫⁻ t in Ioc (0 : ℝ) 1, K t y) ∂μ :=
+      (lintegral_indicator measurableSet_closedBall _).symm.trans (lintegral_congr hK)
+    _ = ∫⁻ t in Ioc (0 : ℝ) 1, ∫⁻ y, K t y ∂μ :=
+      lintegral_lintegral_swap hKmeas.aemeasurable
+    _ = ∫⁻ t in Ioc (0 : ℝ) 1, ∫⁻ w, L t w ∂μ := setLIntegral_congr_fun measurableSet_Ioc
+      fun t ht => lintegral_comp_add_smul_sub_rpow_mul_ite μ g x D hα.le ht.1
+    _ = ∫⁻ w, (∫⁻ t in Ioc (0 : ℝ) 1, L t w) ∂μ :=
+      (lintegral_lintegral_swap hLmeas.aemeasurable).symm
+    _ ≤ ∫⁻ w, ENNReal.ofReal (D ^ n / n) * (g w * ‖x - w‖ₑ ^ (α - (n : ℝ))) ∂μ :=
+      lintegral_mono fun w => by
+        simpa only [hL_def, ofReal_norm] using
+          setLIntegral_Ioc_rpow_mul_ite_rpow_le hn hα (g w) ‖x - w‖ (norm_nonneg _) D
+    _ = _ := lintegral_const_mul' _ _ ENNReal.ofReal_ne_top
+
 /-- **Averaging along segments produces the Riesz potential.** Integrating a function `g` along
 the segments from `x` to the points `y` of `closedBall x D`, weighted by their lengths, gives at
 most `D ^ n / n` times the Riesz potential `∫ w, g w * ‖x - w‖ ^ (1 - n)`, where `n` is the
@@ -127,57 +233,8 @@ theorem setLIntegral_closedBall_lintegral_segment_le {g : E → ℝ≥0∞}
     ∫⁻ y in closedBall x D, (∫⁻ t in Ioc (0 : ℝ) 1, g (x + t • (y - x))) * ‖x - y‖ₑ ∂μ ≤
       ENNReal.ofReal (D ^ finrank ℝ E / finrank ℝ E) *
         ∫⁻ w, g w * ‖x - w‖ₑ ^ (1 - (finrank ℝ E : ℝ)) ∂μ := by
-  rcases subsingleton_or_nontrivial E with hE | hE
-  · have hzero : ∀ y : E, ‖x - y‖ₑ = 0 := fun y => by
-      rw [Subsingleton.elim x y, sub_self, eNorm_zero]
-    simp [hzero]
-  set n := finrank ℝ E
-  have hn : 0 < n := finrank_pos
-  -- The integrand as a function of the parameter `t` and of `y`.
-  set K : ℝ → E → ℝ≥0∞ := fun t y =>
-    g (x + t • (y - x)) * if ‖x - y‖ ≤ D then ENNReal.ofReal ‖x - y‖ else 0
-  -- The same integrand after the substitution `w = x + t • (y - x)`.
-  set L : ℝ → E → ℝ≥0∞ := fun t w => ENNReal.ofReal (t ^ (-(n : ℝ) - 1)) *
-    (g w * if ‖x - w‖ ≤ t * D then ENNReal.ofReal ‖x - w‖ else 0) with hL_def
-  have hKmeas : Measurable (Function.uncurry fun y t => K t y) := by
-    refine (hg.comp (?_ : Measurable fun q : E × ℝ => x + q.2 • (q.1 - x))).mul
-      (Measurable.ite (measurableSet_le (?_ : Measurable fun q : E × ℝ => ‖x - q.1‖)
-        measurable_const) (?_ : Measurable fun q : E × ℝ => ENNReal.ofReal ‖x - q.1‖)
-        measurable_const)
-    all_goals fun_prop
-  have hLmeas : Measurable (Function.uncurry fun w t => L t w) := by
-    refine (?_ : Measurable fun q : E × ℝ => ENNReal.ofReal (q.2 ^ (-(n : ℝ) - 1))).mul
-      ((hg.comp measurable_fst).mul (Measurable.ite
-        (measurableSet_le (?_ : Measurable fun q : E × ℝ => ‖x - q.1‖)
-          (?_ : Measurable fun q : E × ℝ => q.2 * D))
-        (?_ : Measurable fun q : E × ℝ => ENNReal.ofReal ‖x - q.1‖) measurable_const))
-    all_goals fun_prop
-  have hK : ∀ y, (closedBall x D).indicator
-      (fun y => (∫⁻ t in Ioc (0 : ℝ) 1, g (x + t • (y - x))) * ‖x - y‖ₑ) y =
-        ∫⁻ t in Ioc (0 : ℝ) 1, K t y := by
-    intro y
-    by_cases hy : y ∈ closedBall x D
-    · rw [indicator_of_mem hy, ← lintegral_mul_const' _ _ eNorm_ne_top]
-      simp only [K, ite_eq_left (mem_closedBall_iff_norm'.1 hy), ofReal_norm]
-    · rw [indicator_of_notMem hy]
-      simp [K, ite_eq_right (mt mem_closedBall_iff_norm'.2 hy)]
-  -- Exchange the integrals over `y` and `t`, substitute `w = x + t • (y - x)` for each `t`,
-  -- exchange back, and integrate out `t` for each `w`.
-  calc
-    _ = ∫⁻ y, (∫⁻ t in Ioc (0 : ℝ) 1, K t y) ∂μ :=
-      (lintegral_indicator measurableSet_closedBall _).symm.trans (lintegral_congr hK)
-    _ = ∫⁻ t in Ioc (0 : ℝ) 1, ∫⁻ y, K t y ∂μ :=
-      lintegral_lintegral_swap hKmeas.aemeasurable
-    _ = ∫⁻ t in Ioc (0 : ℝ) 1, ∫⁻ w, L t w ∂μ := setLIntegral_congr_fun measurableSet_Ioc
-      fun t ht => lintegral_comp_add_smul_sub_mul_ite μ g x D ht.1
-    _ = ∫⁻ w, (∫⁻ t in Ioc (0 : ℝ) 1, L t w) ∂μ :=
-      (lintegral_lintegral_swap hLmeas.aemeasurable).symm
-    _ ≤ ∫⁻ w, ENNReal.ofReal (D ^ n / n) * (g w * ‖x - w‖ₑ ^ (1 - (n : ℝ))) ∂μ :=
-      lintegral_mono fun w => by
-        simpa only [hL_def, ofReal_norm, Real.rpow_natCast] using
-          (lintegral_mono_set Ioc_subset_Ioi_self).trans <| setLIntegral_Ioi_rpow_mul_ite_le
-            (Nat.cast_pos.2 hn) (g w) (norm_nonneg (x - w)) D
-    _ = _ := lintegral_const_mul' _ _ ENNReal.ofReal_ne_top
+  simpa only [sub_self, Real.rpow_zero, ENNReal.ofReal_one, one_mul, ENNReal.rpow_one] using
+    setLIntegral_closedBall_lintegral_segment_rpow_le (μ := μ) hg x D zero_lt_one
 
 /-- **The integrated oscillation bound.** If `u` is `C¹` on an open set `Ω` which is star-convex
 about `x` and contained in `closedBall x D`, then the integral over `Ω` of `‖u x - u y‖` is
