@@ -7,6 +7,7 @@ module
 
 public import TauCeti.Analysis.InnerProductSpace.ExteriorPower.Basic
 public import Mathlib.Analysis.InnerProductSpace.Trace
+public import Mathlib.Analysis.InnerProductSpace.Adjoint
 
 /-!
 # Ordered-pair contractions on the exterior square
@@ -17,7 +18,10 @@ vanish. Consequently their rank-one operators sum to twice the identity on `Λ²
 
 This gives a trace formula using all ordered pairs instead of the increasing pairs indexing
 Mathlib's `OrthonormalBasis.exteriorPower`. It applies to arbitrary endomorphisms, without a
-self-adjointness assumption, and fixes the factor of two in curvature contractions.
+self-adjointness assumption, and fixes the factor of two in curvature contractions. Applying the
+identity once gives the Parseval expansion `∑ i, ∑ j, ⟪x, b i ∧ b j⟫² = 2 ‖x‖²`, and applying it
+twice gives the Hilbert–Schmidt factor of four:
+`∑ i, ∑ j, ∑ k, ∑ l, ⟪T (b i ∧ b j), b k ∧ b l⟫² = 4 tr (T† T)`.
 -/
 
 public section
@@ -74,5 +78,38 @@ theorem sum_inner_ιMulti_two_eq_two_mul_trace (b : OrthonormalBasis ι ℝ E)
   simpa only [map_sum, InnerProductSpace.trace_rankOne,
     LinearMap.comp_smul, LinearMap.comp_id, map_smul, smul_eq_mul,
     real_inner_comm] using h
+
+/-- Parseval identity for ordered basis wedges: summing `⟪x, b i ∧ b j⟫²` over all ordered
+pairs gives twice `‖x‖²`. -/
+theorem sum_sq_inner_ιMulti_two (b : OrthonormalBasis ι ℝ E) (x : ⋀[ℝ]^2 E) :
+    (∑ i, ∑ j, ⟪x, ιMulti ℝ 2 ![b i, b j]⟫ ^ 2) = 2 * ‖x‖ ^ 2 := by
+  have h := congrArg (fun S : Module.End ℝ (⋀[ℝ]^2 E) ↦ ⟪S x, x⟫)
+    (b.sum_rankOne_ιMulti_two)
+  simp only [LinearMap.sum_apply, ContinuousLinearMap.coe_coe, InnerProductSpace.rankOne_apply,
+    sum_inner, real_inner_smul_left, LinearMap.smul_apply, LinearMap.id_apply,
+    real_inner_self_eq_norm_sq] at h
+  convert h using 2 with i _
+  refine Finset.sum_congr rfl fun j _ ↦ ?_
+  rw [real_inner_comm (ιMulti ℝ 2 ![b i, b j]) x, sq]
+
+/-- Summing `‖T (b i ∧ b j)‖²` over all ordered basis wedges gives twice the squared
+Hilbert–Schmidt norm `tr (T† ∘ T)`. -/
+theorem sum_norm_sq_apply_ιMulti_two (b : OrthonormalBasis ι ℝ E)
+    (T : Module.End ℝ (⋀[ℝ]^2 E)) :
+    (∑ i, ∑ j, ‖T (ιMulti ℝ 2 ![b i, b j])‖ ^ 2) =
+      2 * LinearMap.trace ℝ (⋀[ℝ]^2 E) (LinearMap.adjoint T ∘ₗ T) := by
+  rw [← b.sum_inner_ιMulti_two_eq_two_mul_trace (LinearMap.adjoint T ∘ₗ T)]
+  refine Finset.sum_congr rfl fun i _ ↦ Finset.sum_congr rfl fun j _ ↦ ?_
+  rw [LinearMap.comp_apply, LinearMap.adjoint_inner_left, real_inner_self_eq_norm_sq]
+
+/-- Summing `⟪T (b i ∧ b j), b k ∧ b l⟫²` over all quadruples of basis indices gives four times
+`tr (T† ∘ T)`. -/
+theorem sum_sq_inner_apply_ιMulti_two (b : OrthonormalBasis ι ℝ E)
+    (T : Module.End ℝ (⋀[ℝ]^2 E)) :
+    (∑ i, ∑ j, ∑ k, ∑ l,
+      ⟪T (ιMulti ℝ 2 ![b i, b j]), ιMulti ℝ 2 ![b k, b l]⟫ ^ 2) =
+      4 * LinearMap.trace ℝ (⋀[ℝ]^2 E) (LinearMap.adjoint T ∘ₗ T) := by
+  simp_rw [b.sum_sq_inner_ιMulti_two, ← Finset.mul_sum, b.sum_norm_sq_apply_ιMulti_two]
+  ring
 
 end OrthonormalBasis
