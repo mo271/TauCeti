@@ -6,12 +6,17 @@ Authors: The Tau Ceti contributors
 module
 
 public import Mathlib.Analysis.Calculus.IteratedDeriv.Lemmas
+public import Mathlib.Analysis.SpecialFunctions.Exp
 public import Mathlib.MeasureTheory.Integral.IntegralEqImproper
 public import Mathlib.MeasureTheory.Integral.IntervalIntegral.FundThmCalculus
 import Mathlib.Analysis.Calculus.Deriv.Pow
+import Mathlib.Analysis.SpecialFunctions.Exponential
+import Mathlib.Analysis.SpecificLimits.Normed
+import Mathlib.MeasureTheory.Integral.DominatedConvergence
 import Mathlib.MeasureTheory.Integral.IntervalIntegral.AbsolutelyContinuousFun
 import Mathlib.MeasureTheory.Integral.IntervalIntegral.LebesgueDifferentiationThm
 import Mathlib.Topology.Algebra.Module.FiniteDimension
+import TauCeti.Topology.Order.Interval
 
 /-!
 # Derivatives of improper tail integrals
@@ -22,12 +27,20 @@ the whole ray, the derivative identity also gives a formula for every higher ite
 derivative. These results apply to Banach-space-valued integrands and support differential
 closure arguments for improper integrals.
 
-For a real function `g` integrable on `(x, ∞)`, with tail integral
-`Ψ v = ∫ u in Ioi v, g u`, the product `g * Ψ ^ k` is integrable on `(x, ∞)`
-(`MeasureTheory.IntegrableOn.mul_pow_integral_Ioi`) with integral
-`Ψ x ^ (k + 1) / (k + 1)` (`MeasureTheory.IntegrableOn.integral_Ioi_mul_pow_integral_Ioi`).
-The tail integral of a function nonnegative on `(a, ∞)` is antitone there
-(`MeasureTheory.antitoneOn_integral_Ioi`).
+On an order-connected measurable set `I`, the tail integral splits at any `b ≥ a` in `I`
+(`MeasureTheory.IntegrableOn.integral_Ioc_add_inter_Ioi`). On a bounded open interval `(a, b)`,
+the tail integral splits against an interval integral
+(`MeasureTheory.IntegrableOn.integral_interval_add_Ioo`) and is continuous on `[a, b]`
+(`MeasureTheory.IntegrableOn.continuousOn_Icc_primitive_Ioo`).
+
+For a real function `g` integrable on an upper tail `I ∩ Ioi x` of an open interval `I`, with
+tail integral `Ψ v = ∫ u in I ∩ Ioi v, g u`, the products `g * Ψ ^ k` and `g * exp Ψ` are
+integrable on `I ∩ Ioi x`, with integrals `Ψ x ^ (k + 1) / (k + 1)` and `exp (Ψ x) - 1`
+(`MeasureTheory.IntegrableOn.integral_inter_Ioi_mul_pow_integral_inter_Ioi` and
+`MeasureTheory.IntegrableOn.integral_inter_Ioi_mul_exp_integral_inter_Ioi`), together with
+specializations for rays `Ioi x` and bounded intervals `Ioo x b`. The tail integral of a
+nonnegative function is antitone (`MeasureTheory.antitoneOn_integral_inter_Ioi`,
+`MeasureTheory.antitoneOn_integral_Ioi`, `MeasureTheory.antitoneOn_integral_Ioo`).
 
 For a compactly supported `C¹` map `u` on a real normed space, integrating its derivative along a
 ray from `w` recovers `-u w` (`HasCompactSupport.integral_Ioi_fderiv_apply_ray`).
@@ -103,9 +116,95 @@ theorem iteratedDeriv_integral_Ioi (hint : IntegrableOn f (Ioi a))
     exact hint.deriv_integral_Ioi (hcont.continuousAt (isOpen_Ioi.mem_nhds hu)) hu
   rw [iteratedDeriv_succ', heq.iteratedDeriv_eq n, iteratedDeriv_fun_neg]
 
+section BoundedInterval
+
+omit [CompleteSpace E]
+
+/-- Splitting the tail integral of an integrable function on an order-connected measurable set `I`
+at `b ≥ a` in `I`:
+`(∫ v in Ioc a b, f v ∂μ) + ∫ v in I ∩ Ioi b, f v ∂μ = ∫ v in I ∩ Ioi a, f v ∂μ`. -/
+theorem integral_Ioc_add_inter_Ioi {I : Set ℝ} {μ : Measure ℝ} {b : ℝ}
+    (hint : IntegrableOn f (I ∩ Ioi a) μ) (hI : MeasurableSet I) (hIo : I.OrdConnected)
+    (ha : a ∈ I) (hb : b ∈ I) (hab : a ≤ b) :
+    (∫ v in Ioc a b, f v ∂μ) + ∫ v in I ∩ Ioi b, f v ∂μ = ∫ v in I ∩ Ioi a, f v ∂μ := by
+  have hsplit := hIo.inter_Ioi_eq_Ioc_union ha hb hab
+  symm; rw [hsplit]
+  exact setIntegral_union (disjoint_left.2 fun _ h₁ h₂ ↦ not_lt_of_ge h₁.2 h₂.2)
+    (hI.inter measurableSet_Ioi) (hint.mono_set (hsplit ▸ subset_union_left))
+    (hint.mono_set (hsplit ▸ subset_union_right))
+
+/-- Splitting the tail integral on `(a, b)` against an interval integral: for `v ∈ [a, b]`,
+`(∫ u in a..v, f u ∂μ) + ∫ u in Ioo v b, f u ∂μ = ∫ u in Ioo a b, f u ∂μ`. -/
+theorem integral_interval_add_Ioo {μ : Measure ℝ} [NullSingletonClass μ] {b v : ℝ}
+    (hint : IntegrableOn f (Ioo a b) μ) (hv : v ∈ Icc a b) :
+    (∫ u in a..v, f u ∂μ) + ∫ u in Ioo v b, f u ∂μ = ∫ u in Ioo a b, f u ∂μ := by
+  have hgi : IntervalIntegrable f μ a b :=
+    (intervalIntegrable_iff_integrableOn_Ioc_of_le (hv.1.trans hv.2)).2
+      (hint.congr_set_ae Ioo_ae_eq_Ioc.symm)
+  have hav : IntervalIntegrable f μ a v :=
+    hgi.mono_set (uIcc_subset_uIcc left_mem_uIcc (uIcc_of_le (hv.1.trans hv.2) ▸ hv))
+  have hvb : IntervalIntegrable f μ v b :=
+    hgi.mono_set (uIcc_subset_uIcc (uIcc_of_le (hv.1.trans hv.2) ▸ hv) right_mem_uIcc)
+  rw [← integral_Ioc_eq_integral_Ioo, ← integral_Ioc_eq_integral_Ioo,
+    ← intervalIntegral.integral_of_le hv.2, ← intervalIntegral.integral_of_le (hv.1.trans hv.2),
+    intervalIntegral.integral_add_adjacent_intervals hav hvb]
+
+/-- The tail integral `v ↦ ∫ u in Ioo v b, f u ∂μ` of a function integrable on `(a, b)` is
+continuous on `[a, b]`, mirroring `MeasureTheory.IntegrableOn.continuousOn_Ici_primitive_Ioi`. -/
+theorem continuousOn_Icc_primitive_Ioo {μ : Measure ℝ} [NullSingletonClass μ] {b : ℝ}
+    (hint : IntegrableOn f (Ioo a b) μ) :
+    ContinuousOn (fun v ↦ ∫ u in Ioo v b, f u ∂μ) (Icc a b) := by
+  rcases lt_or_ge b a with hba | hab
+  · rw [Icc_eq_empty_of_lt hba]; exact continuousOn_empty _
+  have huicc : IntegrableOn f (uIcc a b) μ := by
+    rw [uIcc_of_le hab]
+    exact hint.congr_set_ae Ioo_ae_eq_Icc.symm
+  refine (uIcc_of_le hab ▸ intervalIntegral.continuousOn_primitive_interval_left huicc).congr
+    fun v hv ↦ ?_
+  rw [← integral_Ioc_eq_integral_Ioo, ← intervalIntegral.integral_of_le hv.2]
+
+end BoundedInterval
+
 section Real
 
-variable {g : ℝ → ℝ} {x : ℝ}
+open scoped Nat
+
+variable {g : ℝ → ℝ} {x b : ℝ}
+
+/-- Shared FTC step: if `Ψ v = Ψ x - ∫ u in x..v, g u` on `[x, y]`, then
+`∫ v in x..y, g v * Ψ v ^ k = (Ψ x ^ (k + 1) - Ψ y ^ (k + 1)) / (k + 1)`. -/
+private lemma intervalIntegral_mul_pow_eq_sub_div {Ψ : ℝ → ℝ} {y : ℝ} (hy : x ≤ y)
+    (hgi : IntervalIntegrable g volume x y)
+    (hΨeq : ∀ v ∈ Icc x y, Ψ v = Ψ x - ∫ u in x..v, g u) (k : ℕ) :
+    ∫ v in x..y, g v * Ψ v ^ k = (Ψ x ^ (k + 1) - Ψ y ^ (k + 1)) / (k + 1) := by
+  have hΨac : AbsolutelyContinuousOnInterval Ψ x y :=
+    ((LipschitzWith.const (Ψ x)).lipschitzOnWith.absolutelyContinuousOnInterval.sub
+      (hgi.absolutelyContinuousOnInterval_intervalIntegral left_mem_uIcc)).congr
+      fun v hv ↦ (hΨeq v (uIcc_of_le hy ▸ hv)).symm
+  have hpow (n : ℕ) : AbsolutelyContinuousOnInterval (fun v ↦ Ψ v ^ n) x y := by
+    induction n with
+    | zero =>
+      simpa using (LipschitzWith.const (1 : ℝ)).lipschitzOnWith.absolutelyContinuousOnInterval
+    | succ n ih => simpa only [pow_succ] using ih.fun_mul hΨac
+  have hderiv : ∀ᵐ v, v ∈ uIoc x y →
+      deriv (fun v ↦ Ψ v ^ (k + 1)) v = -((k + 1) * (g v * Ψ v ^ k)) := by
+    filter_upwards [hgi.ae_hasDerivAt_integral, Measure.ae_ne volume y] with v hv hvy hvI
+    rw [uIoc_of_le hy] at hvI
+    have hvI' : v ∈ Ioo x y := ⟨hvI.1, hvI.2.lt_of_ne hvy⟩
+    have hΨv : HasDerivAt Ψ (-g v) v := by
+      rw [← zero_sub]
+      refine ((hasDerivAt_const v (Ψ x)).sub (hv (Ioc_subset_Icc_self.trans
+        (uIcc_of_le hy).symm.subset hvI) x left_mem_uIcc)).congr_of_eventuallyEq ?_
+      filter_upwards [Ioo_mem_nhds hvI'.1 hvI'.2] with w hw
+      exact hΨeq w ⟨hw.1.le, hw.2.le⟩
+    rw [(hΨv.fun_pow (k + 1)).deriv]
+    push_cast
+    ring
+  have := hpow (k + 1) |>.integral_deriv_eq_sub
+  rw [intervalIntegral.integral_congr_ae hderiv, intervalIntegral.integral_neg,
+    intervalIntegral.integral_const_mul] at this
+  field_simp
+  linarith
 
 /-- If `g` is integrable on `(x, ∞)`, with tail integral `Ψ v = ∫ u in Ioi v, g u`, then
 `v ↦ g v * Ψ v ^ k` is integrable on `(x, ∞)`. -/
@@ -127,42 +226,14 @@ decay of the Picard increments of Volterra integral equations on a half-line. -/
 theorem integral_Ioi_mul_pow_integral_Ioi (hint : IntegrableOn g (Ioi x)) (k : ℕ) :
     ∫ v in Ioi x, g v * (∫ u in Ioi v, g u) ^ k = (∫ u in Ioi x, g u) ^ (k + 1) / (k + 1) := by
   set Ψ : ℝ → ℝ := fun v ↦ ∫ u in Ioi v, g u
-  -- on `[x, y]`, `Ψ` is `Ψ x` minus a primitive of `g`
-  have hΨeq {y : ℝ} (hy : x ≤ y) : Ψ y = Ψ x - ∫ u in x..y, g u := by
+  have hΨeq {v : ℝ} (hv : x ≤ v) : Ψ v = Ψ x - ∫ u in x..v, g u := by
     simp only [Ψ, ← intervalIntegral.integral_interval_add_Ioi hint
-      (hint.mono_set (Ioi_subset_Ioi hy)), add_sub_cancel_left]
+      (hint.mono_set (Ioi_subset_Ioi hv)), add_sub_cancel_left]
   have hfin {y : ℝ} (hy : x ≤ y) :
-      ∫ v in x..y, g v * Ψ v ^ k = (Ψ x ^ (k + 1) - Ψ y ^ (k + 1)) / (k + 1) := by
-    have hgi : IntervalIntegrable g volume x y :=
-      (intervalIntegrable_iff_integrableOn_Ioc_of_le hy).2 (hint.mono_set Ioc_subset_Ioi_self)
-    have hΨac : AbsolutelyContinuousOnInterval Ψ x y :=
-      ((LipschitzWith.const (Ψ x)).lipschitzOnWith.absolutelyContinuousOnInterval.sub
-        (hgi.absolutelyContinuousOnInterval_intervalIntegral left_mem_uIcc)).congr
-        fun v hv ↦ (hΨeq (uIcc_of_le hy ▸ hv).1).symm
-    have hpow (n : ℕ) : AbsolutelyContinuousOnInterval (fun v ↦ Ψ v ^ n) x y := by
-      induction n with
-      | zero =>
-        simpa using (LipschitzWith.const (1 : ℝ)).lipschitzOnWith.absolutelyContinuousOnInterval
-      | succ n ih => simpa only [pow_succ] using ih.fun_mul hΨac
-    have hderiv : ∀ᵐ v, v ∈ uIoc x y →
-        deriv (fun v ↦ Ψ v ^ (k + 1)) v = -((k + 1) * (g v * Ψ v ^ k)) := by
-      filter_upwards [hgi.ae_hasDerivAt_integral, Measure.ae_ne volume y] with v hv hvy hvI
-      rw [uIoc_of_le hy] at hvI
-      have hvI' : v ∈ Ioo x y := ⟨hvI.1, hvI.2.lt_of_ne hvy⟩
-      have hΨv : HasDerivAt Ψ (-g v) v := by
-        rw [← zero_sub]
-        refine ((hasDerivAt_const v (Ψ x)).sub (hv (Ioc_subset_Icc_self.trans
-          (uIcc_of_le hy).symm.subset hvI) x left_mem_uIcc)).congr_of_eventuallyEq ?_
-        filter_upwards [Ioo_mem_nhds hvI'.1 hvI'.2] with w hw
-        exact hΨeq hw.1.le
-      rw [(hΨv.fun_pow (k + 1)).deriv]
-      push_cast
-      ring
-    have := hpow (k + 1) |>.integral_deriv_eq_sub
-    rw [intervalIntegral.integral_congr_ae hderiv, intervalIntegral.integral_neg,
-      intervalIntegral.integral_const_mul] at this
-    field_simp
-    linarith
+      ∫ v in x..y, g v * Ψ v ^ k = (Ψ x ^ (k + 1) - Ψ y ^ (k + 1)) / (k + 1) :=
+    intervalIntegral_mul_pow_eq_sub_div hy
+      ((intervalIntegrable_iff_integrableOn_Ioc_of_le hy).2 (hint.mono_set Ioc_subset_Ioi_self))
+      (fun _ hv ↦ hΨeq hv.1) k
   refine tendsto_nhds_unique (intervalIntegral_tendsto_integral_Ioi x
     (hint.mul_pow_integral_Ioi k) tendsto_id) ?_
   have htend : Tendsto Ψ atTop (𝓝 0) := tendsto_integral_Ioi_zero tendsto_id
@@ -170,19 +241,221 @@ theorem integral_Ioi_mul_pow_integral_Ioi (hint : IntegrableOn g (Ioi x)) (k : �
   rw [zero_pow k.succ_ne_zero, sub_zero] at hlim
   exact hlim.congr' ((eventually_ge_atTop x).mono fun y hy ↦ (hfin hy).symm)
 
+/-- If `g` is integrable on `(x, b)`, with tail integral `Ψ v = ∫ u in Ioo v b, g u`, then
+`v ↦ g v * Ψ v ^ k` is integrable on `(x, b)`. -/
+theorem mul_pow_integral_Ioo (hint : IntegrableOn g (Ioo x b)) (k : ℕ) :
+    IntegrableOn (fun v ↦ g v * (∫ u in Ioo v b, g u) ^ k) (Ioo x b) := by
+  have hΨ : ContinuousOn (fun v ↦ ∫ u in Ioo v b, g u) (Ioo x b) :=
+    hint.continuousOn_Icc_primitive_Ioo.mono Ioo_subset_Icc_self
+  refine Integrable.mono' (hint.norm.mul_const ((∫ u in Ioo x b, ‖g u‖) ^ k))
+    (hint.aestronglyMeasurable.mul ((hΨ.pow k).aestronglyMeasurable measurableSet_Ioo)) ?_
+  filter_upwards [ae_restrict_mem measurableSet_Ioo] with v hv
+  rw [norm_mul, norm_pow]
+  gcongr
+  exact (norm_integral_le_integral_norm _).trans (setIntegral_mono_set hint.norm
+    (ae_of_all _ fun _ ↦ norm_nonneg _) (Ioo_subset_Ioo_left hv.1.le).eventuallySubset)
+
+/-- For `g` integrable on `(x, b)`, with tail integral `Ψ v = ∫ u in Ioo v b, g u`, the integral
+of `g * Ψ ^ k` over `(x, b)` is `Ψ x ^ (k + 1) / (k + 1)`. -/
+theorem integral_Ioo_mul_pow_integral_Ioo (hint : IntegrableOn g (Ioo x b)) (k : ℕ) :
+    ∫ v in Ioo x b, g v * (∫ u in Ioo v b, g u) ^ k =
+      (∫ u in Ioo x b, g u) ^ (k + 1) / (k + 1) := by
+  rcases le_or_gt b x with hbx | hxb
+  · simp [Ioo_eq_empty_of_le hbx]
+  have hgi : IntervalIntegrable g volume x b :=
+    (intervalIntegrable_iff_integrableOn_Ioc_of_le hxb.le).2
+      (hint.congr_set_ae Ioo_ae_eq_Ioc.symm)
+  rw [← integral_Ioc_eq_integral_Ioo, ← intervalIntegral.integral_of_le hxb.le,
+    intervalIntegral_mul_pow_eq_sub_div hxb.le hgi
+      (fun _ hv ↦ eq_sub_of_add_eq' (hint.integral_interval_add_Ioo hv)) k]
+  simp
+
+/-- If `I` is an open interval containing `x` and `g` is integrable on `I ∩ Ioi x`, with tail
+integral `Ψ v = ∫ u in I ∩ Ioi v, g u`, then `v ↦ g v * Ψ v ^ k` is integrable on `I ∩ Ioi x`. -/
+theorem mul_pow_integral_inter_Ioi {I : Set ℝ} (hint : IntegrableOn g (I ∩ Ioi x))
+    (hI : IsOpen I) (hIo : I.OrdConnected) (hx : x ∈ I) (k : ℕ) :
+    IntegrableOn (fun v ↦ g v * (∫ u in I ∩ Ioi v, g u) ^ k) (I ∩ Ioi x) := by
+  by_cases hb : BddAbove I
+  · have hIeq : I ∩ Ioi x = Ioo x (sSup I) := hIo.inter_Ioi_eq_Ioo_sSup_of_bddAbove hI hx hb
+    have hcongr : EqOn (fun v ↦ g v * (∫ u in Ioo v (sSup I), g u) ^ k)
+        (fun v ↦ g v * (∫ u in I ∩ Ioi v, g u) ^ k) (Ioo x (sSup I)) := fun v hv ↦ by
+      dsimp only
+      rw [hIo.inter_Ioi_eq_Ioo_sSup_of_bddAbove hI (hIeq.symm.subset hv).1 hb]
+    rw [hIeq]
+    exact ((hIeq ▸ hint).mul_pow_integral_Ioo k).congr_fun hcongr measurableSet_Ioo
+  · have hIeq : I ∩ Ioi x = Ioi x := hIo.inter_Ioi_eq_Ioi_of_not_bddAbove hx hb
+    have hcongr : EqOn (fun v ↦ g v * (∫ u in Ioi v, g u) ^ k)
+        (fun v ↦ g v * (∫ u in I ∩ Ioi v, g u) ^ k) (Ioi x) := fun v hv ↦ by
+      dsimp only
+      rw [hIo.inter_Ioi_eq_Ioi_of_not_bddAbove (hIeq.symm.subset hv).1 hb]
+    rw [hIeq]
+    exact ((hIeq ▸ hint).mul_pow_integral_Ioi k).congr_fun hcongr measurableSet_Ioi
+
+/-- For `I` an open interval containing `x` and `g` integrable on `I ∩ Ioi x`, with tail integral
+`Ψ v = ∫ u in I ∩ Ioi v, g u`, the integral of `g * Ψ ^ k` over `I ∩ Ioi x` is
+`Ψ x ^ (k + 1) / (k + 1)`. -/
+theorem integral_inter_Ioi_mul_pow_integral_inter_Ioi {I : Set ℝ}
+    (hint : IntegrableOn g (I ∩ Ioi x)) (hI : IsOpen I) (hIo : I.OrdConnected) (hx : x ∈ I)
+    (k : ℕ) :
+    ∫ v in I ∩ Ioi x, g v * (∫ u in I ∩ Ioi v, g u) ^ k =
+      (∫ u in I ∩ Ioi x, g u) ^ (k + 1) / (k + 1) := by
+  by_cases hb : BddAbove I
+  · have hIeq : I ∩ Ioi x = Ioo x (sSup I) := hIo.inter_Ioi_eq_Ioo_sSup_of_bddAbove hI hx hb
+    have hcongr : EqOn (fun v ↦ g v * (∫ u in I ∩ Ioi v, g u) ^ k)
+        (fun v ↦ g v * (∫ u in Ioo v (sSup I), g u) ^ k) (I ∩ Ioi x) := fun v hv ↦ by
+      dsimp only
+      rw [hIo.inter_Ioi_eq_Ioo_sSup_of_bddAbove hI hv.1 hb]
+    rw [setIntegral_congr_fun (hI.measurableSet.inter measurableSet_Ioi) hcongr, hIeq]
+    exact (hIeq ▸ hint).integral_Ioo_mul_pow_integral_Ioo k
+  · have hIeq : I ∩ Ioi x = Ioi x := hIo.inter_Ioi_eq_Ioi_of_not_bddAbove hx hb
+    have hcongr : EqOn (fun v ↦ g v * (∫ u in I ∩ Ioi v, g u) ^ k)
+        (fun v ↦ g v * (∫ u in Ioi v, g u) ^ k) (I ∩ Ioi x) := fun v hv ↦ by
+      dsimp only
+      rw [hIo.inter_Ioi_eq_Ioi_of_not_bddAbove hv.1 hb]
+    rw [setIntegral_congr_fun (hI.measurableSet.inter measurableSet_Ioi) hcongr, hIeq]
+    exact (hIeq ▸ hint).integral_Ioi_mul_pow_integral_Ioi k
+
+/-- If `I` is an open interval containing `x` and `g` is integrable on `I ∩ Ioi x`, with tail
+integral `Ψ v = ∫ u in I ∩ Ioi v, g u`, then `v ↦ g v * exp (Ψ v)` is integrable on
+`I ∩ Ioi x`. -/
+theorem mul_exp_integral_inter_Ioi {I : Set ℝ} (hint : IntegrableOn g (I ∩ Ioi x))
+    (hI : IsOpen I) (hIo : I.OrdConnected) (hx : x ∈ I) :
+    IntegrableOn (fun v ↦ g v * Real.exp (∫ u in I ∩ Ioi v, g u)) (I ∩ Ioi x) := by
+  have hmeas : MeasurableSet (I ∩ Ioi x) := hI.measurableSet.inter measurableSet_Ioi
+  have hΨ : ContinuousOn (fun v ↦ ∫ u in I ∩ Ioi v, g u) (I ∩ Ioi x) := by
+    by_cases hb : BddAbove I
+    · have hIeq : I ∩ Ioi x = Ioo x (sSup I) := hIo.inter_Ioi_eq_Ioo_sSup_of_bddAbove hI hx hb
+      rw [hIeq]
+      exact ((hIeq ▸ hint).continuousOn_Icc_primitive_Ioo.mono Ioo_subset_Icc_self).congr
+        fun v hv ↦ by rw [hIo.inter_Ioi_eq_Ioo_sSup_of_bddAbove hI (hIeq.symm.subset hv).1 hb]
+    · have hIeq : I ∩ Ioi x = Ioi x := hIo.inter_Ioi_eq_Ioi_of_not_bddAbove hx hb
+      rw [hIeq]
+      exact ((hIeq ▸ hint).continuousOn_Ici_primitive_Ioi.mono Ioi_subset_Ici_self).congr
+        fun v hv ↦ by rw [hIo.inter_Ioi_eq_Ioi_of_not_bddAbove (hIeq.symm.subset hv).1 hb]
+  refine Integrable.mono' (hint.norm.mul_const (Real.exp (∫ u in I ∩ Ioi x, ‖g u‖)))
+    (hint.aestronglyMeasurable.mul ((Real.continuous_exp.comp_continuousOn hΨ).aestronglyMeasurable
+      hmeas)) ?_
+  filter_upwards [ae_restrict_mem hmeas] with v hv
+  rw [norm_mul, Real.norm_of_nonneg (Real.exp_pos _).le]
+  gcongr
+  have hle : ∫ u in I ∩ Ioi v, g u ≤ ∫ u in I ∩ Ioi v, ‖g u‖ :=
+    (le_abs_self _).trans (by simpa only [Real.norm_eq_abs] using norm_integral_le_integral_norm g)
+  exact hle.trans (setIntegral_mono_set hint.norm (ae_of_all _ fun _ ↦ norm_nonneg _)
+    (inter_subset_inter_right I (Ioi_subset_Ioi hv.2.le)).eventuallySubset)
+
+/-- For `I` an open interval containing `x` and `g` integrable on `I ∩ Ioi x`, with tail integral
+`Ψ v = ∫ u in I ∩ Ioi v, g u`, the integral of `g * exp Ψ` over `I ∩ Ioi x` is
+`exp (Ψ x) - 1`. -/
+theorem integral_inter_Ioi_mul_exp_integral_inter_Ioi {I : Set ℝ}
+    (hint : IntegrableOn g (I ∩ Ioi x)) (hI : IsOpen I) (hIo : I.OrdConnected) (hx : x ∈ I) :
+    ∫ v in I ∩ Ioi x, g v * Real.exp (∫ u in I ∩ Ioi v, g u) =
+      Real.exp (∫ u in I ∩ Ioi x, g u) - 1 := by
+  set Ψ : ℝ → ℝ := fun v ↦ ∫ u in I ∩ Ioi v, g u
+  set M : ℝ := ∫ u in I ∩ Ioi x, ‖g u‖
+  have hmeas : MeasurableSet (I ∩ Ioi x) := hI.measurableSet.inter measurableSet_Ioi
+  have hFk : ∀ k : ℕ, IntegrableOn (fun v ↦ g v * (Ψ v ^ k / k !)) (I ∩ Ioi x) := fun k ↦ by
+    simpa only [IntegrableOn, mul_div_assoc, Ψ] using
+      (hint.mul_pow_integral_inter_Ioi hI hIo hx k).div_const (k ! : ℝ)
+  have hsum : Summable fun k : ℕ ↦ ∫ v in I ∩ Ioi x, ‖g v * (Ψ v ^ k / k !)‖ := by
+    refine Summable.of_nonneg_of_le (fun _ ↦ integral_nonneg fun _ ↦ norm_nonneg _) (fun k ↦ ?_)
+      ((Real.summable_pow_div_factorial M).mul_left M)
+    refine (setIntegral_mono_on (hFk k).norm (hint.norm.mul_const (M ^ k / k !)) hmeas
+      fun v hv ↦ ?_).trans_eq (by rw [integral_mul_const])
+    rw [norm_mul, norm_div, norm_pow, Real.norm_natCast]
+    have hΨle : ‖Ψ v‖ ≤ M := (norm_integral_le_integral_norm _).trans
+      (setIntegral_mono_set hint.norm (ae_of_all _ fun _ ↦ norm_nonneg _)
+        (inter_subset_inter_right I (Ioi_subset_Ioi hv.2.le)).eventuallySubset)
+    gcongr
+  have hser := hasSum_integral_of_summable_integral_norm hFk hsum
+  have hinner (v : ℝ) : ∑' k : ℕ, g v * (Ψ v ^ k / k !) = g v * Real.exp (Ψ v) := by
+    rw [tsum_mul_left, Real.exp_eq_exp_ℝ, (NormedSpace.expSeries_div_hasSum_exp (Ψ v)).tsum_eq]
+  have hterm (k : ℕ) : ∫ v in I ∩ Ioi x, g v * (Ψ v ^ k / k !) = Ψ x ^ (k + 1) / (k + 1)! := by
+    have hfun : (fun v ↦ g v * (Ψ v ^ k / k !)) = fun v ↦ g v * Ψ v ^ k / k ! := by
+      ext v; ring
+    rw [hfun, integral_div, hint.integral_inter_Ioi_mul_pow_integral_inter_Ioi hI hIo hx k,
+      Nat.factorial_succ]
+    dsimp only [Ψ]
+    push_cast
+    field_simp
+  simp_rw [hinner, hterm] at hser
+  have hexp : HasSum (fun k : ℕ ↦ Ψ x ^ (k + 1) / (k + 1)!) (Real.exp (Ψ x) - 1) := by
+    have h0 : HasSum (fun k : ℕ ↦ Ψ x ^ k / k !) (Real.exp (Ψ x)) := by
+      rw [Real.exp_eq_exp_ℝ]; exact NormedSpace.expSeries_div_hasSum_exp (Ψ x)
+    simpa [add_comm] using (hasSum_nat_add_iff' (f := fun k : ℕ ↦ Ψ x ^ k / k !) 1).2 h0
+  exact hser.unique hexp
+
+/-- If `g` is integrable on `(x, ∞)`, with tail integral `Ψ v = ∫ u in Ioi v, g u`, then
+`v ↦ g v * exp (Ψ v)` is integrable on `(x, ∞)`. -/
+theorem mul_exp_integral_Ioi (hint : IntegrableOn g (Ioi x)) :
+    IntegrableOn (fun v ↦ g v * Real.exp (∫ u in Ioi v, g u)) (Ioi x) := by
+  have hint' : IntegrableOn g (univ ∩ Ioi x) := by simpa only [univ_inter] using hint
+  simpa only [univ_inter] using
+    hint'.mul_exp_integral_inter_Ioi isOpen_univ ordConnected_univ (mem_univ x)
+
+/-- For `g` integrable on `(x, ∞)`, with tail integral `Ψ v = ∫ u in Ioi v, g u`, the integral
+of `g * exp Ψ` over `(x, ∞)` is `exp (Ψ x) - 1`. -/
+theorem integral_Ioi_mul_exp_integral_Ioi (hint : IntegrableOn g (Ioi x)) :
+    ∫ v in Ioi x, g v * Real.exp (∫ u in Ioi v, g u) = Real.exp (∫ u in Ioi x, g u) - 1 := by
+  have hint' : IntegrableOn g (univ ∩ Ioi x) := by simpa only [univ_inter] using hint
+  simpa only [univ_inter] using
+    hint'.integral_inter_Ioi_mul_exp_integral_inter_Ioi isOpen_univ ordConnected_univ (mem_univ x)
+
+/-- If `g` is integrable on `(x, b)`, with tail integral `Ψ v = ∫ u in Ioo v b, g u`, then
+`v ↦ g v * exp (Ψ v)` is integrable on `(x, b)`. -/
+theorem mul_exp_integral_Ioo (hint : IntegrableOn g (Ioo x b)) :
+    IntegrableOn (fun v ↦ g v * Real.exp (∫ u in Ioo v b, g u)) (Ioo x b) := by
+  rcases le_or_gt b x with hbx | hxb
+  · rw [Ioo_eq_empty_of_le hbx]; exact integrableOn_empty
+  have hIeq (v : ℝ) : Iio b ∩ Ioi v = Ioo v b := by rw [inter_comm, Ioi_inter_Iio]
+  have hint' : IntegrableOn g (Iio b ∩ Ioi x) := by simpa only [hIeq] using hint
+  simpa only [hIeq] using hint'.mul_exp_integral_inter_Ioi isOpen_Iio ordConnected_Iio hxb
+
+/-- For `g` integrable on `(x, b)`, with tail integral `Ψ v = ∫ u in Ioo v b, g u`, the integral
+of `g * exp Ψ` over `(x, b)` is `exp (Ψ x) - 1`. -/
+theorem integral_Ioo_mul_exp_integral_Ioo (hint : IntegrableOn g (Ioo x b)) :
+    ∫ v in Ioo x b, g v * Real.exp (∫ u in Ioo v b, g u) = Real.exp (∫ u in Ioo x b, g u) - 1 := by
+  rcases le_or_gt b x with hbx | hxb
+  · simp [Ioo_eq_empty_of_le hbx]
+  have hIeq (v : ℝ) : Iio b ∩ Ioi v = Ioo v b := by rw [inter_comm, Ioi_inter_Iio]
+  have hint' : IntegrableOn g (Iio b ∩ Ioi x) := by simpa only [hIeq] using hint
+  simpa only [hIeq] using
+    hint'.integral_inter_Ioi_mul_exp_integral_inter_Ioi isOpen_Iio ordConnected_Iio hxb
+
 end Real
 
 end MeasureTheory.IntegrableOn
 
 namespace MeasureTheory
 
+/-- If `f` is nonnegative on a measurable set `I` and integrable on `I ∩ Ioi x` for every `x ∈ I`,
+then its tail integral `x ↦ ∫ v in I ∩ Ioi x, f v ∂μ` is antitone on `I`. -/
+theorem antitoneOn_integral_inter_Ioi {f : ℝ → ℝ} {I : Set ℝ} {μ : Measure ℝ}
+    (hI : MeasurableSet I) (hf : ∀ v ∈ I, 0 ≤ f v)
+    (hint : ∀ x ∈ I, IntegrableOn f (I ∩ Ioi x) μ) :
+    AntitoneOn (fun x ↦ ∫ v in I ∩ Ioi x, f v ∂μ) I := fun x hx _ _ hxy ↦
+  setIntegral_mono_set (hint x hx) ((ae_restrict_iff' (hI.inter measurableSet_Ioi)).2
+    (ae_of_all _ fun v hv ↦ hf v hv.1))
+    (inter_subset_inter_right I (Ioi_subset_Ioi hxy)).eventuallySubset
+
 /-- If `f` is nonnegative on `(a, ∞)` and integrable on `(x, ∞)` for every `x > a`, then its tail
-integral `x ↦ ∫ v in Ioi x, f v` is antitone on `(a, ∞)`. -/
-theorem antitoneOn_integral_Ioi {f : ℝ → ℝ} {a : ℝ} (hf : ∀ v ∈ Ioi a, 0 ≤ f v)
-    (hint : ∀ x ∈ Ioi a, IntegrableOn f (Ioi x)) :
-    AntitoneOn (fun x ↦ ∫ v in Ioi x, f v) (Ioi a) := fun x (hx : a < x) _ _ hxy ↦
-  setIntegral_mono_set (hint x hx) ((ae_restrict_iff' measurableSet_Ioi).2
-    (ae_of_all _ fun v hv ↦ hf v (hx.trans hv))) (Ioi_subset_Ioi hxy).eventuallySubset
+integral `x ↦ ∫ v in Ioi x, f v ∂μ` is antitone on `(a, ∞)`. -/
+theorem antitoneOn_integral_Ioi {f : ℝ → ℝ} {a : ℝ} {μ : Measure ℝ} (hf : ∀ v ∈ Ioi a, 0 ≤ f v)
+    (hint : ∀ x ∈ Ioi a, IntegrableOn f (Ioi x) μ) :
+    AntitoneOn (fun x ↦ ∫ v in Ioi x, f v ∂μ) (Ioi a) := fun x hx y hy hxy ↦ by
+  have heq (z : ℝ) (hz : z ∈ Ioi a) : Ioi a ∩ Ioi z = Ioi z := by
+    rw [Ioi_inter_Ioi, sup_eq_right.2 hz.le]
+  simpa only [heq x hx, heq y hy] using antitoneOn_integral_inter_Ioi measurableSet_Ioi hf
+    (fun z hz ↦ by rw [heq z hz]; exact hint z hz) hx hy hxy
+
+/-- If `f` is nonnegative on `(a, b)` and integrable on `(x, b)` for every `x ∈ (a, b)`, then its
+tail integral `x ↦ ∫ v in Ioo x b, f v ∂μ` is antitone on `(a, b)`. -/
+theorem antitoneOn_integral_Ioo {f : ℝ → ℝ} {a b : ℝ} {μ : Measure ℝ}
+    (hf : ∀ v ∈ Ioo a b, 0 ≤ f v) (hint : ∀ x ∈ Ioo a b, IntegrableOn f (Ioo x b) μ) :
+    AntitoneOn (fun x ↦ ∫ v in Ioo x b, f v ∂μ) (Ioo a b) := fun x hx y hy hxy ↦ by
+  have heq (z : ℝ) (hz : z ∈ Ioo a b) : Ioo a b ∩ Ioi z = Ioo z b := by
+    rw [← Ioi_inter_Iio, inter_right_comm, Ioi_inter_Ioi, sup_eq_right.2 hz.1.le, Ioi_inter_Iio]
+  simpa only [heq x hx, heq y hy] using antitoneOn_integral_inter_Ioi measurableSet_Ioo hf
+    (fun z hz ↦ by rw [heq z hz]; exact hint z hz) hx hy hxy
 
 end MeasureTheory
 

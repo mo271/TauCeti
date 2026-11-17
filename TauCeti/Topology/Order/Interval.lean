@@ -46,6 +46,10 @@ A path that starts in an open set and leaves it has a first exit time.
   interval around it.
 * `Set.OrdConnected.eq_Ici_or_eq_Iic_or_eq_univ` — classification of nonempty closed unbounded
   order-connected sets.
+* `Set.OrdConnected.inter_Ioi_eq_Ioi_of_not_bddAbove`,
+  `Set.OrdConnected.inter_Ioi_eq_Ioo_sSup_of_bddAbove`,
+  `Set.OrdConnected.inter_Ioi_eq_Ioc_union` — description and splitting of upper tails `s ∩ Ioi x`
+  of an order-connected set `s`.
 * `ContinuousOn.apply_ne_apply_of_injOn_Ico` — a continuous function injective on `[a, b)` takes
   different values at `a` and `b`.
 * `ContinuousOn.image_Ici_of_strictMonoOn_of_tendsto` — a continuous strictly increasing map on
@@ -149,6 +153,46 @@ theorem _root_.Set.OrdConnected.eq_Ici_or_eq_Iic_or_eq_univ
       obtain ⟨y, hy, hyx⟩ := not_bddBelow_iff.1 hbelow x
       obtain ⟨z, hz, hxz⟩ := not_bddAbove_iff.1 habove x
       exact hs.out hy hz ⟨hyx.le, hxz.le⟩
+
+/-- The upper tail `s ∩ Ioi x` of an order-connected set `s` not bounded above is `Ioi x`. -/
+theorem _root_.Set.OrdConnected.inter_Ioi_eq_Ioi_of_not_bddAbove {α : Type*} [LinearOrder α]
+    {s : Set α} (hs : s.OrdConnected) {x : α} (hx : x ∈ s) (hnb : ¬ BddAbove s) :
+    s ∩ Ioi x = Ioi x := by
+  refine subset_antisymm inter_subset_right fun v (hv : x < v) ↦ ⟨?_, hv⟩
+  obtain ⟨y, hys, hvy⟩ := not_bddAbove_iff.1 hnb v
+  exact hs.out hx hys ⟨hv.le, hvy.le⟩
+
+/-- The upper tail `s ∩ Ioi x` of a bounded-above open order-connected set `s` containing `x` is
+`Ioo x (sSup s)`. -/
+theorem _root_.Set.OrdConnected.inter_Ioi_eq_Ioo_sSup_of_bddAbove {α : Type*}
+    [ConditionallyCompleteLinearOrder α] [TopologicalSpace α] [OrderTopology α]
+    [DenselyOrdered α] [NoMaxOrder α] {s : Set α} (hs : s.OrdConnected) (hopen : IsOpen s)
+    {x : α} (hx : x ∈ s) (hb : BddAbove s) : s ∩ Ioi x = Ioo x (sSup s) := by
+  apply subset_antisymm
+  · rintro v ⟨hvs, hxv⟩
+    refine ⟨hxv, ?_⟩
+    obtain ⟨u, hvu, huv⟩ := exists_Ico_subset_of_mem_nhds (hopen.mem_nhds hvs) (exists_gt v)
+    obtain ⟨w, hvw, hwu⟩ := exists_between hvu
+    exact lt_of_lt_of_le hvw (le_csSup hb (huv ⟨hvw.le, hwu⟩))
+  · rintro v ⟨hxv, hvs⟩
+    obtain ⟨y, hys, hvy⟩ := exists_lt_of_lt_csSup ⟨x, hx⟩ hvs
+    exact ⟨hs.out hx hys ⟨hxv.le, hvy.le⟩, hxv⟩
+
+/-- Splitting an upper tail of an order-connected set `s` at `y ≥ x`:
+`s ∩ Ioi x = Ioc x y ∪ (s ∩ Ioi y)`. -/
+theorem _root_.Set.OrdConnected.inter_Ioi_eq_Ioc_union {α : Type*} [LinearOrder α]
+    {s : Set α} (hs : s.OrdConnected) {x y : α} (hx : x ∈ s) (hy : y ∈ s) (hxy : x ≤ y) :
+    s ∩ Ioi x = Ioc x y ∪ (s ∩ Ioi y) := by
+  ext v
+  simp only [mem_inter_iff, mem_Ioi, mem_union, mem_Ioc]
+  constructor
+  · rintro ⟨hvs, hxv⟩
+    rcases le_or_gt v y with hvy | hyv
+    · exact Or.inl ⟨hxv, hvy⟩
+    · exact Or.inr ⟨hvs, hyv⟩
+  · rintro (⟨hxv, hvy⟩ | ⟨hvs, hyv⟩)
+    · exact ⟨hs.out hx hy ⟨hxv.le, hvy⟩, hxv⟩
+    · exact ⟨hvs, hxy.trans_lt hyv⟩
 
 /-- **A continuous strictly increasing map sends a half-line to a half-open interval.** The finite
 limit at `+∞` is approached but is not attained. -/
