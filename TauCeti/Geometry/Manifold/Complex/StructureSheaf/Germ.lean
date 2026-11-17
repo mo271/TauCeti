@@ -33,7 +33,8 @@ homomorphism `TauCeti.holomorphicStructureSheaf.toFilterGerm I X x l hl` and pro
   complex normed space, `exists_analyticAt_toFilterGerm_eq`, `exists_toFilterGerm_eq_of_analyticAt`,
   and `exists_toFilterGerm_nhds_eq_iff_analyticAt` express this directly via `AnalyticAt`);
 * `eval_eq_of_toFilterGerm_eq`: the value of a holomorphic germ is the value of any function
-  with the same germ;
+  with the same germ; at an isolated point (`𝓝 x = pure x`), evaluation is a ring isomorphism
+  onto `ℂ` (`eval_bijective_of_nhds_eq_pure`, `evalEquivOfNhdsEqPure`);
 * `toFilterGerm_stalkPrecomp`: pulling a holomorphic germ back along a complex analytic map `f`
   is composition of germs with `f`;
 * `quotientMk_comp_stalkPrecomp_bijective`: if an ideal of germs at `p` on a normed space consists
@@ -253,6 +254,40 @@ theorem eval_eq_of_toFilterGerm_eq {x : X} {s : (holomorphicStructureSheaf I X).
 theorem eval_germOfContMDiff (f : X → ℂ) (hf : ContMDiff I 𝓘(ℂ) ω f) (x : X) :
     eval I X x (germOfContMDiff f hf x) = f x :=
   eval_eq_of_toFilterGerm_eq (toFilterGerm_germOfContMDiff f hf le_rfl)
+
+variable (I X) in
+/-- At an isolated point (`𝓝 x = pure x`), evaluation identifies the holomorphic stalk at `x`
+bijectively with `ℂ`. -/
+theorem eval_bijective_of_nhds_eq_pure {x : X} (hx : 𝓝 x = pure x) :
+    Bijective (eval I X x) := by
+  refine ⟨(injective_iff_map_eq_zero _).2 fun s hs ↦ ?_, eval_surjective I X x⟩
+  obtain ⟨φ, -, hφ⟩ := exists_toFilterGerm_eq x s
+  refine (eq_zero_iff_of_toFilterGerm_eq (hφ _ le_rfl)).2 ?_
+  rw [EventuallyEq, hx, Filter.eventually_pure]
+  exact (eval_eq_of_toFilterGerm_eq (hφ _ le_rfl)).symm.trans hs
+
+variable (I X) in
+/-- At an isolated point (`𝓝 x = pure x`), evaluation is a ring isomorphism from the holomorphic
+stalk at `x` to `ℂ`. -/
+def evalEquivOfNhdsEqPure {x : X} (hx : 𝓝 x = pure x) :
+    (holomorphicStructureSheaf I X).presheaf.stalk x ≃+* ℂ :=
+  RingEquiv.ofBijective (eval I X x) (eval_bijective_of_nhds_eq_pure I X hx)
+
+/-- `evalEquivOfNhdsEqPure` acts as evaluation at the base point. -/
+@[simp]
+theorem evalEquivOfNhdsEqPure_apply {x : X} (hx : 𝓝 x = pure x)
+    (s : (holomorphicStructureSheaf I X).presheaf.stalk x) :
+    evalEquivOfNhdsEqPure I X hx s = eval I X x s := by
+  rfl
+
+/-- The inverse of `evalEquivOfNhdsEqPure` sends a scalar `c : ℂ` to the germ of the constant
+function `c`. -/
+@[simp]
+theorem evalEquivOfNhdsEqPure_symm_apply {x : X} (hx : 𝓝 x = pure x) (c : ℂ) :
+    (evalEquivOfNhdsEqPure I X hx).symm c =
+      germOfContMDiff (I := I) (X := X) (fun _ ↦ c) contMDiff_const x := by
+  apply (evalEquivOfNhdsEqPure I X hx).injective
+  rw [RingEquiv.apply_symm_apply, evalEquivOfNhdsEqPure_apply, eval_germOfContMDiff]
 
 variable {E' : Type*} [NormedAddCommGroup E'] [NormedSpace ℂ E']
   {H' : Type*} [TopologicalSpace H'] {J : ModelWithCorners ℂ E' H'}

@@ -18,11 +18,13 @@ holomorphic extension of the map. Equality, evaluation and composition are chara
 through the injective comparison with function germs. The two pullbacks agree when both apply.
 Pullback along a map with a local analytic inverse, such as a chart, is bijective
 (`stalkPullback_bijective`), in particular pullback along a continuous linear equivalence
-(`ContinuousLinearEquiv.holomorphicStalkPullback_bijective`) and along a chart followed by one
-(`stalkPullback_comp_extChartAt_bijective`), which identifies a stalk of a finite-dimensional
-manifold with a stalk of a model space in `Type` (`exists_ringEquiv_stalk_modelSpace`).
-On the complex line, `eventually_contMDiffAt_of_analyticAt` supplies the local hypothesis
-from `AnalyticAt`.
+(`ContinuousLinearEquiv.holomorphicStalkPullback_bijective`), its point-fixing affine version
+`y ↦ p + L (y - p)` giving a ring automorphism of the stalk at `p`
+(`ContinuousLinearEquiv.holomorphicStalkAut`), and along a chart followed by a continuous linear
+equivalence (`stalkPullback_comp_extChartAt_bijective`), which identifies a stalk of a
+finite-dimensional manifold with a stalk of a model space in `Type`
+(`exists_ringEquiv_stalk_modelSpace`). On the complex line, `eventually_contMDiffAt_of_analyticAt`
+supplies the local hypothesis from `AnalyticAt`.
 -/
 
 public noncomputable section
@@ -215,7 +217,7 @@ end TauCeti.holomorphicStructureSheaf
 
 namespace ContinuousLinearEquiv
 
-open TauCeti.holomorphicStructureSheaf
+open TauCeti TauCeti.holomorphicStructureSheaf
 
 variable {V W : Type} [NormedAddCommGroup V] [NormedSpace ℂ V] [NormedAddCommGroup W]
   [NormedSpace ℂ W]
@@ -226,5 +228,85 @@ theorem holomorphicStalkPullback_bijective (e : V ≃L[ℂ] W) (x : V) :
       (Eventually.of_forall fun _ ↦ e.contDiff.contMDiff.contMDiffAt)) :=
   stalkPullback_bijective _ (Eventually.of_forall fun _ ↦ e.symm.contDiff.contMDiff.contMDiffAt)
     (Eventually.of_forall e.symm_apply_apply) (Eventually.of_forall e.apply_symm_apply)
+
+private theorem contMDiffAt_affineEquiv (L : V ≃L[ℂ] V) (p y : V) :
+    ContMDiffAt 𝓘(ℂ, V) 𝓘(ℂ, V) ω (fun z : V ↦ p + L (z - p)) y :=
+  (contDiff_const.add (L.contDiff.comp (contDiff_id.sub contDiff_const))).contMDiff.contMDiffAt
+
+/-- The ring automorphism of the holomorphic stalk at `p` induced by the point-fixing affine
+change of coordinates `y ↦ p + L (y - p)`. -/
+def holomorphicStalkAut (L : V ≃L[ℂ] V) (p : V) :
+    (holomorphicStructureSheaf 𝓘(ℂ, V) V).presheaf.stalk p ≃+*
+      (holomorphicStructureSheaf 𝓘(ℂ, V) V).presheaf.stalk p :=
+  (RingEquiv.cast (R := fun z ↦ (holomorphicStructureSheaf 𝓘(ℂ, V) V).presheaf.stalk z)
+    (by simp : p = p + L (p - p))).trans
+    (RingEquiv.ofBijective _ (stalkPullback_bijective
+      (hf := Eventually.of_forall (contMDiffAt_affineEquiv L p))
+      (g := fun z : V ↦ p + L.symm (z - p))
+      (Eventually.of_forall (contMDiffAt_affineEquiv L.symm p))
+      (Eventually.of_forall fun z ↦ by simp)
+      (Eventually.of_forall fun z ↦ by simp)))
+
+/-- The function germ of a holomorphic germ pulled back by `L.holomorphicStalkAut p` is its
+composition with `y ↦ p + L (y - p)`. -/
+@[simp]
+theorem toFilterGerm_holomorphicStalkAut (L : V ≃L[ℂ] V) (p : V)
+    (s : (holomorphicStructureSheaf 𝓘(ℂ, V) V).presheaf.stalk p) :
+    toFilterGerm 𝓘(ℂ, V) V p (𝓝 p) le_rfl (L.holomorphicStalkAut p s) =
+      (toFilterGerm 𝓘(ℂ, V) V p (𝓝 p) le_rfl s).compTendsto (fun y ↦ p + L (y - p))
+        ((continuous_const.add (L.continuous.comp (continuous_id.sub continuous_const))).tendsto'
+          p p (by simp)) := by
+  obtain ⟨F, -, hF⟩ := exists_toFilterGerm_eq p s
+  have hcast := toFilterGerm_ringEquivCast (I := 𝓘(ℂ, V)) (by simp : p = p + L (p - p))
+    (hF _ le_rfl)
+  simp only [holomorphicStalkAut, RingEquiv.trans_apply, RingEquiv.ofBijective_apply,
+    toFilterGerm_stalkPullback, hcast, hF _ le_rfl, Germ.coe_compTendsto]
+
+/-- `L.holomorphicStalkAut p` preserves the value of a holomorphic germ at `p`. -/
+@[simp]
+theorem eval_holomorphicStalkAut (L : V ≃L[ℂ] V) (p : V)
+    (s : (holomorphicStructureSheaf 𝓘(ℂ, V) V).presheaf.stalk p) :
+    eval 𝓘(ℂ, V) V p (L.holomorphicStalkAut p s) = eval 𝓘(ℂ, V) V p s := by
+  obtain ⟨F, -, hF⟩ := exists_toFilterGerm_eq p s
+  have h := toFilterGerm_holomorphicStalkAut L p s
+  rw [hF _ le_rfl, Germ.coe_compTendsto] at h
+  exact (eval_eq_of_toFilterGerm_eq h).trans
+    (by simp [eval_eq_of_toFilterGerm_eq (hF _ le_rfl)])
+
+/-- The identity linear equivalence induces the identity automorphism of the holomorphic stalk. -/
+@[simp]
+theorem holomorphicStalkAut_refl (p : V) :
+    (ContinuousLinearEquiv.refl ℂ V).holomorphicStalkAut p = RingEquiv.refl _ := by
+  ext s
+  apply toFilterGerm_nhds_injective p
+  obtain ⟨F, -, hF⟩ := exists_toFilterGerm_eq p s
+  rw [toFilterGerm_holomorphicStalkAut, hF _ le_rfl, Germ.coe_compTendsto, RingEquiv.refl_apply,
+    hF _ le_rfl, Germ.coe_eq]
+  exact Eventually.of_forall fun y ↦ by simp
+
+/-- Composition of linear equivalences acts contravariantly on holomorphic stalks via
+`holomorphicStalkAut`. -/
+@[simp]
+theorem holomorphicStalkAut_trans (L₁ L₂ : V ≃L[ℂ] V) (p : V) :
+    (L₁.trans L₂).holomorphicStalkAut p =
+      (L₂.holomorphicStalkAut p).trans (L₁.holomorphicStalkAut p) := by
+  ext s
+  apply toFilterGerm_nhds_injective p
+  obtain ⟨F, -, hF⟩ := exists_toFilterGerm_eq p s
+  rw [RingEquiv.trans_apply, toFilterGerm_holomorphicStalkAut, toFilterGerm_holomorphicStalkAut,
+    toFilterGerm_holomorphicStalkAut, hF _ le_rfl, Germ.coe_compTendsto, Germ.coe_compTendsto,
+    Germ.coe_compTendsto, Germ.coe_eq]
+  exact Eventually.of_forall fun y ↦ by simp
+
+/-- The inverse of `L.holomorphicStalkAut p` is `L.symm.holomorphicStalkAut p`. -/
+@[simp]
+theorem holomorphicStalkAut_symm (L : V ≃L[ℂ] V) (p : V) :
+    (L.holomorphicStalkAut p).symm = L.symm.holomorphicStalkAut p := by
+  ext s
+  apply (L.holomorphicStalkAut p).injective
+  rw [RingEquiv.apply_symm_apply]
+  have h := RingEquiv.congr_fun (holomorphicStalkAut_trans L L.symm p) s
+  simpa only [RingEquiv.trans_apply, ContinuousLinearEquiv.self_trans_symm,
+    holomorphicStalkAut_refl, RingEquiv.refl_apply] using h
 
 end ContinuousLinearEquiv

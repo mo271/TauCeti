@@ -8,9 +8,13 @@ module
 public import Mathlib.Algebra.Polynomial.Coeff
 public import Mathlib.Data.Nat.Multiplicity
 public import Mathlib.RingTheory.Polynomial.Eisenstein.Distinguished
+public import Mathlib.RingTheory.UniqueFactorizationDomain.Defs
+-- Private: Mathlib's radical-coefficient divisor lemma and monic-factorization lemmas.
+import Mathlib.RingTheory.IntegralClosure.GoingDown
+import TauCeti.RingTheory.Polynomial.Monic.Basic
 
 /-!
-# The polynomial `(1 + X) ^ n - 1`
+# The polynomial `(1 + X) ^ n - 1` and distinguished polynomials
 
 The polynomial `(1 + X) ^ n - 1` over a ring `R` is monic of degree `n` for `n ≠ 0`,
 with constant coefficient `0` and, for `0 < k`, `k`-th coefficient the binomial coefficient
@@ -28,7 +32,12 @@ completed group algebra `ℤ_p[[Γ]]` of a procyclic pro-`p` group `Γ`: at a le
 
 For a general polynomial `F` distinguished at an ideal `I` with `I ^ e ⊆ (p)`, every root `t` of
 `F` in an `O`-algebra satisfies `t ^ deg F ∈ I`, hence `p ∣ t ^ (deg F * e)`. Distinguished
-polynomials at `I` are closed under finite products, including the empty product `1`.
+polynomials at `I` are closed under finite products, including the empty product `1`. Conversely,
+by `Polynomial.coeff_mem_radical_span_coeff_of_dvd`, any monic divisor of a polynomial
+distinguished at `I` is distinguished at `I.radical` (hence at `I` itself when `I` is radical).
+Consequently, over a commutative ring without zero divisors, every polynomial distinguished at a
+radical ideal factors as a product of irreducible distinguished polynomials, and uniquely so when
+the polynomial ring is a unique factorization monoid.
 
 ## Main results
 
@@ -40,8 +49,19 @@ polynomials at `I` are closed under finite products, including the empty product
 * `Polynomial.IsDistinguishedAt.natCast_dvd_pow_of_aeval_eq_zero`: a root `t` of a polynomial `F`
   distinguished at `I`, with `I ^ e ⊆ (p)`, satisfies `p ∣ t ^ (deg F * e)`.
 * `Polynomial.isDistinguishedAt_one`, `Polynomial.IsDistinguishedAt.pow`,
-  `Polynomial.isDistinguishedAt_prod`: `1`, powers and finite products of distinguished
-  polynomials are distinguished.
+  `Polynomial.isDistinguishedAt_prod`, `Polynomial.isDistinguishedAt_multiset_prod`: `1`, powers,
+  finite products and multiset products of distinguished polynomials are distinguished.
+* `Polynomial.IsDistinguishedAt.mono`: distinguishedness is monotone in the ideal.
+* `Polynomial.IsDistinguishedAt.of_dvd_radical`, `Polynomial.IsDistinguishedAt.of_dvd`,
+  `Polynomial.IsDistinguishedAt.mul_iff`: monic divisors of a distinguished polynomial at `I` are
+  distinguished at `I.radical` (and at `I` when `I` is radical).
+* `Polynomial.IsDistinguishedAt.existsUnique_associated_radical_of_dvd`,
+  `Polynomial.IsDistinguishedAt.existsUnique_associated_of_dvd`: over a commutative ring without
+  zero divisors, every divisor of a distinguished polynomial is associated to a unique
+  distinguished polynomial.
+* `Polynomial.IsDistinguishedAt.exists_multiset_irreducible_prod_eq`,
+  `Polynomial.IsDistinguishedAt.existsUnique_multiset_irreducible_prod_eq`: factorization of a
+  distinguished polynomial into irreducible distinguished polynomials over a radical ideal.
 -/
 
 public section
@@ -116,6 +136,12 @@ theorem isDistinguishedAt_prod {ι : Type*} {s : Finset ι} {f : ι → R[X]}
   Finset.prod_induction f (·.IsDistinguishedAt I) (fun _ _ ↦ IsDistinguishedAt.mul)
     isDistinguishedAt_one hf
 
+/-- A multiset product of distinguished polynomials is distinguished. -/
+theorem isDistinguishedAt_multiset_prod {s : Multiset R[X]}
+    (hf : ∀ f ∈ s, f.IsDistinguishedAt I) : s.prod.IsDistinguishedAt I :=
+  Multiset.prod_induction (·.IsDistinguishedAt I) s (fun _ _ ↦ IsDistinguishedAt.mul)
+    isDistinguishedAt_one hf
+
 end Polynomial
 
 namespace Polynomial.IsDistinguishedAt
@@ -133,5 +159,83 @@ theorem natCast_dvd_pow_of_aeval_eq_zero (hF : F.IsDistinguishedAt I)
     rw [pow_mul]
     exact Ideal.map_mono hI (Ideal.map_pow (algebraMap O S) I e ▸ Ideal.pow_mem_pow h e)
   rwa [Ideal.map_span, Set.image_singleton, map_natCast, Ideal.mem_span_singleton] at h'
+
+/-- A polynomial distinguished at `I` is distinguished at every ideal containing `I`. -/
+theorem mono {J : Ideal O} (hF : F.IsDistinguishedAt I) (hIJ : I ≤ J) :
+    F.IsDistinguishedAt J :=
+  ⟨⟨fun hn ↦ hIJ (hF.mem hn)⟩, hF.monic⟩
+
+/-- A monic divisor of a polynomial distinguished at `I` is distinguished at `I.radical`. -/
+theorem of_dvd_radical {G : O[X]} (hF : F.IsDistinguishedAt I) (hG : G.Monic) (hdvd : G ∣ F) :
+    G.IsDistinguishedAt I.radical :=
+  ⟨⟨fun {i} hi ↦ Ideal.radical_mono
+    (Ideal.span_le.mpr (by rintro _ ⟨j, hj, rfl⟩; exact hF.mem hj))
+    (Polynomial.coeff_mem_radical_span_coeff_of_dvd F G hF.monic hG hdvd i hi.ne)⟩, hG⟩
+
+/-- Over a radical ideal `I`, every monic divisor of a polynomial distinguished at `I` is
+distinguished at `I`. -/
+theorem of_dvd {G : O[X]} (hF : F.IsDistinguishedAt I) (hI : I.IsRadical) (hG : G.Monic)
+    (hdvd : G ∣ F) : G.IsDistinguishedAt I :=
+  hI.radical ▸ hF.of_dvd_radical hG hdvd
+
+/-- Over a radical ideal `I`, the product of two monic polynomials is distinguished at `I` if and
+only if both factors are. -/
+theorem mul_iff {G : O[X]} (hI : I.IsRadical) (hF : F.Monic) (hG : G.Monic) :
+    (F * G).IsDistinguishedAt I ↔ F.IsDistinguishedAt I ∧ G.IsDistinguishedAt I :=
+  ⟨fun h ↦ ⟨h.of_dvd hI hF (dvd_mul_right F G), h.of_dvd hI hG (dvd_mul_left G F)⟩,
+    fun ⟨h₁, h₂⟩ ↦ h₁.mul h₂⟩
+
+/-- Over a commutative ring without zero divisors, every divisor of a polynomial distinguished at
+`I` is associated to a unique polynomial distinguished at `I.radical`. -/
+theorem existsUnique_associated_radical_of_dvd [NoZeroDivisors O] {d : O[X]}
+    (hF : F.IsDistinguishedAt I) (hd : d ∣ F) :
+    ∃! G : O[X], G.IsDistinguishedAt I.radical ∧ Associated d G := by
+  obtain ⟨G, ⟨hGmon, hassoc⟩, huniq⟩ := hF.monic.existsUnique_associated_of_dvd hd
+  refine ⟨G, ⟨hF.of_dvd_radical hGmon (hassoc.symm.dvd.trans hd), hassoc⟩, ?_⟩
+  rintro G' ⟨hG', hG'assoc⟩
+  exact huniq G' ⟨hG'.monic, hG'assoc⟩
+
+/-- Over a commutative ring without zero divisors, every divisor of a polynomial distinguished at a
+radical ideal `I` is associated to a unique polynomial distinguished at `I`. -/
+theorem existsUnique_associated_of_dvd [NoZeroDivisors O] {d : O[X]}
+    (hF : F.IsDistinguishedAt I) (hI : I.IsRadical) (hd : d ∣ F) :
+    ∃! G : O[X], G.IsDistinguishedAt I ∧ Associated d G :=
+  hI.radical ▸ hF.existsUnique_associated_radical_of_dvd hd
+
+/-- Over a commutative ring without zero divisors, every polynomial distinguished at a radical
+ideal `I` factors as a multiset product of irreducible polynomials distinguished at `I`. -/
+theorem exists_multiset_irreducible_prod_eq [NoZeroDivisors O]
+    (hF : F.IsDistinguishedAt I) (hI : I.IsRadical) :
+    ∃ s : Multiset O[X], (∀ G ∈ s, G.IsDistinguishedAt I ∧ Irreducible G) ∧ s.prod = F := by
+  obtain ⟨s, hs, rfl⟩ := hF.monic.exists_multiset_irreducible_prod_eq
+  exact ⟨s, fun G hG ↦
+    ⟨hF.of_dvd hI (hs G hG).1 (Multiset.dvd_prod hG), (hs G hG).2⟩, rfl⟩
+
+/-- Over a commutative ring without zero divisors, every polynomial distinguished at `I` factors
+as a multiset product of irreducible polynomials distinguished at `I.radical`. -/
+theorem exists_multiset_irreducible_radical_prod_eq [NoZeroDivisors O]
+    (hF : F.IsDistinguishedAt I) :
+    ∃ s : Multiset O[X], (∀ G ∈ s, G.IsDistinguishedAt I.radical ∧ Irreducible G) ∧ s.prod = F :=
+  (hF.mono Ideal.le_radical).exists_multiset_irreducible_prod_eq (Ideal.radical_isRadical I)
+
+/-- Over a commutative ring without zero divisors whose polynomial ring is a unique factorization
+monoid, every polynomial distinguished at a radical ideal `I` factors uniquely as a multiset
+product of irreducible polynomials distinguished at `I`. -/
+theorem existsUnique_multiset_irreducible_prod_eq [NoZeroDivisors O]
+    [UniqueFactorizationMonoid O[X]] (hF : F.IsDistinguishedAt I) (hI : I.IsRadical) :
+    ∃! s : Multiset O[X], (∀ G ∈ s, G.IsDistinguishedAt I ∧ Irreducible G) ∧ s.prod = F := by
+  obtain ⟨s, ⟨hs, hsprod⟩, huniq⟩ := hF.monic.existsUnique_multiset_irreducible_prod_eq
+  refine ⟨s, ⟨fun G hG ↦ ⟨hF.of_dvd hI (hs G hG).1 (hsprod ▸ Multiset.dvd_prod hG), (hs G hG).2⟩,
+    hsprod⟩, ?_⟩
+  rintro t ⟨ht, htprod⟩
+  exact huniq t ⟨fun G hG ↦ ⟨(ht G hG).1.monic, (ht G hG).2⟩, htprod⟩
+
+/-- Over a commutative ring without zero divisors whose polynomial ring is a unique factorization
+monoid, every polynomial distinguished at `I` factors uniquely as a multiset product of irreducible
+polynomials distinguished at `I.radical`. -/
+theorem existsUnique_multiset_irreducible_radical_prod_eq [NoZeroDivisors O]
+    [UniqueFactorizationMonoid O[X]] (hF : F.IsDistinguishedAt I) :
+    ∃! s : Multiset O[X], (∀ G ∈ s, G.IsDistinguishedAt I.radical ∧ Irreducible G) ∧ s.prod = F :=
+  (hF.mono Ideal.le_radical).existsUnique_multiset_irreducible_prod_eq (Ideal.radical_isRadical I)
 
 end Polynomial.IsDistinguishedAt
