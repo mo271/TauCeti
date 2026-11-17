@@ -44,6 +44,7 @@ integer indexing that Herbrand theory uses.
 * `TauCeti.IsLocalRing.RamificationGroupGraded G S i`: the successive quotient `G_i / G_{i+1}`.
 * `TauCeti.IsLocalRing.lowerIndex S σ`: over a discrete valuation ring, Serre's lower index
   `i_G(σ) = min_x v (σ x - x)` in `ℕ∞`.
+* `TauCeti.IsLocalRing.LowerJump G S u`: a strict drop of the lower ramification filtration.
 
 ## Main results
 
@@ -84,10 +85,13 @@ integer indexing that Herbrand theory uses.
   `ξ` of a discrete valuation ring under a faithful action of a finite group.
 * `TauCeti.IsLocalRing.sum_min_lowerIndex_natCast`: the truncated count
   `∑_{σ ∈ G} min (i_G(σ), m) = ∑_{k < m} #G_k` for a finite group `G`.
-* `TauCeti.IsLocalRing.ramificationGroup_eq_comap_of_comap_maximalIdeal_pow`: along an
-  equivariant homomorphism of local rings inducing isomorphisms `S ⧸ 𝔪 ^ n ≃ T ⧸ 𝔪 ^ n`, such as
-  the inclusion of a discrete valuation ring into its completion, the ramification groups are the
-  preimages of each other.
+* `TauCeti.IsLocalRing.ramificationGroup_eq_comap_of_comap_maximalIdeal_pow`,
+  `TauCeti.IsLocalRing.ramificationGroup_eq_comap_of_ringEquiv`, and
+  `TauCeti.IsLocalRing.map_ramificationGroup_of_ringEquiv`: along an equivariant homomorphism of
+  local rings inducing isomorphisms `S ⧸ 𝔪 ^ n ≃ T ⧸ 𝔪 ^ n`, or an equivariant ring isomorphism,
+  the ramification groups correspond by preimage and image.
+* `TauCeti.IsLocalRing.lowerJump_intCast_iff` and `TauCeti.IsLocalRing.lowerJump_eq_ceil`: every
+  lower jump is an integer `i ≥ -1` with `G_{i+1} < G_i`.
 * `TauCeti.IsLocalRing.mem_ramificationGroup_iff_of_lowerIndex_eq` and
   `TauCeti.IsLocalRing.mem_ramificationGroupReal_iff_of_lowerIndex_eq`: when `i_G(σ) = n` is
   finite, `σ ∈ G_i ↔ i + 1 ≤ n` and `σ ∈ G_u ↔ u ≤ n - 1`.
@@ -711,6 +715,28 @@ theorem ramificationGroup_eq_comap_of_comap_maximalIdeal_pow (φ : G →* H) (f 
   · rw [← hcomap, Ideal.mem_comap, map_sub, hf]
     exact h (f x)
 
+/-- An equivariant ring isomorphism identifies the lower ramification groups via preimage along any
+group homomorphism. -/
+theorem ramificationGroup_eq_comap_of_ringEquiv (φ : G →* H) (f : S ≃+* T)
+    (hf : ∀ (g : G) (x : S), f (g • x) = φ g • f x) (i : ℤ) :
+    ramificationGroup G S i = (ramificationGroup H T i).comap φ := by
+  refine ramificationGroup_eq_comap_of_comap_maximalIdeal_pow φ f.toRingHom hf
+    (fun n ↦ ?_) (fun _ y ↦ ⟨f.symm y, by simp⟩) i
+  have : IsLocalHom f.toRingHom := IsLocalHom.of_surjective f.toRingHom f.surjective
+  have hmax : (maximalIdeal T).comap f.toRingHom = maximalIdeal S :=
+    maximalIdeal_comap f.toRingHom
+  have hmap : (maximalIdeal S).map f.toRingHom = maximalIdeal T := by
+    rw [← hmax, Ideal.map_comap_of_surjective f.toRingHom f.surjective]
+  rw [← hmap, ← Ideal.map_pow, Ideal.comap_map_of_bijective f.toRingHom f.bijective]
+
+/-- An equivariant ring isomorphism along a surjective group homomorphism carries the lower
+ramification groups to each other. -/
+theorem map_ramificationGroup_of_ringEquiv (φ : G →* H) (hφ : Function.Surjective φ) (f : S ≃+* T)
+    (hf : ∀ (g : G) (x : S), f (g • x) = φ g • f x) (i : ℤ) :
+    (ramificationGroup G S i).map φ = ramificationGroup H T i := by
+  rw [ramificationGroup_eq_comap_of_ringEquiv φ f hf i,
+    Subgroup.map_comap_eq_self_of_surjective hφ]
+
 end Comap
 
 section Real
@@ -762,7 +788,58 @@ theorem ramificationGroupReal_eq_of_sub_one_lt_of_le {i : ℤ} {u : ℝ} (hleft 
     (hright : u ≤ i) : ramificationGroupReal G S u = ramificationGroup G S i := by
   rw [ramificationGroupReal_def, Int.ceil_eq_iff.2 ⟨hleft, hright⟩]
 
+/-- A **lower jump** (or lower break) of `(G, S)`: a real index `u` at which `G_u` strictly
+contains `G_v` for every `v > u`. -/
+def LowerJump (u : ℝ) : Prop :=
+  ∀ v : ℝ, u < v → ramificationGroupReal G S v < ramificationGroupReal G S u
+
+/-- Characterization of lower jumps. -/
+theorem lowerJump_iff (u : ℝ) :
+    LowerJump G S u ↔ ∀ v : ℝ, u < v → ramificationGroupReal G S v < ramificationGroupReal G S u :=
+  Iff.rfl
+
+/-- Every lower jump is at least `-1`. -/
+theorem neg_one_le_of_lowerJump {u : ℝ} (hu : LowerJump G S u) : -1 ≤ u := by
+  by_contra h
+  have hlt := hu (-1) (lt_of_not_ge h)
+  rw [← Int.cast_one, ← Int.cast_neg, ramificationGroupReal_intCast,
+    ramificationGroup_eq_top_of_le_neg_one G S le_rfl] at hlt
+  exact hlt.not_ge le_top
+
+/-- An integer `i` is a lower jump exactly when `G_{i+1} < G_i`. -/
+@[simp]
+theorem lowerJump_intCast_iff (i : ℤ) :
+    LowerJump G S (i : ℝ) ↔ ramificationGroup G S (i + 1) < ramificationGroup G S i := by
+  constructor
+  · intro h
+    have h1 := h ((i + 1 : ℤ) : ℝ) (by push_cast; exact lt_add_one _)
+    rwa [ramificationGroupReal_intCast, ramificationGroupReal_intCast] at h1
+  · intro h v hv
+    have hi : i + 1 ≤ ⌈v⌉ := by
+      have : i < ⌈v⌉ := Int.lt_ceil.2 hv
+      omega
+    rw [ramificationGroupReal_def, ramificationGroupReal_intCast]
+    exact (ramificationGroup_antitone G S hi).trans_lt h
+
+/-- Every lower jump is an integer. -/
+theorem lowerJump_eq_ceil {u : ℝ} (hu : LowerJump G S u) : u = (⌈u⌉ : ℝ) := by
+  by_contra hne
+  have hlt : u < (⌈u⌉ : ℝ) := lt_of_le_of_ne (Int.le_ceil u) hne
+  have hdrop := hu (⌈u⌉ : ℝ) hlt
+  rw [ramificationGroupReal_intCast, ramificationGroupReal_def] at hdrop
+  exact hdrop.ne rfl
+
 end Real
+
+/-- An equivariant ring isomorphism identifies the real-indexed lower ramification groups via
+preimage along any group homomorphism. -/
+theorem ramificationGroupReal_eq_comap_of_ringEquiv {G : Type*} [Group G] {S : Type*} [CommRing S]
+    [IsLocalRing S] [MulSemiringAction G S] {H : Type*} [Group H] {T : Type*} [CommRing T]
+    [IsLocalRing T] [MulSemiringAction H T] (φ : G →* H) (f : S ≃+* T)
+    (hf : ∀ (g : G) (x : S), f (g • x) = φ g • f x) (u : ℝ) :
+    ramificationGroupReal G S u = (ramificationGroupReal H T u).comap φ := by
+  rw [ramificationGroupReal_def, ramificationGroupReal_def]
+  exact ramificationGroup_eq_comap_of_ringEquiv φ f hf ⌈u⌉
 
 section RealDiscreteValuationRing
 
