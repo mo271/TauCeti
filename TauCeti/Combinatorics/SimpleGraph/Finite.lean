@@ -9,6 +9,8 @@ public import Mathlib.Algebra.BigOperators.Group.Finset.Defs
 public import Mathlib.Combinatorics.SimpleGraph.Finite
 public import Mathlib.Data.Finset.Interval
 
+import Mathlib.Data.Set.Finite.Lattice
+
 /-!
 # Finite simple graphs
 
@@ -24,6 +26,7 @@ an interval of the Boolean lattice `Finset (Sym2 V)`, where the finset interval 
 * `SimpleGraph.neighborSetFintypeOfFinite` — a `Fintype` structure on the neighbour sets of a graph
   on a finite vertex type, for local selection where decidable adjacency is unavailable.
 * `SimpleGraph.exists_minimum_weight_edge` — a finite nonempty edge set has a minimum-weight edge.
+* `SimpleGraph.finite_support` — a graph with finitely many edges has finite support.
 * `SimpleGraph.Iso.sum_neighborFinset_comp` — neighbour sums commute with graph isomorphisms.
 * `SimpleGraph.edgeSet_fromEdgeSet_of_subset` — a set of edges of `G` is the edge set of the
   graph it generates.
@@ -61,6 +64,15 @@ theorem exists_minimum_weight_edge (G : SimpleGraph V) [Finite G.edgeSet] (hG : 
   induction e using Sym2.inductionOn with
   | _ u v =>
     exact ⟨u, v, G.mem_edgeSet.1 (mem_edgeFinset.1 he), fun e he' ↦ hmin e (mem_edgeFinset.2 he')⟩
+
+/-- A simple graph with finitely many edges has finite support. -/
+theorem finite_support (G : SimpleGraph V) [Finite G.edgeSet] : G.support.Finite := by
+  have hsub : G.support ⊆ ⋃ e ∈ G.edgeSet, (e : Set V) := fun v hv ↦ by
+    obtain ⟨w, hvw⟩ := G.mem_support.1 hv
+    exact Set.mem_biUnion hvw (Sym2.mem_mk_left v w)
+  refine (Set.Finite.biUnion (Set.toFinite G.edgeSet) fun e _ ↦ ?_).subset hsub
+  induction e using Sym2.ind with
+  | _ u w => simp [Sym2.coe_mk]
 
 /-- Summing a pulled-back function over neighbours commutes with a graph isomorphism. -/
 theorem Iso.sum_neighborFinset_comp {W R : Type*} [Fintype V] [Fintype W]

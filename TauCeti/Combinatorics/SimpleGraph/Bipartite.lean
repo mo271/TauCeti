@@ -34,6 +34,8 @@ independent of the colouring up to exchanging the two classes.
 * `SimpleGraph.card_edgeFinset_between`: the edges between disjoint finite sets `s` and `t` are
   counted by the degrees from `s` into `t`; `SimpleGraph.card_edgeFinset_between_compl` is the
   case of the cut of `s`.
+* `SimpleGraph.IsBipartiteWith.finite_edgeSet`: a locally finite bipartite graph with a finite
+  side has finitely many edges.
 * `SimpleGraph.Coloring.eq_or_eq_recolorOfEquiv_boolNot`: on a preconnected graph, two
   `Bool`-colourings agree or differ by exchanging the colours.
 -/
@@ -45,6 +47,18 @@ open scoped symmDiff Finset
 namespace SimpleGraph
 
 variable {V : Type*}
+
+/-- A locally finite bipartite graph with a finite side has finitely many edges. -/
+theorem IsBipartiteWith.finite_edgeSet {G : SimpleGraph V} {L R : Set V} [Finite L]
+    [G.LocallyFinite] (h : G.IsBipartiteWith L R) : G.edgeSet.Finite := by
+  have hsub : G.edgeSet ⊆ ⋃ x ∈ L, (fun y ↦ s(x, y)) '' G.neighborSet x := by
+    intro e he
+    induction e using Sym2.ind with
+    | _ u v =>
+      rcases h.mem_of_adj he with ⟨huL, _⟩ | ⟨_, hvL⟩
+      · exact Set.mem_biUnion huL ⟨v, he, rfl⟩
+      · exact Set.mem_biUnion hvL ⟨u, he.symm, Sym2.eq_swap⟩
+  exact ((Set.toFinite L).biUnion fun x _ ↦ (Set.toFinite (G.neighborSet x)).image _).subset hsub
 
 /-- Restricting a graph to pairs between two sets is intersection with the corresponding
 restriction of the complete graph. -/
