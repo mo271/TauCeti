@@ -5,7 +5,8 @@ Authors: The Tau Ceti contributors
 -/
 module
 
-public import Mathlib.CategoryTheory.Linear.Basic
+public import Mathlib.CategoryTheory.Linear.LinearFunctor
+public import Mathlib.CategoryTheory.ObjectProperty.Equivalence
 
 /-!
 # Additive and linear structure on morphisms of a full subcategory
@@ -14,7 +15,10 @@ A full subcategory of a preadditive (resp. `R`-linear) category inherits a pread
 (resp. `R`-linear) structure. This file records that the underlying morphism of a sum, a
 negation, a difference or a scalar multiple of morphisms in the full subcategory is the
 corresponding operation applied to the underlying morphisms in the ambient category. The zero
-morphism is Mathlib's `CategoryTheory.ObjectProperty.zero_hom`.
+morphism is Mathlib's `CategoryTheory.ObjectProperty.zero_hom`. It also records that lifting an
+`R`-linear functor through a full subcategory preserves `R`-linearity, and consequently that an
+`R`-linear equivalence restricts to an `R`-linear equivalence between corresponding full
+subcategories.
 
 ## Main results
 
@@ -24,13 +28,20 @@ morphism is Mathlib's `CategoryTheory.ObjectProperty.zero_hom`.
 * `CategoryTheory.ObjectProperty.smul_hom`: the underlying morphism of a scalar multiple.
 * `CategoryTheory.ObjectProperty.nsmul_hom`, `CategoryTheory.ObjectProperty.zsmul_hom`:
   the underlying morphism of a natural or integer multiple in a preadditive category.
+* `CategoryTheory.ObjectProperty.lift_linear`: lifting an `R`-linear functor through a full
+  subcategory gives an `R`-linear functor.
+* `CategoryTheory.Equivalence.congrFullSubcategory_functor_linear` and
+  `CategoryTheory.Equivalence.congrFullSubcategory_inverse_linear`: an `R`-linear equivalence
+  restricts to an `R`-linear equivalence between corresponding full subcategories.
 -/
 
 public section
 
-namespace CategoryTheory.ObjectProperty
+namespace CategoryTheory
 
-universe w v u
+universe w v u v' u'
+
+namespace ObjectProperty
 
 variable {C : Type u} [Category.{v} C] {P : ObjectProperty C}
 
@@ -65,4 +76,37 @@ scalar multiple of the underlying morphism. -/
 @[simp] theorem smul_hom {R : Type w} [Semiring R] [Preadditive C] [Linear R C]
     {X Y : P.FullSubcategory} (r : R) (f : X ⟶ Y) : (r • f).hom = r • f.hom := rfl
 
-end CategoryTheory.ObjectProperty
+/-- Lifting an `R`-linear functor through a full subcategory gives an `R`-linear functor. -/
+instance lift_linear {D : Type u'} [Category.{v'} D] [Preadditive C] [Preadditive D]
+    {R : Type w} [Semiring R] [Linear R C] [Linear R D]
+    (Q : ObjectProperty D) (F : C ⥤ D) [F.Linear R] (hF : ∀ X, Q (F.obj X)) :
+    (Q.lift F hF).Linear R where
+  map_smul f r := by
+    ext
+    exact F.map_smul r f
+
+end ObjectProperty
+
+namespace Equivalence
+
+variable {C : Type u} [Category.{v} C] {D : Type u'} [Category.{v'} D]
+  [Preadditive C] [Preadditive D] {R : Type w} [Semiring R] [Linear R C] [Linear R D]
+  {P : ObjectProperty C} {Q : ObjectProperty D} [Q.IsClosedUnderIsomorphisms]
+
+/-- The forward functor of an `R`-linear equivalence restricted to corresponding full
+subcategories is `R`-linear. -/
+instance congrFullSubcategory_functor_linear (e : C ≌ D) [e.functor.Linear R]
+    (h : Q.inverseImage e.functor = P) : (e.congrFullSubcategory h).functor.Linear R := by
+  rw [congrFullSubcategory_functor]
+  infer_instance
+
+/-- The inverse functor of an `R`-linear equivalence restricted to corresponding full
+subcategories is `R`-linear. -/
+instance congrFullSubcategory_inverse_linear (e : C ≌ D) [e.inverse.Linear R]
+    (h : Q.inverseImage e.functor = P) : (e.congrFullSubcategory h).inverse.Linear R := by
+  rw [congrFullSubcategory_inverse]
+  infer_instance
+
+end Equivalence
+
+end CategoryTheory

@@ -6,17 +6,19 @@ Authors: The Tau Ceti contributors
 module
 
 public import Mathlib.Algebra.Category.ModuleCat.Monoidal.Basic
+public import Mathlib.LinearAlgebra.TensorProduct.Projective
 public import Mathlib.RingTheory.TensorProduct.Finite
 public import TauCeti.Algebra.Category.ModuleCat.Colimits
 public import TauCeti.CategoryTheory.GradedObject.FiniteSupport
 
 /-!
-# Finiteness of graded modules under convolution
+# Finiteness and projectivity of graded modules under convolution
 
 Reindexing a finitely supported family of finite modules by coproducts again has finite
-components. Consequently the convolution of two finitely supported graded finite modules has
-finite components, even if the grading monoid is infinite. These facts allow restricting
-cocycle-twisted graded vector spaces to finite-dimensional objects.
+components, and reindexing any family of projective modules by coproducts again has projective
+components. Consequently the convolution of two finitely supported graded finite projective
+modules has finite projective components, even if the grading monoid is infinite. These facts
+allow restricting cocycle-twisted graded modules to finitely supported finite projective objects.
 -/
 
 public section
@@ -43,6 +45,15 @@ lemma finite_single_obj [DecidableEq I] (i : I) (M : ModuleCat.{w} R)
   · have := ModuleCat.isZero_iff_subsingleton.mp (isInitialSingleObjApply i M j h).isZero
     infer_instance
 
+/-- A projective module placed in a single degree has projective components in every degree. -/
+lemma projective_single_obj [DecidableEq I] (i : I) (M : ModuleCat.{w} R)
+    [Module.Projective R M] (j : I) :
+    Module.Projective R ((single (C := ModuleCat.{w} R) i).obj M j) := by
+  by_cases h : j = i
+  · exact Module.Projective.of_equiv (singleObjApplyIsoOfEq i M j h).symm.toLinearEquiv
+  · have := ModuleCat.isZero_iff_subsingleton.mp (isInitialSingleObjApply i M j h).isZero
+    exact Module.Projective.of_free
+
 /-- Reindexing finitely supported finite modules by coproducts gives finite modules in each
 degree, without a finiteness assumption on the fibres of the reindexing map. -/
 lemma HasFiniteSupport.finite_mapObj {X : GradedObject I (ModuleCat.{w} R)}
@@ -54,6 +65,12 @@ lemma HasFiniteSupport.finite_mapObj {X : GradedObject I (ModuleCat.{w} R)}
       Subtype.val_injective.injOn).subset ?_
     intro i hi
     exact (mem_support X i.1).mpr hi)
+
+/-- Reindexing graded projective modules by coproducts gives projective modules in each degree. -/
+lemma projective_mapObj (X : GradedObject I (ModuleCat.{w} R))
+    [∀ i, Module.Projective R (X i)] (p : I → J) [X.HasMap p] (j : J) :
+    Module.Projective R (X.mapObj p j) :=
+  TauCeti.ModuleCat.projective_coproduct (X.mapObjFun p j)
 
 end Ring
 
@@ -71,5 +88,15 @@ lemma HasFiniteSupport.finite_tensorObj {X Y : GradedObject I (ModuleCat.{u} R)}
       ((((GradedObject.mapBifunctor (curriedTensor (ModuleCat R)) I I).obj X).obj Y) ij) :=
     inferInstanceAs (Module.Finite R (X ij.1 ⊗[R] Y ij.2))
   exact (hX.mapBifunctor (curriedTensor (ModuleCat R)) hY).finite_mapObj _ i
+
+/-- Convolution of graded projective modules has projective components. -/
+lemma projective_tensorObj (X Y : GradedObject I (ModuleCat.{u} R))
+    [∀ i, Module.Projective R (X i)] [∀ i, Module.Projective R (Y i)] [HasTensor X Y]
+    (i : I) : Module.Projective R (Monoidal.tensorObj (C := ModuleCat.{u} R) X Y i) := by
+  -- The external tensor product evaluates pointwise to the module tensor product.
+  have (ij : I × I) : Module.Projective R
+      ((((GradedObject.mapBifunctor (curriedTensor (ModuleCat R)) I I).obj X).obj Y) ij) :=
+    inferInstanceAs (Module.Projective R (X ij.1 ⊗[R] Y ij.2))
+  exact projective_mapObj _ _ i
 
 end CategoryTheory.GradedObject

@@ -5,20 +5,23 @@ Authors: The Tau Ceti contributors
 -/
 module
 
+public import Mathlib.CategoryTheory.Linear.LinearFunctor
 public import TauCeti.CategoryTheory.GradedObject.Twisted.Basic
 public import TauCeti.CategoryTheory.GradedObject.Scalar
 
 /-!
 # Changing the cocycle of a twisted graded category
 
-A normalized two-cochain relating two associator cocycles gives a strong monoidal equivalence
-between their twisted graded categories. The underlying functor is the identity on graded objects
-and morphisms; its tensorator multiplies the summand of bidegree `(i, j)` by the two-cochain.
-Thus changing the cocycle by a coboundary changes the monoidal structure only up to equivalence.
+A normalized two-cochain relating two associator cocycles gives a strong monoidal, additive, and
+linear equivalence between their twisted graded categories. The underlying functor is the identity
+on graded objects and morphisms; its tensorator multiplies the summand of bidegree `(i, j)` by the
+two-cochain, and in particular acts on `(single i).obj A ⊗ (single j).obj B` as scalar
+multiplication by `g.u i j`. Thus changing the cocycle by a coboundary changes the monoidal
+structure only up to linear monoidal equivalence.
 
 `TauCeti.GradedObject.TwistingCocycle.Gauge` records the scalar coherence equation, with its
-orientation fixed by the tensorator. `Gauge.equivalence` and its monoidal instance implement the
-change of cocycle without changing the objects or their supports.
+orientation fixed by the tensorator. `Gauge.equivalence` and its monoidal, additive, and linear
+instances implement the change of cocycle without changing the objects or their supports.
 
 ## References
 
@@ -154,6 +157,34 @@ lemma equivalence_functor : (g.equivalence C).functor = g.functor C := (rfl)
 @[simp]
 lemma equivalence_inverse : (g.equivalence C).inverse = g.symm.functor C := (rfl)
 
+/-- The forward functor of the gauge equivalence leaves objects unchanged. -/
+lemma equivalence_functor_obj (X : GradedObject I C) :
+    (g.equivalence C).functor.obj X = X := (rfl)
+
+/-- The inverse functor of the gauge equivalence leaves objects unchanged. -/
+lemma equivalence_inverse_obj (X : GradedObject I C) :
+    (g.equivalence C).inverse.obj X = X := (rfl)
+
+/-- The forward functor of the gauge equivalence is the identity on graded morphisms, up to
+`eqToHom`. -/
+lemma equivalence_functor_map {X Y : GradedObject I C} (f : X ⟶ Y) :
+    (g.equivalence C).functor.map f =
+      eqToHom (g.equivalence_functor_obj C X) ≫ f ≫
+        eqToHom (g.equivalence_functor_obj C Y).symm := by
+  -- Inside this module `equivalence` unfolds to `g.functor C`, whose map is the identity.
+  change f = eqToHom (rfl : X = X) ≫ f ≫ eqToHom (rfl : Y = Y)
+  simp
+
+/-- The inverse functor of the gauge equivalence is the identity on graded morphisms, up to
+`eqToHom`. -/
+lemma equivalence_inverse_map {X Y : GradedObject I C} (f : X ⟶ Y) :
+    (g.equivalence C).inverse.map f =
+      eqToHom (g.equivalence_inverse_obj C X) ≫ f ≫
+        eqToHom (g.equivalence_inverse_obj C Y).symm := by
+  -- Inside this module `equivalence` unfolds to `g.symm.functor C`, whose map is the identity.
+  change f = eqToHom (rfl : X = X) ≫ f ≫ eqToHom (rfl : Y = Y)
+  simp
+
 -- Equality transports let the component formulas avoid unfolding the sealed equivalence.
 /-- The unit of the gauge equivalence is the identity on each graded object. -/
 @[simp]
@@ -174,6 +205,33 @@ lemma equivalence_counitIso_hom_app (X : TwistedGradedObject d C) :
 @[simp]
 lemma equivalence_counitIso_inv_app (X : TwistedGradedObject d C) :
     (g.equivalence C).counitIso.inv.app X = eqToHom (by simp [functor]) := (rfl)
+
+/-- A change of cocycle is additive on morphisms. -/
+instance functor_additive [Preadditive C] : (g.functor C).Additive where
+  map_add := rfl
+
+/-- A change of cocycle is `S`-linear on morphisms. -/
+instance functor_linear (S : Type*) [Semiring S] [Preadditive C] [Linear S C] :
+    (g.functor C).Linear S where
+  map_smul _ _ := rfl
+
+/-- The forward functor of the gauge equivalence is additive. -/
+instance equivalence_functor_additive [Preadditive C] : (g.equivalence C).functor.Additive :=
+  inferInstanceAs (g.functor C).Additive
+
+/-- The forward functor of the gauge equivalence is `S`-linear. -/
+instance equivalence_functor_linear (S : Type*) [Semiring S] [Preadditive C] [Linear S C] :
+    (g.equivalence C).functor.Linear S where
+  map_smul _ _ := rfl
+
+/-- The inverse functor of the gauge equivalence is additive. -/
+instance equivalence_inverse_additive [Preadditive C] : (g.equivalence C).inverse.Additive where
+  map_add := rfl
+
+/-- The inverse functor of the gauge equivalence is `S`-linear. -/
+instance equivalence_inverse_linear (S : Type*) [Semiring S] [Preadditive C] [Linear S C] :
+    (g.equivalence C).inverse.Linear S where
+  map_smul _ _ := rfl
 
 variable [MonoidalCategory C] [Preadditive C] [Linear R C] [MonoidalPreadditive C]
   [MonoidalLinear R C]
@@ -278,6 +336,30 @@ lemma _root_.CategoryTheory.GradedObject.ι_gaugeFunctor_δ (X Y : GradedObject 
   rw [gaugeFunctor_δ]
   exact ι_scaleTensorObj X Y _ i j n h
 
+variable {C} in
+/-- On two single-degree graded objects, the gauge tensorator is scalar multiplication by
+`g.u i j`. -/
+lemma functor_μ_single (i j : I) (A B : C) :
+    Functor.LaxMonoidal.μ (g.functor C) ((single i).obj A) ((single j).obj B) =
+      (g.u i j : R) • 𝟙 (Monoidal.tensorObj ((single i).obj A) ((single j).obj B)) := by
+  rw [gaugeFunctor_μ]
+  -- Unwrap the type synonym `TwistedGradedObject d C` so graded coproduct extensionality applies.
+  change (scaleTensorObj ((single i).obj A) ((single j).obj B) (fun a b ↦ (g.u a b : R)) :
+      Monoidal.tensorObj ((single i).obj A) ((single j).obj B) ⟶ _) =
+    (g.u i j : R) • 𝟙 _
+  ext n a b h
+  rw [ι_scaleTensorObj, GradedObject.smul_apply, Linear.comp_smul, categoryOfGradedObjects_id,
+    Category.comp_id]
+  by_cases ha : a = i
+  · subst ha
+    by_cases hb : b = j
+    · subst hb
+      rfl
+    · exact ((isInitialSingleObjApply j B b hb).isInitialObj
+        ((curriedTensor C).obj _)).hom_ext _ _
+  · exact ((isInitialSingleObjApply i A a ha).isInitialObj
+      ((curriedTensor C).flip.obj _)).hom_ext _ _
+
 /-- The forward functor of the gauge equivalence has the scalar tensorator. -/
 instance equivalenceFunctorMonoidal : (g.equivalence C).functor.Monoidal :=
   inferInstanceAs (g.functor C).Monoidal
@@ -285,6 +367,45 @@ instance equivalenceFunctorMonoidal : (g.equivalence C).functor.Monoidal :=
 /-- The inverse functor of the gauge equivalence has the inverse scalar tensorator. -/
 instance equivalenceInverseMonoidal : (g.equivalence C).inverse.Monoidal :=
   inferInstanceAs (g.symm.functor C).Monoidal
+
+/-- The unit comparison of `(g.equivalence C).functor` is `eqToHom`. -/
+lemma equivalence_functor_ε :
+    Functor.LaxMonoidal.ε (g.equivalence C).functor =
+      eqToHom (g.equivalence_functor_obj C (𝟙_ (TwistedGradedObject c C))).symm := by
+  -- Inside `Twisted/Equivalence.lean`, `equivalence` unfolds to `g.functor C`.
+  change Functor.LaxMonoidal.ε (g.functor C) = 𝟙 Monoidal.tensorUnit
+  exact g.functor_ε C
+
+/-- The tensorator of `(g.equivalence C).functor` acts by `scaleTensorObj` up to `eqToHom`. -/
+lemma equivalence_functor_μ (X Y : GradedObject I C) :
+    Functor.LaxMonoidal.μ (g.equivalence C).functor X Y =
+      eqToHom (by rw [g.equivalence_functor_obj, g.equivalence_functor_obj]; rfl) ≫
+        scaleTensorObj X Y (fun i j ↦ (g.u i j : R)) ≫
+        eqToHom (g.equivalence_functor_obj C (Monoidal.tensorObj X Y)).symm := by
+  -- Inside `Twisted/Equivalence.lean`, `equivalence` unfolds to `g.functor C`.
+  change Functor.LaxMonoidal.μ (g.functor C) X Y =
+    𝟙 _ ≫ scaleTensorObj X Y (fun i j ↦ (g.u i j : R)) ≫ 𝟙 _
+  rw [Category.id_comp, Category.comp_id]
+  exact gaugeFunctor_μ X Y g
+
+variable {C} in
+/-- On two single-degree objects, the tensorator of `(g.equivalence C).functor` is scalar
+multiplication by `g.u i j`. -/
+lemma equivalence_functor_μ_single (i j : I) (A B : C) :
+    Functor.LaxMonoidal.μ (g.equivalence C).functor ((single i).obj A) ((single j).obj B) =
+      (g.u i j : R) •
+        eqToHom (Eq.trans
+          (congrArg₂ (MonoidalCategoryStruct.tensorObj (C := TwistedGradedObject d C))
+            (g.equivalence_functor_obj C ((single i).obj A))
+            (g.equivalence_functor_obj C ((single j).obj B)))
+          (Eq.trans
+            (TwistedGradedObject.tensorObj_eq ((single i).obj A) ((single j).obj B))
+            (g.equivalence_functor_obj C
+              (Monoidal.tensorObj ((single i).obj A) ((single j).obj B))).symm)) := by
+  -- Inside `Twisted/Equivalence.lean`, `equivalence` unfolds to `g.functor C`.
+  change Functor.LaxMonoidal.μ (g.functor C) ((single i).obj A) ((single j).obj B) =
+    (g.u i j : R) • 𝟙 _
+  exact g.functor_μ_single i j A B
 
 /-- The inverse gauge tensorator is compatible with the identity unit and counit. -/
 instance equivalence_isMonoidal : (g.equivalence C).IsMonoidal where

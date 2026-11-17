@@ -8,6 +8,7 @@ module
 public import Mathlib.Algebra.Category.ModuleCat.Kernels
 public import Mathlib.Algebra.Category.ModuleCat.Products
 public import Mathlib.Algebra.Homology.ShortComplex.ModuleCat
+public import Mathlib.Algebra.Module.Projective
 public import Mathlib.CategoryTheory.Functor.OfSequence
 public import Mathlib.RingTheory.Finiteness.Basic
 public import TauCeti.LinearAlgebra.FreeModule.Filtration
@@ -46,6 +47,11 @@ the homology of a space exhausted by subspaces whose successive relative homolog
 
 * `TauCeti.ModuleCat.iSup_range_eq_top_of_isColimit`: the ranges of the legs of a colimit cocone
   span its point.
+* `TauCeti.ModuleCat.directSumEquivCoproduct`: any categorical coproduct in `ModuleCat R` is
+  canonically linearly equivalent to the algebraic direct sum, without universe smallness
+  assumptions.
+* `TauCeti.ModuleCat.projective_coproduct`: any categorical coproduct of projective modules is
+  projective.
 * `TauCeti.ModuleCat.finite_coproduct_of_finite_support`: a coproduct of finite modules is finite if
   only finitely many summands are nonzero.
 * `TauCeti.ModuleCat.isIso_of_isIso_app_self`: a natural transformation between
@@ -162,6 +168,67 @@ theorem finite_coproduct_of_finite_support {ι : Type*} (M : ι → ModuleCat.{v
   apply Module.Finite.of_fg_top
   rw [← htop, hrange]
   exact Submodule.fg_iSup _ fun i ↦ Submodule.fg_range _
+
+/-- **Any categorical coproduct in `ModuleCat R` is canonically linearly equivalent to the
+algebraic direct sum**, without universe smallness assumptions on the index type or the ring. -/
+noncomputable def directSumEquivCoproduct {ι : Type*} [DecidableEq ι]
+    (M : ι → ModuleCat.{v} R) [HasCoproduct M] :
+    (⨁ i, M i) ≃ₗ[R] (∐ M : ModuleCat.{v} R) :=
+  LinearEquiv.ofBijective
+    (toModule R ι (∐ M : ModuleCat.{v} R) fun i ↦ (Sigma.ι M i).hom) ⟨by
+      refine (injective_iff_map_eq_zero _).2 fun x hx ↦ DFinsupp.ext fun j ↦ ?_
+      -- Compose with the coordinate projection onto `M j` to recover the `j`-th component.
+      let π : (∐ M : ModuleCat.{v} R) ⟶ M j :=
+        Sigma.desc fun i ↦ if h : i = j then eqToHom (congrArg M h) else 0
+      have hπ (a : ⨁ i, M i) :
+          π.hom (toModule R ι (∐ M : ModuleCat.{v} R) (fun i ↦ (Sigma.ι M i).hom) a) = a j := by
+        induction a using DirectSum.induction_on with
+        | zero => simp
+        | of i m =>
+          rw [← lof_eq_of R, toModule_lof, ← ModuleCat.comp_apply]
+          simp only [π, Sigma.ι_comp_desc]
+          split_ifs with h
+          · subst h
+            simp [lof_eq_of]
+          · simp [lof_eq_of, of_eq_of_ne _ _ _ (Ne.symm h)]
+        | add a b ha hb => simp [ha, hb]
+      rw [← hπ x, hx, map_zero]
+      rfl, by
+      rw [← LinearMap.range_eq_top, eq_top_iff]
+      have htop : (⨆ i, LinearMap.range (Sigma.ι M i).hom) = ⊤ := by
+        have h := TauCeti.ModuleCat.iSup_range_eq_top_of_isColimit
+          (colimit.isColimit (Discrete.functor M))
+        have hsurj : Function.Surjective (Discrete.mk : ι → Discrete ι) :=
+          fun ⟨i⟩ ↦ ⟨i, rfl⟩
+        exact (hsurj.iSup_comp _).trans h
+      rw [← htop]
+      refine iSup_le fun i ↦ ?_
+      rintro _ ⟨m, rfl⟩
+      exact ⟨lof R ι (fun i ↦ M i) i m, by simp⟩⟩
+
+/-- The equivalence `directSumEquivCoproduct` sends each direct sum inclusion to the corresponding
+coproduct leg. -/
+@[simp]
+theorem directSumEquivCoproduct_lof {ι : Type*} [DecidableEq ι]
+    (M : ι → ModuleCat.{v} R) [HasCoproduct M] (i : ι) (x : M i) :
+    directSumEquivCoproduct M (lof R ι (fun i ↦ M i) i x) = Sigma.ι M i x :=
+  toModule_lof (φ := fun i ↦ (Sigma.ι M i).hom) R i x
+
+/-- The inverse of `directSumEquivCoproduct` sends each coproduct leg to the corresponding direct
+sum inclusion. -/
+@[simp]
+theorem directSumEquivCoproduct_symm_ι {ι : Type*} [DecidableEq ι]
+    (M : ι → ModuleCat.{v} R) [HasCoproduct M] (i : ι) (x : M i) :
+    (directSumEquivCoproduct M).symm (Sigma.ι M i x) = lof R ι (fun i ↦ M i) i x := by
+  apply (directSumEquivCoproduct M).injective
+  simp
+
+/-- Any categorical coproduct of projective modules is projective. -/
+theorem projective_coproduct {ι : Type*} (M : ι → ModuleCat.{v} R)
+    [HasCoproduct M] [∀ i, Module.Projective R (M i)] :
+    Module.Projective R (∐ M : ModuleCat.{v} R) := by
+  classical
+  exact Module.Projective.of_equiv (directSumEquivCoproduct M)
 
 /-- A module isomorphic to a coproduct of copies of `R` indexed by a nonempty type receives an
 injective linear map from `R`, through a coproduct inclusion. -/

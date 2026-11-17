@@ -7,6 +7,7 @@ module
 
 public import Mathlib.CategoryTheory.GradedObject.Monoidal
 public import Mathlib.CategoryTheory.Monoidal.Linear
+public import TauCeti.CategoryTheory.GradedObject.Monoidal
 public import TauCeti.RepresentationTheory.Homological.GroupCohomology.DegreeThree
 
 /-!
@@ -21,10 +22,11 @@ Given a normalized `3`-cocycle `ω : I → I → I → Rˣ`, that is a function 
 `ω i₁ 0 i₃ = 1`, the associator may be twisted by multiplying it by `ω i₁ i₂ i₃` on that summand.
 The cocycle identity is exactly what the pentagon axiom requires, and the normalization is what the
 triangle axiom requires, so the result is again a monoidal category, with the same tensor product
-and unitors. The intended example is `I = Additive G` and `C = ModuleCat k` for a field `k`: the
-category of `G`-graded vector spaces with associator twisted by `ω`, where on the one-dimensional
+and unitors. The intended example is `I = Additive G` and `C = ModuleCat R` for a commutative ring
+`R`: the category of `G`-graded `R`-modules with associator twisted by `ω`, where on the rank-one
 objects `δ_g` concentrated in a single degree the associator is multiplication by `ω g h j`, and
-whose finite-dimensional, finitely supported objects form the pointed category `Vec^ω_G`.
+whose finitely supported objects with finitely generated projective components form the pointed
+category `Vec^ω_G`.
 
 ## Main definitions
 
@@ -33,7 +35,9 @@ whose finite-dimensional, finitely supported objects form the pointed category `
 * `CategoryTheory.GradedObject.Monoidal.scaleTensorObj₃`: the endomorphism of
   `X₁ ⊗ (X₂ ⊗ X₃)` acting on the summand `X₁ i₁ ⊗ X₂ i₂ ⊗ X₃ i₃` by a scalar `u i₁ i₂ i₃`.
 * `TauCeti.TwistedGradedObject c C`: a type synonym for `GradedObject I C`, carrying the monoidal
-  structure whose associator is twisted by the cocycle `c`.
+  structure whose associator is twisted by the cocycle `c`, along with the inherited `Preadditive`,
+  `Linear`, `HasFiniteProducts`, `HasFiniteBiproducts`, `MonoidalPreadditive`, and `MonoidalLinear`
+  instances.
 
 ## Main statements
 
@@ -41,6 +45,9 @@ whose finite-dimensional, finitely supported objects form the pointed category `
   Mathlib's tensor product and unitors of graded objects, forms a monoidal category.
 * `TauCeti.TwistedGradedObject.ιTensorObj₃'_associator_hom`: the twisted associator acts on the
   summand `(X₁ i₁ ⊗ X₂ i₂) ⊗ X₃ i₃` as `ω i₁ i₂ i₃` times the associator of `C`.
+* `CategoryTheory.GradedObject.Monoidal.singleTensorIso_twistedAssociator_hom` and
+  `TauCeti.TwistedGradedObject.singleTensorIso_associator_hom`: the twisted associator on three
+  single-degree objects acts via `singleTensorIso` as `ω i₁ i₂ i₃` times the associator of `C`.
 
 ## References
 
@@ -246,6 +253,81 @@ lemma twistedAssociator_naturality {Y₁ Y₂ Y₃ : GradedObject I C} [HasTenso
 
 end Associator
 
+section SingleAssociator
+
+variable {R : Type*} [Semiring R] [Linear R C] [DecidableEq I] [HasInitial C]
+  [∀ X₁, PreservesColimit (Functor.empty.{0} C) ((curriedTensor C).obj X₁)]
+  [∀ X₂, PreservesColimit (Functor.empty.{0} C) ((curriedTensor C).flip.obj X₂)]
+
+/-- On three single-degree graded objects, `twistedAssociator` acts via `singleTensorIso` as
+`ω i₁ i₂ i₃` times the associator of `C`. -/
+lemma singleTensorIso_twistedAssociator_hom (ω : I → I → I → Rˣ) (i₁ i₂ i₃ : I) (A₁ A₂ A₃ : C)
+    [HasTensor (tensorObj ((single i₁).obj A₁) ((single i₂).obj A₂)) ((single i₃).obj A₃)]
+    [HasTensor ((single i₁).obj A₁) (tensorObj ((single i₂).obj A₂) ((single i₃).obj A₃))]
+    [HasGoodTensor₁₂Tensor ((single i₁).obj A₁) ((single i₂).obj A₂) ((single i₃).obj A₃)]
+    [HasGoodTensorTensor₂₃ ((single i₁).obj A₁) ((single i₂).obj A₂) ((single i₃).obj A₃)] :
+    (twistedAssociator ω ((single i₁).obj A₁) ((single i₂).obj A₂) ((single i₃).obj A₃)).hom ≫
+        whiskerLeft ((single i₁).obj A₁) (singleTensorIso i₂ i₃ A₂ A₃).hom ≫
+        (singleTensorIso i₁ (i₂ + i₃) A₁ (A₂ ⊗ A₃)).hom ≫
+        eqToHom (congrArg (fun k ↦ (single k).obj (A₁ ⊗ (A₂ ⊗ A₃)))
+          (add_assoc i₁ i₂ i₃).symm) =
+      (ω i₁ i₂ i₃ : R) •
+        (whiskerRight (singleTensorIso i₁ i₂ A₁ A₂).hom ((single i₃).obj A₃) ≫
+          (singleTensorIso (i₁ + i₂) i₃ (A₁ ⊗ A₂) A₃).hom ≫
+          (single (i₁ + i₂ + i₃)).map (α_ A₁ A₂ A₃).hom) := by
+  funext n
+  apply tensorObj₃'_ext
+  intro a b e h
+  revert h
+  revert n
+  rintro _ rfl
+  by_cases ha : a = i₁
+  · subst ha
+    by_cases hb : b = i₂
+    · subst hb
+      by_cases he : e = i₃
+      · subst he
+        dsimp only [categoryOfGradedObjects_comp, smul_apply]
+        rw [Linear.comp_smul, ← cancel_mono (singleObjApplyIso (a + b + e) _).hom,
+          Linear.smul_comp]
+        simp only [Category.assoc]
+        rw [eqToHom_single_comp_singleObjApplyIso_hom (add_assoc a b e).symm,
+          ιTensorObj₃'_twistedAssociator_hom_assoc, Linear.smul_comp]
+        congr 1
+        conv_lhs =>
+          rw [Category.assoc, ιTensorObj₃_eq_assoc _ _ _ a b e (a + b + e) rfl (b + e) rfl,
+            whiskerLeft, ι_tensorHom_assoc]
+          dsimp only [categoryOfGradedObjects_id]
+          rw [ιTensorObj_singleTensorIso_hom_assoc, Iso.inv_hom_id, Category.comp_id,
+            MonoidalCategory.id_tensorHom, ← MonoidalCategory.whiskerLeft_comp_assoc,
+            ιTensorObj_singleTensorIso_hom, MonoidalCategory.whiskerLeft_comp_assoc,
+            ← MonoidalCategory.id_tensorHom, ← MonoidalCategory.id_tensorHom,
+            MonoidalCategory.tensorHom_comp_tensorHom,
+            MonoidalCategory.tensorHom_comp_tensorHom]
+          simp only [Category.id_comp, Category.comp_id, Iso.inv_hom_id]
+        conv_rhs =>
+          rw [ιTensorObj₃'_eq_assoc _ _ _ a b e (a + b + e) rfl (a + b) rfl,
+            whiskerRight, ι_tensorHom_assoc]
+          dsimp only [categoryOfGradedObjects_id]
+          rw [single_map_singleObjApplyIso_hom, ιTensorObj_singleTensorIso_hom_assoc,
+            Iso.inv_hom_id_assoc, MonoidalCategory.tensorHom_id,
+            ← MonoidalCategory.comp_whiskerRight_assoc, ιTensorObj_singleTensorIso_hom,
+            MonoidalCategory.comp_whiskerRight_assoc, ← MonoidalCategory.tensorHom_id,
+            ← MonoidalCategory.tensorHom_id, MonoidalCategory.tensorHom_comp_tensorHom_assoc,
+            MonoidalCategory.tensorHom_comp_tensorHom_assoc]
+          simp only [Category.assoc, singleObjApplyIso, Iso.inv_hom_id, Category.id_comp,
+            Category.comp_id]
+        exact (MonoidalCategory.associator_naturality (singleObjApplyIso a A₁).hom
+          (singleObjApplyIso b A₂).hom (singleObjApplyIso e A₃).hom).symm
+      · exact ((isInitialSingleObjApply i₃ A₃ e he).isInitialObj
+          ((curriedTensor C).obj _)).hom_ext _ _
+    · exact (((isInitialSingleObjApply i₂ A₂ b hb).isInitialObj
+        ((curriedTensor C).obj _)).isInitialObj ((curriedTensor C).flip.obj _)).hom_ext _ _
+  · exact (((isInitialSingleObjApply i₁ A₁ a ha).isInitialObj
+      ((curriedTensor C).flip.obj _)).isInitialObj ((curriedTensor C).flip.obj _)).hom_ext _ _
+
+end SingleAssociator
+
 section Pentagon
 
 variable {R : Type*} [CommSemiring R] [Linear R C] [MonoidalPreadditive C] [MonoidalLinear R C]
@@ -402,6 +484,20 @@ variable (c : GradedObject.TwistingCocycle I R) (C : Type*) [Category* C]
 
 instance : Category (TwistedGradedObject c C) := inferInstanceAs (Category (GradedObject I C))
 
+instance [Preadditive C] : Preadditive (TwistedGradedObject c C) :=
+  inferInstanceAs (Preadditive (GradedObject I C))
+
+instance (S : Type*) [Semiring S] [Preadditive C] [Linear S C] :
+    Linear S (TwistedGradedObject c C) :=
+  inferInstanceAs (Linear S (GradedObject I C))
+
+instance [HasFiniteProducts C] : HasFiniteProducts (TwistedGradedObject c C) :=
+  inferInstanceAs (HasFiniteProducts (GradedObject I C))
+
+instance [Preadditive C] [HasFiniteBiproducts C] :
+    HasFiniteBiproducts (TwistedGradedObject c C) :=
+  inferInstanceAs (HasFiniteBiproducts (GradedObject I C))
+
 variable [MonoidalCategory C] [Preadditive C] [Linear R C] [MonoidalPreadditive C]
   [MonoidalLinear R C]
   [∀ (X₁ X₂ : GradedObject I C), HasTensor X₁ X₂]
@@ -445,6 +541,21 @@ instance instMonoidalCategory : MonoidalCategory (TwistedGradedObject c C) where
   pentagon (X₁ X₂ X₃ X₄ : GradedObject I C) :=
     twistedAssociator_pentagon c.ω c.cocycle X₁ X₂ X₃ X₄
   triangle (X₁ X₂ : GradedObject I C) := twistedAssociator_triangle c.ω c.ω_zero X₁ X₂
+
+/-- The twisted monoidal category of `I`-graded objects is monoidal preadditive. -/
+instance instMonoidalPreadditive : MonoidalPreadditive (TwistedGradedObject c C) where
+  whiskerLeft_zero := fun {X Y Z : GradedObject I C} ↦ Monoidal.whiskerLeft_zero X Y Z
+  zero_whiskerRight := fun {X Y Z : GradedObject I C} ↦ Monoidal.zero_whiskerRight Y Z X
+  whiskerLeft_add := fun {X _ _ : GradedObject I C} f g ↦ Monoidal.whiskerLeft_add X f g
+  add_whiskerRight := fun {X _ _ : GradedObject I C} f g ↦ Monoidal.add_whiskerRight f g X
+
+/-- The twisted monoidal category of `I`-graded objects is `S`-linear monoidal whenever `C` is. -/
+instance instMonoidalLinear (S : Type*) [Semiring S] [Linear S C] [MonoidalLinear S C] :
+    MonoidalLinear S (TwistedGradedObject c C) where
+  whiskerLeft_smul (X : GradedObject I C) {_ _ : GradedObject I C} r f :=
+    Monoidal.whiskerLeft_smul X r f
+  smul_whiskerRight r {_ _ : GradedObject I C} f (Z : GradedObject I C) :=
+    Monoidal.smul_whiskerRight r f Z
 
 variable {c C}
 
@@ -513,6 +624,21 @@ lemma ιTensorObj₃_associator_inv {X₁ X₂ X₃ : GradedObject I C} (i₁ i�
       (((c.ω i₁ i₂ i₃)⁻¹ : Rˣ) : R) •
         ((α_ _ _ _).inv ≫ ιTensorObj₃' X₁ X₂ X₃ i₁ i₂ i₃ j h) :=
   ιTensorObj₃_twistedAssociator_inv c.ω X₁ X₂ X₃ i₁ i₂ i₃ j h
+
+/-- On three single-degree graded objects, the associator of `TwistedGradedObject c C` acts via
+`singleTensorIso` as `c.ω i₁ i₂ i₃` times the associator of `C`. -/
+lemma singleTensorIso_associator_hom (i₁ i₂ i₃ : I) (A₁ A₂ A₃ : C) :
+    (@MonoidalCategoryStruct.associator (TwistedGradedObject c C) _ _
+        ((single i₁).obj A₁) ((single i₂).obj A₂) ((single i₃).obj A₃)).hom ≫
+        Monoidal.whiskerLeft ((single i₁).obj A₁) (singleTensorIso i₂ i₃ A₂ A₃).hom ≫
+        (singleTensorIso i₁ (i₂ + i₃) A₁ (A₂ ⊗ A₃)).hom ≫
+        eqToHom (congrArg (fun k ↦ (single k).obj (A₁ ⊗ (A₂ ⊗ A₃)))
+          (add_assoc i₁ i₂ i₃).symm) =
+      (c.ω i₁ i₂ i₃ : R) •
+        (Monoidal.whiskerRight (singleTensorIso i₁ i₂ A₁ A₂).hom ((single i₃).obj A₃) ≫
+          (singleTensorIso (i₁ + i₂) i₃ (A₁ ⊗ A₂) A₃).hom ≫
+          (single (i₁ + i₂ + i₃)).map (α_ A₁ A₂ A₃).hom) :=
+  singleTensorIso_twistedAssociator_hom c.ω i₁ i₂ i₃ A₁ A₂ A₃
 
 end TwistedGradedObject
 
