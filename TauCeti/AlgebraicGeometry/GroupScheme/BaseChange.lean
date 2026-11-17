@@ -30,6 +30,13 @@ of group schemes preserves finite limits.
   postcomposition with the first pullback projection.
 * `TauCeti.GroupScheme.pullback_mapGrp_mul_left_fst` (and its `one`/`inv` analogues): the group
   law of a base change projects to the group law of the original group scheme.
+* `TauCeti.GroupScheme.baseChangePointMulEquiv_postcomp`: naturality of the point-group
+  identification in group-scheme homomorphisms.
+* `TauCeti.GroupScheme.pullbackMapGrpIdIso` and `TauCeti.GroupScheme.baseChangePointMulEquiv_id`:
+  compatibility of group-scheme base change and point groups with the identity base morphism.
+* `TauCeti.GroupScheme.pullbackMapGrpCompIso` and
+  `TauCeti.GroupScheme.baseChangePointMulEquiv_comp`: compatibility of group-scheme base change
+  and point groups with iterated base change.
 * `TauCeti.GroupScheme.pullbackMapGrp_preservesFiniteLimits`: base change of group schemes
   preserves finite limits.
 
@@ -212,6 +219,99 @@ theorem baseChangePointMulEquiv_naturality_left
       (Over.map s).map f ≫ baseChangePointMulEquiv s G T p := by
   simp only [baseChangePointMulEquiv_apply]
   exact (Over.mapPullbackAdj s).homEquiv_naturality_left_symm f p
+
+/-- Postcomposition with a homomorphism of group schemes commutes with the point-group
+equivalence. -/
+theorem baseChangePointMulEquiv_postcomp
+    (s : Y ⟶ X) {G H : Grp (Over X)} (f : G ⟶ H) (T : Over Y)
+    (p : T ⟶ ((Over.pullback s).mapGrp.obj G).X) :
+    baseChangePointMulEquiv s H T (p ≫ ((Over.pullback s).mapGrp.map f).hom.hom) =
+      baseChangePointMulEquiv s G T p ≫ f.hom.hom := by
+  simp only [baseChangePointMulEquiv_apply]
+  exact (Over.mapPullbackAdj s).homEquiv_naturality_right_symm p f.hom.hom
+
+/-- Base change of group schemes along the identity morphism is naturally isomorphic to the
+identity functor on `Grp (Over X)`. -/
+noncomputable def pullbackMapGrpIdIso (X : Scheme.{u}) :
+    (Over.pullback (𝟙 X)).mapGrp ≅ 𝟭 (Grp (Over X)) :=
+  Functor.mapGrpNatIso Over.pullbackId ≪≫ Functor.mapGrpIdIso
+
+/-- On underlying morphisms over `X`, `pullbackMapGrpIdIso` is `Over.pullbackId`. -/
+@[simp]
+theorem pullbackMapGrpIdIso_hom_app_hom (X : Scheme.{u}) (G : Grp (Over X)) :
+    ((pullbackMapGrpIdIso X).hom.app G).hom.hom = Over.pullbackId.hom.app G.X := by
+  dsimp [pullbackMapGrpIdIso]
+  exact Category.comp_id _
+
+/-- On underlying morphisms over `X`, the inverse of `pullbackMapGrpIdIso` is
+`Over.pullbackId.inv`. -/
+@[simp]
+theorem pullbackMapGrpIdIso_inv_app_hom (X : Scheme.{u}) (G : Grp (Over X)) :
+    ((pullbackMapGrpIdIso X).inv.app G).hom.hom = Over.pullbackId.inv.app G.X := by
+  dsimp [pullbackMapGrpIdIso]
+  exact Category.id_comp _
+
+/-- Under base change along the identity morphism, the point-group equivalence agrees with
+transporting along `pullbackMapGrpIdIso`. -/
+theorem baseChangePointMulEquiv_id (G : Grp (Over X)) (T : Over X)
+    (p : T ⟶ ((Over.pullback (𝟙 X)).mapGrp.obj G).X) :
+    (Over.mapId X).inv.app T ≫ baseChangePointMulEquiv (𝟙 X) G T p =
+      p ≫ ((pullbackMapGrpIdIso X).hom.app G).hom.hom := by
+  ext1
+  rw [Over.comp_left, Over.comp_left, baseChangePointMulEquiv_apply_left,
+    pullbackMapGrpIdIso_hom_app_hom]
+  simp [Over.pullbackId]
+
+/-- Base change of group schemes along a composite `s₁ ≫ s₂` is naturally isomorphic to
+iterated base change along `s₂` followed by `s₁`. -/
+noncomputable def pullbackMapGrpCompIso {Z : Scheme.{u}} (s₁ : Z ⟶ Y) (s₂ : Y ⟶ X) :
+    (Over.pullback (s₁ ≫ s₂)).mapGrp ≅
+      (Over.pullback s₂).mapGrp ⋙ (Over.pullback s₁).mapGrp :=
+  Functor.mapGrpNatIso (Over.pullbackComp s₁ s₂) ≪≫ Functor.mapGrpCompIso
+
+/-- On underlying morphisms over `Z`, `pullbackMapGrpCompIso` is `Over.pullbackComp`. -/
+@[simp]
+theorem pullbackMapGrpCompIso_hom_app_hom {Z : Scheme.{u}} (s₁ : Z ⟶ Y) (s₂ : Y ⟶ X)
+    (G : Grp (Over X)) :
+    ((pullbackMapGrpCompIso s₁ s₂).hom.app G).hom.hom =
+      (Over.pullbackComp s₁ s₂).hom.app G.X := by
+  dsimp [pullbackMapGrpCompIso]
+  exact Category.comp_id _
+
+/-- On underlying morphisms over `Z`, the inverse of `pullbackMapGrpCompIso` is
+`(Over.pullbackComp s₁ s₂).inv`. -/
+@[simp]
+theorem pullbackMapGrpCompIso_inv_app_hom {Z : Scheme.{u}} (s₁ : Z ⟶ Y) (s₂ : Y ⟶ X)
+    (G : Grp (Over X)) :
+    ((pullbackMapGrpCompIso s₁ s₂).inv.app G).hom.hom =
+      (Over.pullbackComp s₁ s₂).inv.app G.X := by
+  dsimp [pullbackMapGrpCompIso]
+  exact Category.id_comp _
+
+/-- Iterating `baseChangePointMulEquiv` along `s₁` and `s₂` agrees with
+`baseChangePointMulEquiv` along `s₁ ≫ s₂`, via `pullbackMapGrpCompIso`. -/
+theorem baseChangePointMulEquiv_comp {Z : Scheme.{u}} (s₁ : Z ⟶ Y) (s₂ : Y ⟶ X)
+    (G : Grp (Over X)) (T : Over Z) (p : T ⟶ ((Over.pullback (s₁ ≫ s₂)).mapGrp.obj G).X) :
+    baseChangePointMulEquiv s₂ G ((Over.map s₁).obj T)
+        (baseChangePointMulEquiv s₁ ((Over.pullback s₂).mapGrp.obj G) T
+          (p ≫ ((pullbackMapGrpCompIso s₁ s₂).hom.app G).hom.hom)) =
+      (Over.mapComp s₁ s₂).inv.app T ≫ baseChangePointMulEquiv (s₁ ≫ s₂) G T p := by
+  have h (q : T ⟶ (Over.pullback (s₁ ≫ s₂)).obj G.X) :
+      ((Over.mapPullbackAdj s₂).homEquiv ((Over.map s₁).obj T) G.X).symm
+          (((Over.mapPullbackAdj s₁).homEquiv T ((Over.pullback s₂).obj G.X)).symm
+            (q ≫ (Over.pullbackComp s₁ s₂).hom.app G.X)) =
+        (Over.mapComp s₁ s₂).inv.app T ≫
+          ((Over.mapPullbackAdj (s₁ ≫ s₂)).homEquiv T G.X).symm q := by
+    have hc := conjugateEquiv_counit (Over.mapPullbackAdj (s₁ ≫ s₂))
+      ((Over.mapPullbackAdj s₁).comp (Over.mapPullbackAdj s₂)) (Over.mapComp s₁ s₂).inv G.X
+    simp only [Functor.comp_map, Adjunction.comp_counit_app] at hc
+    rw [Adjunction.homEquiv_counit, Adjunction.homEquiv_counit, Adjunction.homEquiv_counit]
+    simp only [Functor.map_comp, Category.assoc]
+    rw [Over.pullbackComp, conjugateIsoEquiv_apply_hom, Iso.symm_hom, hc, ← Category.assoc,
+      ← Functor.comp_map, (Over.mapComp s₁ s₂).inv.naturality q, Category.assoc]
+  rw [baseChangePointMulEquiv_apply, baseChangePointMulEquiv_apply, baseChangePointMulEquiv_apply,
+    pullbackMapGrpCompIso_hom_app_hom]
+  exact h p
 
 /-- Pullback of group schemes along an arbitrary base morphism preserves finite limits. In
 particular, it preserves kernels. -/
