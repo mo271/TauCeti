@@ -7,6 +7,9 @@ module
 
 public import Mathlib.Analysis.LocallyConvex.WithSeminorms
 public import Mathlib.Analysis.Normed.Group.InfiniteSum
+public import Mathlib.Analysis.RCLike.Basic
+import Mathlib.Analysis.LocallyConvex.AbsConvexOpen
+import Mathlib.Analysis.RCLike.Lemmas
 
 /-!
 # Composition of seminorm-bounded maps and absolutely summable series
@@ -20,6 +23,10 @@ as it is absolutely summable for every seminorm of the family
 (`WithSeminorms.summable_of_summable_seminorm`), and a continuous seminorm of its sum is at most
 the sum of the seminorms of its terms (`Seminorm.map_tsum_le`). These are the locally convex
 analogues of `Summable.of_norm` and `norm_tsum_le_tsum_norm`.
+
+`LocallyConvexSpace.toPolynormableSpace_of_rclike` bridges real-locally-convex topological vector
+spaces over an `RCLike` field `𝕜` (for instance, complex locally convex spaces stated via
+`[LocallyConvexSpace ℝ E]` without opening `ComplexOrder`) to `PolynormableSpace 𝕜 E`.
 -/
 
 public section
@@ -92,3 +99,28 @@ theorem summable_of_summable_seminorm (hp : WithSeminorms p) {f : β → E}
     _ < r := hs t ht
 
 end WithSeminorms
+
+/-- A real-locally-convex topological vector space over an `RCLike` field `𝕜` (in particular, a
+complex locally convex space stated via `[LocallyConvexSpace ℝ E]`, avoiding the scoped
+`ComplexOrder` instance) is polynormable over `𝕜`.
+
+This is stated as a theorem rather than an instance to avoid a typeclass synthesis loop with
+Mathlib's `instance (priority := low) [PolynormableSpace ℝ E] : LocallyConvexSpace ℝ E`. -/
+theorem LocallyConvexSpace.toPolynormableSpace_of_rclike (𝕜 E : Type*) [RCLike 𝕜]
+    [AddCommGroup E] [TopologicalSpace E] [IsTopologicalAddGroup E]
+    [Module 𝕜 E] [Module ℝ E] [IsScalarTower ℝ 𝕜 E] [ContinuousSMul 𝕜 E]
+    [LocallyConvexSpace ℝ E] : PolynormableSpace 𝕜 E := by
+  open scoped ComplexOrder in
+  have : ContinuousSMul ℝ E :=
+    ⟨by
+      have h : (fun p : ℝ × E ↦ p.1 • p.2) = fun p ↦ (RCLike.ofReal (K := 𝕜) p.1) • p.2 := by
+        ext ⟨r, x⟩
+        exact (algebraMap_smul 𝕜 r x).symm
+      rw [h]
+      exact (RCLike.continuous_ofReal.comp continuous_fst).smul continuous_snd⟩
+  open scoped ComplexOrder in
+  have : LocallyConvexSpace 𝕜 E :=
+    ⟨fun x ↦ by
+      simpa only [convex_RCLike_iff_convex_real] using LocallyConvexSpace.convex_basis (𝕜 := ℝ) x⟩
+  open scoped ComplexOrder in
+  exact LocallyConvexSpace.toPolynormableSpace
