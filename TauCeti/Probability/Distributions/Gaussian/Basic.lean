@@ -48,6 +48,12 @@ by parts.
   the function weighted by the density.
 * `TauCeti.Probability.hasDerivAt_gaussianPDFRealEReal` — as a function of the mean `μ`, the
   density at an extended point `e` has derivative `(e - μ) / v` times the density.
+* `TauCeti.Probability.gaussianPDFReal_mul_gaussianPDFReal` — pointwise product of two Gaussian
+  densities as a scaled Gaussian density (completion of the square), for all variances `v₁, v₂`.
+* `TauCeti.Probability.sqrt_gaussianPDFReal` — square root of a Gaussian density as a scaled
+  Gaussian density with doubled variance, for all variances `v`.
+* `TauCeti.Probability.sqrt_gaussianPDFReal_mul_gaussianPDFReal` — geometric mean of two Gaussian
+  densities as a scaled Gaussian density, for all variances `v₁, v₂`.
 
 ## Main definitions
 
@@ -212,5 +218,115 @@ theorem hasDerivAt_gaussianPDFRealEReal (v : ℝ≥0) (e : EReal) (μ : ℝ) :
     · simp only [Function.comp_def]
     · field_simp
       ring
+
+/-! ### Products and square roots of Gaussian densities -/
+
+/-- Pointwise completion of the square for the product of two univariate Gaussian densities:
+`gaussianPDFReal a v₁ x * gaussianPDFReal b v₂ x` equals `gaussianPDFReal b (v₁ + v₂) a` times the
+Gaussian density with precision-weighted mean `(v₂ * a + v₁ * b) / (v₁ + v₂)` and variance
+`v₁ * v₂ / (v₁ + v₂)`. Holds unconditionally for all `v₁, v₂ : ℝ≥0`. -/
+theorem gaussianPDFReal_mul_gaussianPDFReal (a b : ℝ) (v₁ v₂ : ℝ≥0) (x : ℝ) :
+    gaussianPDFReal a v₁ x * gaussianPDFReal b v₂ x =
+      gaussianPDFReal b (v₁ + v₂) a *
+        gaussianPDFReal (((v₂ : ℝ) * a + (v₁ : ℝ) * b) / ((v₁ : ℝ) + v₂))
+          (v₁ * v₂ / (v₁ + v₂)) x := by
+  by_cases hv₁ : v₁ = 0
+  · simp [hv₁]
+  by_cases hv₂ : v₂ = 0
+  · simp [hv₂]
+  have : (0 : ℝ) < v₁ := NNReal.coe_pos.2 (pos_iff_ne_zero.2 hv₁)
+  have : (0 : ℝ) < v₂ := NNReal.coe_pos.2 (pos_iff_ne_zero.2 hv₂)
+  set w : ℝ≥0 := v₁ * v₂ / (v₁ + v₂)
+  set m : ℝ := ((v₂ : ℝ) * a + (v₁ : ℝ) * b) / ((v₁ : ℝ) + v₂)
+  have hw_coe : (w : ℝ) = (v₁ : ℝ) * v₂ / ((v₁ : ℝ) + v₂) := by simp [w]
+  have hpref : (√(2 * π * v₁))⁻¹ * (√(2 * π * v₂))⁻¹ =
+      (√(2 * π * ((v₁ : ℝ) + v₂)))⁻¹ * (√(2 * π * w))⁻¹ := by
+    rw [← mul_inv, ← mul_inv, ← Real.sqrt_mul (by positivity), ← Real.sqrt_mul (by positivity)]
+    congr 2; rw [hw_coe]; field_simp
+  have hexp : exp (-(x - a) ^ 2 / (2 * v₁)) * exp (-(x - b) ^ 2 / (2 * v₂)) =
+      exp (-(a - b) ^ 2 / (2 * ((v₁ : ℝ) + v₂))) * exp (-(x - m) ^ 2 / (2 * w)) := by
+    rw [← exp_add, ← exp_add]
+    congr 1; rw [hw_coe]; simp only [m]; field_simp; ring
+  simp only [gaussianPDFReal, NNReal.coe_add]
+  calc ((√(2 * π * v₁))⁻¹ * exp (-(x - a) ^ 2 / (2 * v₁))) *
+        ((√(2 * π * v₂))⁻¹ * exp (-(x - b) ^ 2 / (2 * v₂)))
+      = ((√(2 * π * v₁))⁻¹ * (√(2 * π * v₂))⁻¹) *
+          (exp (-(x - a) ^ 2 / (2 * v₁)) * exp (-(x - b) ^ 2 / (2 * v₂))) := by ring
+    _ = ((√(2 * π * ((v₁ : ℝ) + v₂)))⁻¹ * (√(2 * π * w))⁻¹) *
+          (exp (-(a - b) ^ 2 / (2 * ((v₁ : ℝ) + v₂))) * exp (-(x - m) ^ 2 / (2 * w))) := by
+        rw [hpref, hexp]
+    _ = ((√(2 * π * ((v₁ : ℝ) + v₂)))⁻¹ * exp (-(a - b) ^ 2 / (2 * ((v₁ : ℝ) + v₂)))) *
+          ((√(2 * π * w))⁻¹ * exp (-(x - m) ^ 2 / (2 * w))) := by ring
+
+/-- The square root of a univariate Gaussian density is a constant multiple of the Gaussian density
+with doubled variance. Holds unconditionally for all `v : ℝ≥0`. -/
+theorem sqrt_gaussianPDFReal (m : ℝ) (v : ℝ≥0) (x : ℝ) :
+    √(gaussianPDFReal m v x) =
+      √(2 * √(2 * π * (v : ℝ))) * gaussianPDFReal m (2 * v) x := by
+  by_cases hv : v = 0
+  · simp [hv]
+  have : (0 : ℝ) < v := NNReal.coe_pos.2 (pos_iff_ne_zero.2 hv)
+  simp only [gaussianPDFReal, NNReal.coe_mul, NNReal.coe_ofNat]
+  rw [Real.sqrt_mul (by positivity)]
+  have hpref : √((√(2 * π * (v : ℝ)))⁻¹) =
+      √(2 * √(2 * π * (v : ℝ))) * (√(2 * π * (2 * (v : ℝ))))⁻¹ := by
+    refine (sq_eq_sq₀ (by positivity) (by positivity)).1 ?_
+    rw [Real.sq_sqrt (by positivity), mul_pow, Real.sq_sqrt (by positivity), inv_pow,
+      Real.sq_sqrt (by positivity)]
+    have hsq : √(2 * π * (v : ℝ)) ^ 2 = 2 * π * (v : ℝ) := Real.sq_sqrt (by positivity)
+    field_simp
+    nlinarith [hsq]
+  have hexp : √(exp (-(x - m) ^ 2 / (2 * (v : ℝ)))) =
+      exp (-(x - m) ^ 2 / (2 * (2 * (v : ℝ)))) :=
+    (Real.sqrt_eq_iff_mul_self_eq (exp_nonneg _) (exp_nonneg _)).2 (by
+      rw [← exp_add]; congr 1; field_simp; ring)
+  rw [hpref, hexp, mul_assoc]
+
+/-- Pointwise completion of the square for the geometric mean of two univariate Gaussian densities:
+`√(gaussianPDFReal a v₁ x * gaussianPDFReal b v₂ x)` is a constant multiple of the Gaussian density
+with mean `(v₂ * a + v₁ * b) / (v₁ + v₂)` and variance `2 * v₁ * v₂ / (v₁ + v₂)`. Holds
+unconditionally for all `v₁, v₂ : ℝ≥0`. -/
+theorem sqrt_gaussianPDFReal_mul_gaussianPDFReal (a b : ℝ) (v₁ v₂ : ℝ≥0) (x : ℝ) :
+    √(gaussianPDFReal a v₁ x * gaussianPDFReal b v₂ x) =
+      √(2 * √((v₁ : ℝ) * v₂) / ((v₁ : ℝ) + v₂)) *
+        exp (-(a - b) ^ 2 / (4 * ((v₁ : ℝ) + v₂))) *
+          gaussianPDFReal (((v₂ : ℝ) * a + (v₁ : ℝ) * b) / ((v₁ : ℝ) + v₂))
+            (2 * v₁ * v₂ / (v₁ + v₂)) x := by
+  by_cases hv₁ : v₁ = 0
+  · simp [hv₁]
+  by_cases hv₂ : v₂ = 0
+  · simp [hv₂]
+  have : (0 : ℝ) < v₁ := NNReal.coe_pos.2 (pos_iff_ne_zero.2 hv₁)
+  have : (0 : ℝ) < v₂ := NNReal.coe_pos.2 (pos_iff_ne_zero.2 hv₂)
+  set w : ℝ≥0 := v₁ * v₂ / (v₁ + v₂)
+  rw [gaussianPDFReal_mul_gaussianPDFReal, Real.sqrt_mul (gaussianPDFReal_nonneg _ _ _),
+    sqrt_gaussianPDFReal _ w x]
+  have hvar : 2 * w = 2 * v₁ * v₂ / (v₁ + v₂) := by
+    simp only [w, ← mul_div_assoc, mul_assoc]
+  rw [hvar, ← mul_assoc]
+  congr 1
+  simp only [gaussianPDFReal, NNReal.coe_add]
+  rw [Real.sqrt_mul (by positivity)]
+  have hexp : √(exp (-(a - b) ^ 2 / (2 * ((v₁ : ℝ) + v₂)))) =
+      exp (-(a - b) ^ 2 / (4 * ((v₁ : ℝ) + v₂))) :=
+    (Real.sqrt_eq_iff_mul_self_eq (exp_nonneg _) (exp_nonneg _)).2 (by
+      rw [← exp_add]; congr 1; field_simp; ring)
+  have hconst : √((√(2 * π * ((v₁ : ℝ) + v₂)))⁻¹) * √(2 * √(2 * π * (w : ℝ))) =
+      √(2 * √((v₁ : ℝ) * v₂) / ((v₁ : ℝ) + v₂)) := by
+    refine (sq_eq_sq₀ (by positivity) (by positivity)).1 ?_
+    rw [mul_pow, Real.sq_sqrt (by positivity), Real.sq_sqrt (by positivity),
+      Real.sq_sqrt (by positivity)]
+    have hw_coe : (w : ℝ) = (v₁ : ℝ) * v₂ / ((v₁ : ℝ) + v₂) := by simp [w]
+    rw [hw_coe]
+    have hsqrt_w : √(2 * π * ((v₁ : ℝ) * v₂ / ((v₁ : ℝ) + v₂))) =
+        √(2 * π * ((v₁ : ℝ) + v₂)) * (√((v₁ : ℝ) * v₂) / ((v₁ : ℝ) + v₂)) := by
+      refine (sq_eq_sq₀ (by positivity) (by positivity)).1 ?_
+      rw [Real.sq_sqrt (by positivity), mul_pow, Real.sq_sqrt (by positivity), div_pow,
+        Real.sq_sqrt (by positivity)]
+      field_simp
+    rw [hsqrt_w]
+    field_simp
+  rw [hexp, ← hconst]
+  ring
 
 end TauCeti.Probability
