@@ -34,6 +34,8 @@ exponential characteristic of `R`.
   modulo `I ^ n R̂` to the image of an element of `R`.
 * `AdicCompletion.quotientMap_algebraMap_bijective`: the map `R ⧸ I ^ n → R̂ ⧸ (I R̂) ^ n` induced
   by `R → R̂` is bijective.
+* `AdicCompletion.quotientMapSupPowAlgEquiv`: for any ideal `J` of `R`, the isomorphism of
+  `R`-algebras `R̂ ⧸ (J R̂ + (I R̂) ^ n) ≃ R ⧸ (J + I ^ n)`.
 * `AdicCompletion.denseRange_algebraMap`: the image of `R` is dense in `R̂` for the `I R̂`-adic
   topology.
 * `AdicCompletion.expChar`: the `I`-adic completion of an `I`-adically Hausdorff ring has the
@@ -110,6 +112,58 @@ theorem quotientMap_algebraMap_bijective (fg : I.FG) (n : ℕ)
     obtain ⟨y, hy⟩ := exists_sub_algebraMap_mem_map_pow fg n x
     rw [Ideal.map_pow] at hy
     exact ⟨Ideal.Quotient.mk _ y, (Ideal.Quotient.eq.mpr hy).symm⟩
+
+/-- For a finitely generated ideal `I` and any ideal `J` of `R`, the kernel of the composite
+`R̂ → R ⧸ I ^ n → R ⧸ (J ⊔ I ^ n)` is `J R̂ ⊔ (I R̂) ^ n`. -/
+theorem ker_factorₐ_comp_evalₐ_eq_map_sup_pow (fg : I.FG) (J : Ideal R) (n : ℕ) :
+    RingHom.ker ((Ideal.Quotient.factorₐ R (le_sup_right : I ^ n ≤ J ⊔ I ^ n)).comp
+        (evalₐ I n) : AdicCompletion I R →ₐ[R] R ⧸ (J ⊔ I ^ n)) =
+      J.map (algebraMap R (AdicCompletion I R)) ⊔
+        (I.map (algebraMap R (AdicCompletion I R))) ^ n := by
+  let ψ : AdicCompletion I R →ₐ[R] R ⧸ (J ⊔ I ^ n) :=
+    (Ideal.Quotient.factorₐ R (le_sup_right : I ^ n ≤ J ⊔ I ^ n)).comp (evalₐ I n)
+  have hψ_alg (r : R) :
+      ψ (algebraMap R (AdicCompletion I R) r) = Ideal.Quotient.mk (J ⊔ I ^ n) r := by
+    simp [ψ, algebraMap_apply, evalₐ_of]
+  rw [← Ideal.map_pow, ← Ideal.map_sup]
+  have hle : (J ⊔ I ^ n).map (algebraMap R (AdicCompletion I R)) ≤ RingHom.ker ψ := by
+    rw [Ideal.map_le_iff_le_comap]
+    intro r hr
+    rw [Ideal.mem_comap, RingHom.mem_ker, hψ_alg, Ideal.Quotient.eq_zero_iff_mem]
+    exact hr
+  refine le_antisymm (fun x hx ↦ ?_) hle
+  obtain ⟨y, hy⟩ := exists_sub_algebraMap_mem_map_pow fg n x
+  have hy' : x - algebraMap R (AdicCompletion I R) y ∈
+      (J ⊔ I ^ n).map (algebraMap R (AdicCompletion I R)) :=
+    Ideal.map_mono le_sup_right hy
+  have hψy : ψ (algebraMap R (AdicCompletion I R) y) = 0 := by
+    have hsub : ψ (x - algebraMap R (AdicCompletion I R) y) = 0 := hle hy'
+    rw [map_sub, RingHom.mem_ker.mp hx, zero_sub, neg_eq_zero] at hsub
+    exact hsub
+  have hy_mem : y ∈ J ⊔ I ^ n := by
+    rwa [hψ_alg, Ideal.Quotient.eq_zero_iff_mem] at hψy
+  simpa only [sub_add_cancel] using add_mem hy' (Ideal.mem_map_of_mem _ hy_mem)
+
+/-- For a finitely generated ideal `I` and any ideal `J` of `R`, the quotient of the `I`-adic
+completion by `J R̂ ⊔ (I R̂) ^ n` is isomorphic as an `R`-algebra to `R ⧸ (J ⊔ I ^ n)`. -/
+noncomputable def quotientMapSupPowAlgEquiv (fg : I.FG) (J : Ideal R) (n : ℕ) :
+    (AdicCompletion I R ⧸
+      (J.map (algebraMap R (AdicCompletion I R)) ⊔
+        (I.map (algebraMap R (AdicCompletion I R))) ^ n)) ≃ₐ[R]
+      R ⧸ (J ⊔ I ^ n) :=
+  (Ideal.quotientEquivAlgOfEq R (ker_factorₐ_comp_evalₐ_eq_map_sup_pow fg J n).symm).trans
+    (Ideal.quotientKerAlgEquivOfSurjective
+      ((Ideal.Quotient.factor_surjective (le_sup_right : I ^ n ≤ J ⊔ I ^ n)).comp
+        (surjective_evalₐ I n)))
+
+/-- The isomorphism `R̂ ⧸ (J R̂ ⊔ (I R̂) ^ n) ≃ R ⧸ (J ⊔ I ^ n)` sends the class of `x` to the
+quotient class of its projection `evalₐ I n x`. -/
+@[simp]
+theorem quotientMapSupPowAlgEquiv_mk (fg : I.FG) (J : Ideal R) (n : ℕ) (x : AdicCompletion I R) :
+    quotientMapSupPowAlgEquiv fg J n (Ideal.Quotient.mk _ x) =
+      Ideal.Quotient.factor (le_sup_right : I ^ n ≤ J ⊔ I ^ n) (evalₐ I n x) := by
+  simp [quotientMapSupPowAlgEquiv]
+  rfl
 
 open Topology in
 /-- For a finitely generated ideal `I`, the image of `R` is dense in the adic completion for the
