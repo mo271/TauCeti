@@ -7,6 +7,7 @@ module
 
 public import TauCeti.Algebra.TemperleyLieb.QuantumDimension
 public import TauCeti.QuantumGroups.QuantumInteger.Real
+public import Mathlib.Algebra.Order.Star.Basic
 public import Mathlib.Analysis.Complex.Order
 public import Mathlib.Analysis.SpecialFunctions.Trigonometric.Inverse
 
@@ -39,6 +40,12 @@ integers `[1], …, [m - 1]` are positive, `[m] = 0`, and the recurrence
 `[t] + [t + 2] = δ [t + 1]` says that they form an eigenvector of the adjacency matrix with
 eigenvalue `δ`.
 
+The boundary value `δ = 0` shows that the strict hypothesis `0 < δ` cannot be weakened: every
+admissible loop parameter satisfies `1 ≤ δ` (`one_le_of_mem_jonesLoopParameters`), so `0` is not
+admissible (`zero_notMem_jonesLoopParameters`), yet at `δ = 0` every Markov trace vanishes on
+positive strands and equals `aug` on zero strands, so its Hermitian forms are trivially positive
+semidefinite (`IsMarkovTrace.map_star_mul_self_nonneg_of_eq_zero`).
+
 The results are stated for an arbitrary Markov trace, so they apply to the spin-model trace
 `TauCeti.TemperleyLieb.markovTrace` through `TauCeti.TemperleyLieb.isMarkovTrace_markovTrace`.
 Over `ℂ` the analytic adjoint is the instance `TauCeti.TemperleyLieb.instStarRing`, whose
@@ -51,6 +58,9 @@ hypothesis `Fact (IsSelfAdjoint (δ : ℂ))` holds for every real `δ` by `Compl
 
 ## Main results
 
+* `TauCeti.TemperleyLieb.one_le_of_mem_jonesLoopParameters`,
+  `TauCeti.TemperleyLieb.zero_notMem_jonesLoopParameters`: every admissible loop parameter is at
+  least `1`, so `0` is not admissible.
 * `TauCeti.TemperleyLieb.qInt_pos_of_notMem_jonesLoopParameters`,
   `TauCeti.TemperleyLieb.qInt_floor_add_one_neg_of_notMem_jonesLoopParameters`: the signs of the
   quantum integers at an inadmissible positive loop parameter.
@@ -65,6 +75,8 @@ hypothesis `Fact (IsSelfAdjoint (δ : ℂ))` holds for every real `δ` by `Compl
   only be positive semidefinite below level `⌊π / θ⌋`.
 * `TauCeti.TemperleyLieb.IsMarkovTrace.map_star_mul_self_nonneg_of_eq_two_mul_cos`: positivity
   at the loop values `2 cos (π / m)`.
+* `TauCeti.TemperleyLieb.IsMarkovTrace.map_star_mul_self_nonneg_of_eq_zero`: trivial positivity at
+  `δ = 0` over any star-ordered commutative semiring.
 * `TauCeti.TemperleyLieb.IsMarkovTrace.forall_map_star_mul_self_nonneg_iff`,
   `TauCeti.TemperleyLieb.markovTrace_nonneg_iff`: **Jones's positivity theorem**.
 
@@ -92,6 +104,25 @@ def jonesLoopParameters : Set ℝ :=
 theorem mem_jonesLoopParameters {δ : ℝ} :
     δ ∈ jonesLoopParameters ↔ (∃ m : ℕ, 3 ≤ m ∧ δ = 2 * cos (π / m)) ∨ 2 ≤ δ :=
   Iff.rfl
+
+/-- Every admissible Jones loop parameter is at least `1`: for `m ≥ 3`, `π / m ≤ π / 3` gives
+`2 cos (π / m) ≥ 2 cos (π / 3) = 1`. -/
+theorem one_le_of_mem_jonesLoopParameters {δ : ℝ} (h : δ ∈ jonesLoopParameters) : 1 ≤ δ := by
+  rw [mem_jonesLoopParameters] at h
+  obtain ⟨m, hm, rfl⟩ | h2 := h
+  · have hle : π / m ≤ π / 3 :=
+      div_le_div_of_nonneg_left pi_nonneg (by positivity) (by exact_mod_cast hm)
+    have hcos : cos (π / 3) ≤ cos (π / m) :=
+      strictAntiOn_cos.antitoneOn
+        ⟨by positivity, hle.trans (by linarith [pi_pos])⟩
+        ⟨by positivity, by linarith [pi_pos]⟩ hle
+    rw [cos_pi_div_three] at hcos
+    linarith
+  · linarith
+
+/-- Zero is not an admissible Jones loop parameter. -/
+theorem zero_notMem_jonesLoopParameters : (0 : ℝ) ∉ jonesLoopParameters := fun h ↦ by
+  linarith [one_le_of_mem_jonesLoopParameters h]
 
 section QuantumInteger
 
@@ -282,6 +313,22 @@ theorem forall_map_star_mul_self_nonneg_iff (htr : IsMarkovTrace ℂ (δ : ℂ) 
   obtain ⟨m, hm, hδm⟩ | h2 := h
   · exact htr.map_star_mul_self_nonneg_of_eq_two_mul_cos (by omega) hδm x
   · exact htr.map_star_mul_self_nonneg_of_two_le h2 x
+
+/-- At loop parameter `δ = 0`, the Hermitian trace form `tr n (star x * x)` is trivially positive
+semidefinite on every number of strands over any star-ordered commutative semiring: on `0` strands
+it equals `star (aug x) * aug x ≥ 0`, and on `n > 0` strands the trace vanishes identically. Since
+`0 ∉ jonesLoopParameters`, this shows that the strict hypothesis `0 < δ` in
+`IsMarkovTrace.forall_map_star_mul_self_nonneg_iff` cannot be weakened to `0 ≤ δ`. -/
+theorem map_star_mul_self_nonneg_of_eq_zero {R : Type*} [CommSemiring R] [PartialOrder R]
+    [StarRing R] [StarOrderedRing R] {δ : R} [Fact (IsSelfAdjoint δ)]
+    {tr : ∀ n : ℕ, TemperleyLieb R δ n →ₗ[R] R}
+    (htr : IsMarkovTrace R δ tr) (hδ : δ = 0) (n : ℕ) (x : TemperleyLieb R δ n) :
+    0 ≤ tr n (star x * x) := by
+  subst hδ
+  obtain rfl | hn := n.eq_zero_or_pos
+  · rw [htr.map_zero_strands, map_mul, aug_star]
+    exact star_mul_self_nonneg (aug x)
+  · rw [htr.map_eq_zero_of_pos hn]
 
 end IsMarkovTrace
 

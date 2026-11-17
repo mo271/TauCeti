@@ -19,8 +19,9 @@ nondegenerate. No positivity, finite dimensionality or field hypothesis is requi
 
 The radical is the largest left ideal (and, being two-sided, the largest two-sided ideal) on
 which `τ` vanishes. Under a surjective trace-preserving algebra map it pulls back exactly;
-without surjectivity only one inclusion is asserted. These facts allow algebraic trace quotients
-to be compared before any completion.
+without surjectivity only one inclusion is asserted. Scaling `τ` by a left-regular scalar leaves
+the trace radical unchanged (`LinearMap.traceRadical_smul`). These facts allow algebraic trace
+quotients to be compared before any completion.
 
 ## References
 
@@ -161,6 +162,18 @@ theorem comap_traceRadical_of_surjective (f : A →ₐ[R] B)
   obtain ⟨y, rfl⟩ := hsurj y
   have heq : σ (f (x * y)) = τ (x * y) := LinearMap.congr_fun hf _
   simpa only [map_mul] using heq.trans (hx y)
+
+/-- Scaling a trace functional by a left-regular scalar does not change its trace radical. -/
+theorem traceRadical_smul (τ : A →ₗ[R] R) (hτ : ∀ x y, τ (x * y) = τ (y * x))
+    {c : R} (hc : IsLeftRegular c) :
+    (c • τ).traceRadical (fun x y ↦ by simp [hτ]) = τ.traceRadical hτ := by
+  ext x
+  simp only [mem_traceRadical, LinearMap.smul_apply, smul_eq_mul]
+  constructor
+  · intro hx y
+    exact hc (by simpa [mul_zero] using hx y)
+  · intro hx y
+    rw [hx y, mul_zero]
 
 end LinearMap
 

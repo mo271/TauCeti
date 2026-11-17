@@ -6,6 +6,7 @@ Authors: The Tau Ceti contributors
 module
 
 public import Mathlib.Algebra.Star.SelfAdjoint
+public import Mathlib.Algebra.Star.StarAlgHom
 public import TauCeti.Algebra.TemperleyLieb.Basic
 
 /-!
@@ -37,6 +38,8 @@ The hypothesis on `δ` is the instance argument `Fact (IsSelfAdjoint δ)`; for a
 
 * `TauCeti.TemperleyLieb.instStarRing`: for self-adjoint `δ`, the star structure fixing every
   generator; it is conjugate-linear (`TauCeti.TemperleyLieb.instStarModule`).
+* `TauCeti.TemperleyLieb.strandInclStarAlgHom`: the strand inclusion upgraded to a `⋆`-algebra
+  homomorphism.
 
 ## Main results
 
@@ -171,6 +174,23 @@ end UniversalProperty
 theorem strandIncl_star (x : TemperleyLieb R δ (n + 1)) :
     strandIncl (star x) = star (strandIncl x) :=
   map_star_iff.mpr (fun i ↦ by simpa using isSelfAdjoint_e (δ := δ) (n := n + 2) i.castSucc) x
+
+/-- The strand inclusion upgraded to a `⋆`-algebra homomorphism for a self-adjoint loop
+parameter. -/
+def strandInclStarAlgHom (δ : R) (n : ℕ) [Fact (IsSelfAdjoint δ)] :
+    TemperleyLieb R δ (n + 1) →⋆ₐ[R] TemperleyLieb R δ (n + 2) :=
+  { strandIncl (R := R) (δ := δ) (n := n) with
+    map_star' := strandIncl_star }
+
+/-- Forgetting star preservation from `strandInclStarAlgHom` recovers `strandIncl`. -/
+@[simp]
+theorem strandInclStarAlgHom_toAlgHom (δ : R) (n : ℕ) [Fact (IsSelfAdjoint δ)] :
+    (strandInclStarAlgHom δ n).toAlgHom = strandIncl (R := R) (δ := δ) (n := n) := (rfl)
+
+/-- Applying `strandInclStarAlgHom` evaluates `strandIncl`. -/
+@[simp]
+theorem strandInclStarAlgHom_apply (x : TemperleyLieb R δ (n + 1)) :
+    strandInclStarAlgHom δ n x = strandIncl x := (rfl)
 
 /-- The augmentation conjugates: on at most one strand, where the algebra is the base ring, the
 analytic adjoint is the star of `R`. -/

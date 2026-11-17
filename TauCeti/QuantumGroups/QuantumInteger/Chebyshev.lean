@@ -42,6 +42,8 @@ computes the same values from the three-term recurrence.
 * `TauCeti.qInt_mul`: `[mn]` at `δ` is `[m]` at `δ` times `[n]` at `Cₘ(δ)`, where `Cₘ` is the
   rescaled Chebyshev polynomial of the first kind, so that `Cₘ(q + q⁻¹) = qᵐ + q⁻ᵐ`.
 * `TauCeti.qInt_dvd_qInt`: `[m] ∣ [n]` whenever `m ∣ n`.
+* `TauCeti.qInt_neg`: negating the loop parameter gives `[n]_{-δ} = (-1)^(n+1) [n]_δ`;
+  invertibility is unchanged (`TauCeti.isUnit_qInt_neg_iff`).
 * `TauCeti.qInt_two_left`, `TauCeti.qInt_neg_two_left`: at `δ = 2` and `δ = -2`, `[n]` is `n` and
   `(-1)^(n+1) n`; in characteristic zero these never vanish for `n ≥ 1`, while in characteristic
   `p` they vanish at `n = p`.
@@ -136,6 +138,21 @@ theorem qInt_neg_two_left (n : ℕ) : qInt R (-2) n = (-1) ^ (n + 1) * n := by
   rcases n with _ | n
   · simp
   · simp [qInt_def, pow_succ]
+
+/-- Negating the loop parameter scales the quantum integer `[n]` by `(-1) ^ (n + 1)`. -/
+theorem qInt_neg (δ : R) : ∀ n : ℕ, qInt R (-δ) n = (-1) ^ (n + 1) * qInt R δ n
+  | 0 => by simp
+  | 1 => by simp
+  | n + 2 => by
+    rw [qInt_add_two, qInt_add_two, qInt_neg δ (n + 1), qInt_neg δ n]
+    ring
+
+/-- Negating the loop parameter does not affect whether a quantum integer is a unit. -/
+@[simp]
+theorem isUnit_qInt_neg_iff (δ : R) (n : ℕ) :
+    IsUnit (qInt R (-δ) n) ↔ IsUnit (qInt R δ n) := by
+  rw [qInt_neg, IsUnit.mul_iff]
+  simp [isUnit_one.neg.pow (n + 1)]
 
 end TauCeti
 

@@ -30,7 +30,13 @@ not assert the existence of a Markov trace at every loop parameter.
 
 * `TauCeti.TemperleyLieb.IsMarkovTrace.map_strandIncl_mul_e_last_mul`: the trace reduction for
   `strandIncl a * e δ (Fin.last n) * strandIncl b`.
+* `TauCeti.TemperleyLieb.IsMarkovTrace.map_e`: every generator `e δ i` on `n` strands has trace
+  `δ ^ (n - 1)`.
+* `TauCeti.TemperleyLieb.IsMarkovTrace.map_of_le_one`,
+  `TauCeti.TemperleyLieb.IsMarkovTrace.map_zero_strands`: evaluation on at most one strand.
 * `TauCeti.TemperleyLieb.IsMarkovTrace.unique`: uniqueness of the Markov trace.
+* `TauCeti.TemperleyLieb.IsMarkovTrace.eq_zero_of_pos`: at loop parameter `δ = 0`, every Markov
+  trace vanishes on every positive number of strands.
 
 ## References
 
@@ -72,14 +78,47 @@ theorem map_strandIncl_mul_e_last_mul (htr : IsMarkovTrace R δ tr) {n : ℕ}
   rw [htr.map_mul_comm, ← mul_assoc, ← map_mul, htr.map_strandIncl_mul_e_last,
     htr.map_mul_comm]
 
+/-- Every generator `e δ i` on `n` strands has trace `δ ^ (n - 1)`: its closure has `n - 1`
+loops. -/
+@[simp]
+theorem map_e (htr : IsMarkovTrace R δ tr) :
+    ∀ {n : ℕ} (i : Fin (n - 1)), tr n (e δ i) = δ ^ (n - 1)
+  | 0, i => Fin.elim0 i
+  | 1, i => Fin.elim0 i
+  | m + 2, i => by
+    induction i using Fin.lastCases with
+    | last =>
+      have h := htr.map_strandIncl_mul_e_last m 1
+      rw [_root_.map_one, one_mul, htr.map_one] at h
+      exact h
+    | cast j =>
+      rw [← strandIncl_e, htr.map_strandIncl, htr.map_e (n := m + 1) j, ← pow_succ']
+      rfl
+
+/-- On at most one strand the algebra is the base ring, so every unnormalized Markov trace
+evaluates as `aug x * δ ^ n`. -/
+theorem map_of_le_one (htr : IsMarkovTrace R δ tr) {n : ℕ} (hn : n ≤ 1)
+    (x : TemperleyLieb R δ n) : tr n x = aug x * δ ^ n :=
+  calc
+    tr n x = tr n ((algEquivOfLeOne δ hn).symm (algEquivOfLeOne δ hn x)) := by
+      rw [(algEquivOfLeOne δ hn).symm_apply_apply]
+    _ = tr n (aug x • (1 : TemperleyLieb R δ n)) := by
+      rw [algEquivOfLeOne_symm_apply, algEquivOfLeOne_apply, Algebra.algebraMap_eq_smul_one]
+    _ = aug x * δ ^ n := by rw [map_smul, htr.map_one, smul_eq_mul]
+
+/-- On zero strands, every unnormalized Markov trace agrees with the augmentation. -/
+@[simp]
+theorem map_zero_strands (htr : IsMarkovTrace R δ tr) (x : TemperleyLieb R δ 0) :
+    tr 0 x = aug x := by
+  simpa only [pow_zero, mul_one] using htr.map_of_le_one (Nat.zero_le 1) x
+
 /-- On at most one strand the algebra is the base ring, so a Markov trace is determined there by
 its normalization `tr n 1 = δ ^ n`. -/
 private theorem eq_of_le_one {tr' : ∀ n : ℕ, TemperleyLieb R δ n →ₗ[R] R}
     (htr : IsMarkovTrace R δ tr) (htr' : IsMarkovTrace R δ tr') {n : ℕ} (hn : n ≤ 1) :
     tr n = tr' n := by
   ext x
-  rw [← (algEquivOfLeOne δ hn).symm_apply_apply x, algEquivOfLeOne_symm_apply,
-    Algebra.algebraMap_eq_smul_one, map_smul, map_smul, htr.map_one, htr'.map_one]
+  rw [htr.map_of_le_one hn, htr'.map_of_le_one hn]
 
 /-- **Uniqueness of the Markov trace.** Over every commutative semiring and at every loop parameter
 there is at most one unnormalized Markov trace on the Temperley–Lieb tower: on `n + 2` strands it
@@ -97,6 +136,28 @@ theorem unique {tr' : ∀ n : ℕ, TemperleyLieb R δ n →ₗ[R] R} (htr : IsMa
     rintro _ (⟨a, rfl⟩ | ⟨⟨a, b⟩, rfl⟩)
     · rw [htr.map_strandIncl, htr'.map_strandIncl, ih]
     · rw [htr.map_strandIncl_mul_e_last_mul, htr'.map_strandIncl_mul_e_last_mul, ih]
+
+/-- At loop parameter `δ = 0`, every unnormalized Markov trace vanishes on every positive number
+of strands: the closure of any nonempty diagram contains a closed loop. -/
+theorem eq_zero_of_pos {tr₀ : ∀ n : ℕ, TemperleyLieb R 0 n →ₗ[R] R}
+    (htr : IsMarkovTrace R 0 tr₀) : ∀ {n : ℕ}, 0 < n → tr₀ n = 0
+  | 0, hn => absurd hn (lt_irrefl 0)
+  | 1, _ => by
+    ext x
+    rw [htr.map_of_le_one le_rfl, pow_one, mul_zero, LinearMap.zero_apply]
+  | n + 2, _ => by
+    refine LinearMap.ext_on (span_strandIncl_union_strandIncl_mul_e_last_mul_eq_top n) ?_
+    rintro _ (⟨a, rfl⟩ | ⟨⟨a, b⟩, rfl⟩)
+    · rw [htr.map_strandIncl, zero_mul, LinearMap.zero_apply]
+    · rw [htr.map_strandIncl_mul_e_last_mul, htr.eq_zero_of_pos (Nat.succ_pos n),
+        LinearMap.zero_apply, LinearMap.zero_apply]
+
+/-- Pointwise vanishing of a Markov trace at loop parameter `δ = 0` on every positive number of
+strands. -/
+theorem map_eq_zero_of_pos {tr₀ : ∀ n : ℕ, TemperleyLieb R 0 n →ₗ[R] R}
+    (htr : IsMarkovTrace R 0 tr₀) {n : ℕ} (hn : 0 < n)
+    (x : TemperleyLieb R 0 n) : tr₀ n x = 0 := by
+  rw [htr.eq_zero_of_pos hn, LinearMap.zero_apply]
 
 end IsMarkovTrace
 
