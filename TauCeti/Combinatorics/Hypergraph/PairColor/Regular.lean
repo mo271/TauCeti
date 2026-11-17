@@ -125,6 +125,44 @@ theorem IsRegularPair.nonneg [Nonempty κ] (h : S.IsRegularPair ε s t) : 0 ≤ 
   exact (abs_nonneg _).not_gt
     ((h (Classical.arbitrary κ) ∅ (empty_subset _) ∅ (empty_subset _) (h₀ s) (h₀ t)).trans_lt hε)
 
+/-- In an `ε`-regular pair `(s, t)` containing at least one pair of distinct vertices, any
+subsets `s' ⊆ s` and `t' ⊆ t` meeting the size thresholds are nonempty. -/
+theorem IsRegularPair.nonempty_of_exists_ne (h : S.IsRegularPair ε s t)
+    (hsupp : ∃ x ∈ s, ∃ y ∈ t, x ≠ y) {s' t' : Finset V} (hs' : s' ⊆ s) (ht' : t' ⊆ t)
+    (hs : ε * #s ≤ #s') (ht : ε * #t ≤ #t') :
+    s'.Nonempty ∧ t'.Nonempty := by
+  classical
+  obtain ⟨x, hx, y, hy, hne⟩ := hsupp
+  set c₁ := S.color ⟨(x, y), hne⟩
+  have hε0 : 0 ≤ ε := haveI : Nonempty κ := ⟨c₁⟩; h.nonneg
+  have hcontra (hempty : s' = ∅ ∨ t' = ∅) : False := by
+    have hεz : ε = 0 := by
+      rcases hempty with rfl | rfl
+      · have hpos : (0 : ℝ) < #s := Nat.cast_pos.2 (card_pos.2 ⟨x, hx⟩)
+        rw [card_empty, Nat.cast_zero] at hs
+        nlinarith
+      · have hpos : (0 : ℝ) < #t := Nat.cast_pos.2 (card_pos.2 ⟨y, hy⟩)
+        rw [card_empty, Nat.cast_zero] at ht
+        nlinarith
+    have hdpos : (0 : ℝ) < pairColorDensity S c₁ s t := by
+      have hmul : (pairColorDensity S c₁ s t : ℝ) * (#((s ×ˢ t).filter fun p ↦ p.1 ≠ p.2) : ℝ) =
+          (#((s ×ˢ t).filter fun p ↦ S.colorOfPair p.1 p.2 = some c₁) : ℝ) := by
+        exact_mod_cast pairColorDensity_mul_card_support S c₁ s t
+      have hmem : (x, y) ∈ (s ×ˢ t).filter fun p ↦ S.colorOfPair p.1 p.2 = some c₁ :=
+        mem_filter.2 ⟨mem_product.2 ⟨hx, hy⟩, (S.colorOfPair_eq_some_iff x y c₁).2 ⟨hne, rfl⟩⟩
+      have hcpos : (0 : ℝ) < #((s ×ˢ t).filter fun p ↦ S.colorOfPair p.1 p.2 = some c₁) :=
+        Nat.cast_pos.2 (card_pos.2 ⟨(x, y), hmem⟩)
+      have : (0 : ℝ) < #((s ×ˢ t).filter fun p ↦ p.1 ≠ p.2) :=
+        Nat.cast_pos.2 (card_pos.2 ⟨(x, y), mem_filter.2 ⟨mem_product.2 ⟨hx, hy⟩, hne⟩⟩)
+      nlinarith
+    have hd0 : pairColorDensity S c₁ s' t' = 0 := by
+      rcases hempty with rfl | rfl <;> simp [pairColorDensity_def]
+    have hbad := h c₁ s' hs' t' ht' hs ht
+    rw [hεz, hd0, Rat.cast_zero, zero_sub, abs_neg, abs_of_pos hdpos] at hbad
+    linarith
+  exact ⟨by_contra fun h1 ↦ hcontra (Or.inl (not_nonempty_iff_eq_empty.1 h1)),
+    by_contra fun h2 ↦ hcontra (Or.inr (not_nonempty_iff_eq_empty.1 h2))⟩
+
 /-- **Slicing lemma.** If `(s, t)` is `ε`-regular, then every pair of subsets `s₁ ⊆ s` and
 `t₁ ⊆ t` of at least an `α`-fraction of the sizes of `s` and `t` is
 `max (2ε) (ε / α)`-regular. -/

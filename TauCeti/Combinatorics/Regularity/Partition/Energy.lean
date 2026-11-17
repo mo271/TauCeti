@@ -97,6 +97,39 @@ theorem weightedEnergy_le_one (P : Finpartition (univ : Finset V)) : G.weightedE
   have h1 : (G.edgeDensity A.1 C.1 : ℝ) ≤ 1 := mod_cast G.edgeDensity_le_one _ _
   exact mul_le_of_le_one_right (by positivity) (pow_le_one₀ h0 h1)
 
+/-- The weighted energy is at most the global edge density `G.edgeDensity univ univ`, since every
+block density lies in `[0, 1]` and the block edge counts sum to `#(G.interedges univ univ)`. -/
+theorem weightedEnergy_le_edgeDensity_univ (P : Finpartition (univ : Finset V)) :
+    G.weightedEnergy P ≤ G.edgeDensity univ univ := by
+  rcases isEmpty_or_nonempty V with hV | hV
+  · simp [weightedEnergy_def, SimpleGraph.edgeDensity_def]
+  have hVpos : (0 : ℝ) < (Fintype.card V : ℝ) ^ 2 := by positivity
+  refine le_of_mul_le_mul_left ?_ hVpos
+  have hW : (Fintype.card V : ℝ) ^ 2 * G.weightedEnergy P =
+      ∑ A ∈ P.parts, ∑ B ∈ P.parts, (#A : ℝ) * #B * (G.edgeDensity A B : ℝ) ^ 2 := by
+    rw [weightedEnergy_def, mul_sum]
+    refine sum_congr rfl fun A _ => ?_
+    rw [mul_sum]
+    refine sum_congr rfl fun B _ => ?_
+    field_simp
+  have hU : (Fintype.card V : ℝ) ^ 2 * (G.edgeDensity univ univ : ℝ) =
+      #(G.interedges univ univ) := by
+    simpa [sq, card_univ] using G.card_mul_card_mul_edgeDensity_real univ univ
+  rw [hW, hU]
+  calc ∑ A ∈ P.parts, ∑ B ∈ P.parts, (#A : ℝ) * #B * (G.edgeDensity A B : ℝ) ^ 2
+      ≤ ∑ A ∈ P.parts, ∑ B ∈ P.parts, (#A : ℝ) * #B * (G.edgeDensity A B : ℝ) := by
+        refine sum_le_sum fun A _ => sum_le_sum fun B _ => ?_
+        have hd₀ : (0 : ℝ) ≤ G.edgeDensity A B := mod_cast G.edgeDensity_nonneg A B
+        have hd₁ : (G.edgeDensity A B : ℝ) ≤ 1 := mod_cast G.edgeDensity_le_one A B
+        exact mul_le_mul_of_nonneg_left (by nlinarith)
+          (mul_nonneg (Nat.cast_nonneg _) (Nat.cast_nonneg _))
+    _ = ∑ A ∈ P.parts, ∑ B ∈ P.parts, (#(G.interedges A B) : ℝ) :=
+        sum_congr rfl fun A _ => sum_congr rfl fun B _ => G.card_mul_card_mul_edgeDensity_real A B
+    _ = #(G.interedges univ univ) := by
+        have hsplit := G.card_interedges_eq_sum_parts P P (Subset.refl univ) (Subset.refl univ)
+        simp only [univ_inter] at hsplit
+        exact_mod_cast hsplit.symm
+
 /-- The weighted energy is the mean square of the block-average step function
 `(x, y) ↦ d_G(P.part x, P.part y)` over all ordered pairs of vertices, diagonal included. -/
 theorem weightedEnergy_eq_sum_part (P : Finpartition (univ : Finset V)) :
