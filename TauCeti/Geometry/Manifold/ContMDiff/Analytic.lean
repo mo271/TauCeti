@@ -10,6 +10,7 @@ public import Mathlib.Geometry.Manifold.ContMDiff.Atlas
 public import Mathlib.Geometry.Manifold.ContMDiff.NormedSpace
 public import TauCeti.Geometry.Manifold.ContMDiff.Defs
 public import TauCeti.Geometry.Manifold.ExtChartAt
+import TauCeti.Analysis.Analytic.Uniqueness
 import TauCeti.Geometry.Manifold.ContMDiff.Atlas
 import TauCeti.Geometry.Manifold.MFDeriv.Chart.Basic
 
@@ -52,8 +53,9 @@ The model is assumed boundaryless throughout, so that chart images of open sets 
   `TauCeti.contMDiffAt_modelSpace_omega_iff_analyticAt` is the case of the trivial model.
 * `TauCeti.contMDiffOn_omega_iff_analyticOnNhd_of_mem_maximalAtlas`: the same on open subsets of a
   chart domain.
-* `TauCeti.eqOn_of_preconnected_of_eventuallyEq_of_contMDiffAt` and
-  `ContMDiff.eq_of_eventuallyEq`: the identity theorem.
+* `TauCeti.eqOn_of_preconnected_of_eventuallyEq_of_contMDiffAt`, `ContMDiff.eq_of_eventuallyEq`,
+  `ContMDiffAt.eventually_not_eventuallyEq_zero`, and `ContMDiffAt.closure_setOf_ne_zero_mem_nhds`:
+  the identity theorem and persistence of non-vanishing germs.
 -/
 
 public section
@@ -288,5 +290,33 @@ theorem ContMDiff.eq_of_eventuallyEq [LocallyConnectedSpace E] [IsManifold I ω 
     (hg : ContMDiff I 𝓘(𝕜, F) ω g) {x₀ : M} (hfg : f =ᶠ[𝓝 x₀] g) : f = g :=
   funext fun x ↦ TauCeti.eqOn_of_preconnected_of_eventuallyEq_of_contMDiffAt (fun x _ ↦ hf x)
     (fun x _ ↦ hg x) isPreconnected_univ (mem_univ x₀) hfg (mem_univ x)
+
+/-- **Persistence of non-vanishing germs for `C^ω` functions on manifolds.** If `f` is `C^ω` at
+`x` on a manifold modelled without boundary and does not vanish identically near `x`, then the same
+holds at every point of a neighbourhood of `x`. -/
+theorem ContMDiffAt.eventually_not_eventuallyEq_zero {f : M → F} (hf : ContMDiffAt I 𝓘(𝕜, F) ω f x)
+    (hf0 : ¬f =ᶠ[𝓝 x] 0) : ∀ᶠ y in 𝓝 x, ¬f =ᶠ[𝓝 y] 0 := by
+  set c := extChartAt I x
+  have han : AnalyticAt 𝕜 (f ∘ c.symm) (c x) := by
+    simpa only [c, writtenInExtChartAt, extChartAt_model_space_eq_id, PartialEquiv.refl_coe,
+      id_comp] using hf.analyticAt_writtenInExtChartAt
+  have h0 : ¬(f ∘ c.symm) =ᶠ[𝓝 (c x)] 0 := fun h ↦ hf0 <|
+    (TauCeti.comp_extChartAt_symm_comp_extChartAt_eventuallyEq (I := I) f x).symm.trans
+      ((continuousAt_extChartAt (I := I) x).tendsto.eventually h)
+  filter_upwards [extChartAt_source_mem_nhds (I := I) x,
+    (continuousAt_extChartAt (I := I) x).tendsto.eventually
+      (han.eventually_not_eventuallyEq_zero h0)] with y hyc hy hy0
+  have hlim : Tendsto c.symm (𝓝 (c y)) (𝓝 y) := by
+    have h₁ : Tendsto c.symm (𝓝 (c y)) (𝓝 (c.symm (c y))) :=
+      (continuousAt_extChartAt_symm'' (I := I) (c.map_source hyc)).tendsto
+    rwa [c.left_inv hyc] at h₁
+  exact hy (hlim.eventually hy0)
+
+/-- If `f` is `C^ω` at `x` on a manifold modelled without boundary and does not vanish identically
+near `x`, then the closure of `{y | f y ≠ 0}` is a neighbourhood of `x`. -/
+theorem ContMDiffAt.closure_setOf_ne_zero_mem_nhds {f : M → F} (hf : ContMDiffAt I 𝓘(𝕜, F) ω f x)
+    (hf0 : ¬f =ᶠ[𝓝 x] 0) : closure {y | f y ≠ 0} ∈ 𝓝 x :=
+  (hf.eventually_not_eventuallyEq_zero hf0).mono fun _ hy ↦
+    mem_closure_iff_frequently.2 (not_eventually.1 hy)
 
 end

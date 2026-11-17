@@ -40,6 +40,9 @@ lives.
 
 ## Main declarations
 
+* `AnalyticAt.eventually_not_eventuallyEq_zero`, `AnalyticAt.closure_setOf_ne_zero_mem_nhds`: an
+  analytic function that does not vanish near `p` does not vanish near any point of a neighbourhood
+  of `p`, so `{z | f z ≠ 0}` is dense in a neighbourhood of `p`.
 * `AnalyticAt.eventuallyEq_zero_iff_forall_eventuallyEq_zero_comp_add_smul`: an analytic function
   vanishes near `p` exactly when all its restrictions to lines through `p` vanish near `0`.
 * `AnalyticAt.exists_continuousLinearEquiv_analyticOrderAt_ne_top`: after a linear change of
@@ -54,6 +57,58 @@ lives.
 public section
 
 open Filter Metric Topology
+
+section NontriviallyNormedField
+
+variable {𝕜 E F : Type*} [NontriviallyNormedField 𝕜] [NormedAddCommGroup E] [NormedSpace 𝕜 E]
+  [NormedAddCommGroup F] [NormedSpace 𝕜 F]
+
+/-- Auxiliary case of `AnalyticAt.eventually_not_eventuallyEq_zero` for a complete codomain. -/
+private theorem AnalyticAt.eventually_not_eventuallyEq_zero_aux [CompleteSpace F] {f : E → F}
+    {p : E} (hf : AnalyticAt 𝕜 f p) (hf0 : ¬f =ᶠ[𝓝 p] 0) :
+    ∀ᶠ y in 𝓝 p, ¬f =ᶠ[𝓝 y] 0 := by
+  rcases hf with ⟨q, r, hq⟩
+  filter_upwards [Metric.isOpen_eball.mem_nhds
+    (Metric.mem_eball_self (ENNReal.half_pos hq.r_pos.ne'))] with y hy hy0
+  apply hf0
+  have hdist : (‖y - p‖₊ : ENNReal) < r / 2 := by
+    simpa [Metric.mem_eball, eDist_eq_eNorm_sub, eNorm_eq_nnNorm] using hy
+  have hchg : HasFPowerSeriesOnBall f (q.changeOrigin (y - p)) y (r / 2) := by
+    have h := hq.changeOrigin (hdist.trans_le ENNReal.half_le_self)
+    simp only [add_sub_cancel] at h
+    refine h.mono (ENNReal.half_pos hq.r_pos.ne') ?_
+    refine ENNReal.le_sub_of_add_le_left ENNReal.coe_ne_top ?_
+    exact (add_le_add hdist.le le_rfl).trans_eq (ENNReal.add_halves r)
+  have hzero : HasFPowerSeriesAt 0 (q.changeOrigin (y - p)) y := hchg.hasFPowerSeriesAt.congr hy0
+  have hp_mem : p ∈ Metric.eball y (r / 2) := by
+    simpa [Metric.mem_eball, edist_comm] using hy
+  filter_upwards [Metric.isOpen_eball.mem_nhds hp_mem] with z hz
+  have hsum := hchg.hasSum_sub hz
+  have hsum0 : HasSum (fun n : ℕ ↦ q.changeOrigin (y - p) n fun _ : Fin n ↦ z - y) 0 := by
+    convert hasSum_zero (α := F) using 1
+    ext n
+    exact hzero.apply_eq_zero n _
+  exact hsum.unique hsum0
+
+/-- **Persistence of non-vanishing germs for analytic functions.** If `f` is analytic at `p` and
+does not vanish identically on any neighbourhood of `p`, then the same holds at every point in a
+neighbourhood of `p`. Equivalently, `{z | f z ≠ 0}` is dense in a neighbourhood of `p`. -/
+theorem AnalyticAt.eventually_not_eventuallyEq_zero {f : E → F} {p : E} (hf : AnalyticAt 𝕜 f p)
+    (hf0 : ¬f =ᶠ[𝓝 p] 0) : ∀ᶠ y in 𝓝 p, ¬f =ᶠ[𝓝 y] 0 := by
+  let e : F →L[𝕜] UniformSpace.Completion F := UniformSpace.Completion.toComplL
+  have he0 : ¬(e ∘ f) =ᶠ[𝓝 p] 0 := fun h ↦
+    hf0 (h.mono fun z hz ↦ UniformSpace.Completion.coe_injective F (by simpa [e] using hz))
+  filter_upwards [((e.analyticAt _).comp hf).eventually_not_eventuallyEq_zero_aux he0] with y hy hy0
+  exact hy (hy0.mono fun z hz ↦ by simp [hz])
+
+/-- If `f` is analytic at `p` and does not vanish identically on any neighbourhood of `p`, then
+the closure of `{z | f z ≠ 0}` is a neighbourhood of `p`. -/
+theorem AnalyticAt.closure_setOf_ne_zero_mem_nhds {f : E → F} {p : E} (hf : AnalyticAt 𝕜 f p)
+    (hf0 : ¬f =ᶠ[𝓝 p] 0) : closure {z | f z ≠ 0} ∈ 𝓝 p :=
+  (hf.eventually_not_eventuallyEq_zero hf0).mono fun _ hy ↦
+    mem_closure_iff_frequently.2 (not_eventually.1 hy)
+
+end NontriviallyNormedField
 
 variable {𝕜 E F : Type*} [RCLike 𝕜] [NormedAddCommGroup E] [NormedSpace 𝕜 E]
   [NormedAddCommGroup F] [NormedSpace 𝕜 F]
