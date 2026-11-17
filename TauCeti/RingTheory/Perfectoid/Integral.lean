@@ -48,8 +48,11 @@ unique map to `A` has principal kernel anyway.
   `θ : W(A♭) → A` is surjective.
 * `TauCeti.Perfectoid.IsIntegralPerfectoid.exists_natCast_dvd_sub_pow`: every element is a
   `p`-th power modulo `p`.
-* `TauCeti.Perfectoid.IsIntegralPerfectoid.frobeniusModPow_surjective`: for every `π` with
-  `π ^ p ∣ p`, Frobenius `A ⧸ π → A ⧸ π ^ p` is surjective.
+* `TauCeti.Perfectoid.IsIntegralPerfectoid.frobeniusModPow_surjective`,
+  `TauCeti.Perfectoid.IsIntegralPerfectoid.frobeniusModPow_injective`,
+  `TauCeti.Perfectoid.IsIntegralPerfectoid.frobeniusModPow_bijective`: relative Frobenius
+  `A ⧸ π → A ⧸ π ^ p` is surjective for every `π` with `π ^ p ∣ p`, and bijective when `A` is
+  `π`-adically complete (Bhatt–Morrow–Scholze, Lemma 3.10(i)).
 * `TauCeti.Perfectoid.IsIntegralPerfectoid.exists_associated_untilt`: for every `π` with
   `π ^ p ∣ p` and `[IsAdicComplete (span {π}) A]`, `π` is associated to `ϖ.untilt` for some
   `ϖ : PreTilt A p` with `π * p ∣ π - ϖ.untilt` (Bhatt–Morrow–Scholze, Lemma 3.9).
@@ -146,6 +149,111 @@ theorem exists_associated_untilt [Fact ¬IsUnit (p : A)] {π : A} (hdvd : π ^ p
     ∃ ϖ : PreTilt A p, π * (p : A) ∣ π - ϖ.untilt ∧ Associated π ϖ.untilt :=
   PreTilt.exists_associated_untilt hdvd
     ((frobeniusModPow_surjective_iff hdvd).mp (frobeniusModPow_surjective hdvd))
+
+/-- **Injectivity of relative Frobenius on an integral perfectoid ring** (Bhatt–Morrow–Scholze,
+*Integral `p`-adic Hodge theory*, Lemma 3.10(i)). If `A` is `π`-adically complete for an element `π`
+with `π ^ p ∣ p`, then Frobenius `A ⧸ (π) → A ⧸ (π ^ p)` is injective. No nonzerodivisor
+assumption on `π` is needed. -/
+theorem frobeniusModPow_injective {π : A} (h : π ^ p ∣ (p : A)) [IsAdicComplete (span {π}) A] :
+    Function.Injective (frobeniusModPow p h) := by
+  have hp : p.Prime := Fact.out
+  rcases subsingleton_or_nontrivial A with hA | hA
+  · exact Function.injective_of_subsingleton _
+  have : Fact (¬IsUnit (p : A)) := ⟨not_isUnit_natCast⟩
+  obtain ⟨ϖ, -, hassoc⟩ := exists_associated_untilt h
+  have hspan : span {ϖ.untilt} = span {π} := by
+    obtain ⟨u, hu⟩ := hassoc
+    rw [← hu, span_singleton_mul_right_unit u.isUnit]
+  have : IsAdicComplete (span {ϖ.untilt}) A := hspan ▸ inferInstance
+  have hdvd' : ϖ.untilt ^ p ∣ (p : A) := (pow_dvd_pow_of_dvd hassoc.symm.dvd p).trans h
+  have hdvd1 : ϖ.untilt ∣ (p : A) := (dvd_pow_self _ hp.ne_zero).trans hdvd'
+  have : IsAdicComplete (span {ϖ}) (PreTilt A p) :=
+    PreTilt.isAdicComplete_span_singleton hdvd1
+  -- Build a distinguished element `ξ' = p - [ϖ ^ p] w ∈ ker θ` and show `ker θ = (ξ')`.
+  obtain ⟨c, hc⟩ := hdvd'
+  obtain ⟨w, hw⟩ := surjective_fontaineTheta (p := p) (A := A) c
+  let ξ' : WittVector p (PreTilt A p) :=
+    (p : WittVector p (PreTilt A p)) - WittVector.teichmuller p (ϖ ^ p) * w
+  have hξ'_ker : ξ' ∈ RingHom.ker (WittVector.fontaineTheta A p) := by
+    rw [RingHom.mem_ker]
+    simp only [ξ', map_sub, map_natCast, map_mul, WittVector.fontaineTheta_teichmuller, map_pow, hw]
+    rw [hc, sub_self]
+  have hξ'_dist : ξ'.IsDistinguished := by
+    have hpow : WittVector.teichmuller p (ϖ ^ p) =
+        WittVector.teichmuller p ϖ * WittVector.teichmuller p ϖ ^ (p - 1) := by
+      rw [map_pow, ← pow_succ', Nat.sub_add_cancel hp.pos]
+    have heq : ξ' = (p : WittVector p (PreTilt A p)) +
+        WittVector.teichmuller p ϖ * (-(WittVector.teichmuller p ϖ ^ (p - 1) * w)) := by
+      simp only [ξ', hpow]
+      ring
+    rw [heq]
+    exact WittVector.isDistinguished_p_add_teichmuller_mul_of_isAdicComplete
+      (mem_span_singleton_self ϖ) _
+  obtain ⟨ξ, hker⟩ := (isPrincipal_ker_fontaineTheta (p := p) (A := A)).principal
+  have hker' : RingHom.ker (WittVector.fontaineTheta A p) = span {ξ} := by
+    simpa [Submodule.span_singleton_eq_range] using hker
+  obtain ⟨η, hη⟩ := mem_span_singleton.mp (hker' ▸ hξ'_ker)
+  -- `ξ.coeff 0` has vanishing zeroth coordinate in `ModP A p`, so it lies in the Jacobson radical.
+  have hξ_ker : WittVector.fontaineTheta A p ξ = 0 := by
+    rw [← RingHom.mem_ker, hker']
+    exact mem_span_singleton_self ξ
+  have hξ0_zero : Perfection.coeff (ModP A p) p 0 (ξ.coeff 0) = 0 := by
+    rw [← PreTilt.coeff_def, ← WittVector.mk_fontaineTheta, hξ_ker, map_zero]
+  have : IsAdicComplete (span {ξ.coeff 0}) (PreTilt A p) :=
+    Perfection.isAdicComplete_span_singleton_of_coeff_zero_eq_zero hξ0_zero
+  have hξ0_jac : ξ.coeff 0 ∈ Ring.jacobson (PreTilt A p) :=
+    IsAdicComplete.le_jacobson (span {ξ.coeff 0}) (mem_span_singleton_self _)
+  -- Compare first Witt coordinates of `ξ' = ξ * η` to deduce that `η` is a unit.
+  have hcoeff1 : ξ'.coeff 1 = (η.coeff 0) ^ p * ξ.coeff 1 + (ξ.coeff 0) ^ p * η.coeff 1 := by
+    rw [hη, mul_comm, WittVector.mul_coeff_one_charP]
+  have hjac_term : -((ξ.coeff 0) ^ p * η.coeff 1) ∈ Ring.jacobson (PreTilt A p) :=
+    neg_mem (Ideal.mul_mem_right _ _ (Ideal.pow_mem_of_mem _ hξ0_jac p hp.pos))
+  obtain ⟨u, hu⟩ := WittVector.isDistinguished_iff.mp hξ'_dist
+  have hprod_unit : IsUnit ((η.coeff 0) ^ p * ξ.coeff 1) := by
+    have hsum : (η.coeff 0) ^ p * ξ.coeff 1 = (u : PreTilt A p) *
+        (-((ξ.coeff 0) ^ p * η.coeff 1) * (↑u⁻¹ : PreTilt A p) + 1) := by
+      rw [mul_add, mul_one, mul_left_comm, Units.mul_inv, mul_one, hu, hcoeff1]
+      ring
+    rw [hsum]
+    exact u.isUnit.mul (Ring.mem_jacobson_iff.mp hjac_term ↑u⁻¹)
+  have hη_unit : IsUnit η :=
+    WittVector.isUnit_iff_isUnit_coeff_zero.mpr <|
+      (isUnit_pow_iff hp.ne_zero).mp (isUnit_of_mul_isUnit_left hprod_unit)
+  have hker_ξ' : RingHom.ker (WittVector.fontaineTheta A p) = span {ξ'} := by
+    rw [hker', hη, span_singleton_mul_right_unit hη_unit]
+  -- Deduce `ϖ.untilt ^ p ∣ x ^ p → ϖ.untilt ∣ x` by lifting to `W(A♭)` and reading `coeff 0`.
+  refine (frobeniusModPow_injective_iff h).mpr fun x hx ↦ hassoc.dvd.trans ?_
+  obtain ⟨z, hz⟩ : ϖ.untilt ^ p ∣ x ^ p := (pow_dvd_pow_of_dvd hassoc.symm.dvd p).trans hx
+  obtain ⟨y, rfl⟩ := surjective_fontaineTheta (p := p) (A := A) x
+  obtain ⟨u', rfl⟩ := surjective_fontaineTheta (p := p) (A := A) z
+  have hmem : y ^ p - WittVector.teichmuller p (ϖ ^ p) * u' ∈
+      RingHom.ker (WittVector.fontaineTheta A p) := by
+    rw [RingHom.mem_ker]
+    simp only [map_sub, map_pow, map_mul, WittVector.fontaineTheta_teichmuller, hz, sub_self]
+  obtain ⟨v, hv⟩ := mem_span_singleton.mp (hker_ξ' ▸ hmem)
+  have hv0 := congrArg (WittVector.constantCoeff (p := p) (R := PreTilt A p)) hv
+  simp only [map_sub, map_pow, map_mul, map_natCast, WittVector.constantCoeff_apply,
+    WittVector.teichmuller_coeff_zero, CharP.cast_eq_zero, zero_sub, neg_mul, ξ'] at hv0
+  have hy0_pow : (y.coeff 0) ^ p =
+      (ϖ * (frobeniusEquiv (PreTilt A p) p).symm (u'.coeff 0 - w.coeff 0 * v.coeff 0)) ^ p := by
+    rw [mul_pow, frobeniusEquiv_symm_pow_p]
+    linear_combination hv0
+  have hy0 : y.coeff 0 =
+      ϖ * (frobeniusEquiv (PreTilt A p) p).symm (u'.coeff 0 - w.coeff 0 * v.coeff 0) :=
+    injective_frobenius (PreTilt A p) p hy0_pow
+  obtain ⟨y', hy'⟩ := WittVector.exists_eq_sum_teichmullerCoeff_add_pow_mul y 1
+  simp only [Finset.range_one, Finset.sum_singleton, pow_zero, mul_one, pow_one,
+    WittVector.teichmullerCoeff_zero] at hy'
+  rw [hy', hy0, map_add, map_mul, map_mul, map_mul, map_natCast,
+    WittVector.fontaineTheta_teichmuller]
+  exact dvd_add (dvd_mul_right _ _) (hdvd1.mul_right _)
+
+/-- **Bijectivity of relative Frobenius on an integral perfectoid ring** (Bhatt–Morrow–Scholze,
+*Integral `p`-adic Hodge theory*, Lemma 3.10(i)). If `A` is `π`-adically complete for an element `π`
+with `π ^ p ∣ p`, then Frobenius `A ⧸ (π) → A ⧸ (π ^ p)` is bijective. -/
+theorem frobeniusModPow_bijective {π : A} (h : π ^ p ∣ (p : A)) [IsAdicComplete (span {π}) A] :
+    Function.Bijective (frobeniusModPow p h) :=
+  ⟨frobeniusModPow_injective h, frobeniusModPow_surjective h⟩
 
 end Basic
 

@@ -41,6 +41,9 @@ any choice of `ϖ`.
   every root `ϖ ^ (1 / p ^ n)` kills it.
 * `TauCeti.Perfectoid.almostSetupPlus_isAlmostZero_iff`: an `R⁺`-module is almost zero iff every
   pseudouniformiser in `R⁺` kills it.
+* `TauCeti.Perfectoid.almostSetupPlus_isAlmostZero_powerBounded_quotient`,
+  `TauCeti.Perfectoid.almostSetupPlus_isAlmostIso_algebraLinearMap`: `R° / R⁺` is almost zero and
+  the inclusion `R⁺ → R°` is an almost isomorphism for `(R⁺, R°°)`.
 
 ## References
 
@@ -161,6 +164,45 @@ theorem almostSetupPlus_isAlmostZero_iff {M : Type*} [AddCommGroup M] [Module Rp
     ← Module.isTorsionBySet_iff_is_torsion_by_span]
   rintro x ⟨_, n, rfl⟩
   exact hM _ (ϖ.isPseudoUniformizer_coeffMonoidHom_rootsIn h n) x
+
+/-- **`R° / R⁺` is almost zero** for the almost setup `(R⁺, R°°)` of any ring of integral elements
+`R⁺` in a nonarchimedean ring `R` admitting a pseudouniformiser with compatible `p`-power roots. -/
+theorem almostSetupPlus_isAlmostZero_powerBounded_quotient
+    [Algebra Rplus (powerBoundedSubring R)] [IsScalarTower Rplus (powerBoundedSubring R) R] :
+    (almostSetupPlus p R h).IsAlmostZero
+      (powerBoundedSubring R ⧸
+        LinearMap.range (Algebra.linearMap Rplus (powerBoundedSubring R))) := by
+  have halg (c : Rplus) :
+      (Algebra.linearMap Rplus (powerBoundedSubring R) c : R) = (c : R) :=
+    (IsScalarTower.algebraMap_apply Rplus (powerBoundedSubring R) R c).symm
+  refine (almostSetupPlus_isAlmostZero_iff (h := h)).mpr fun ϖ hϖ q ↦ ?_
+  obtain ⟨x, rfl⟩ := Submodule.Quotient.mk_surjective _ q
+  rw [← Submodule.Quotient.mk_smul, Submodule.Quotient.mk_eq_zero]
+  have hsmul : ((ϖ • x : powerBoundedSubring R) : R) = (ϖ : R) * (x : R) := by
+    rw [Algebra.smul_def, Subring.coe_mul, ← Algebra.linearMap_apply, halg ϖ]
+  have hmem : (ϖ : R) * (x : R) ∈ Rplus := by
+    rw [mul_comm]
+    exact h.mem_of_isTopologicallyNilpotent
+      ((mem_powerBoundedSubring.mp x.2).isTopologicallyNilpotent_mul hϖ.isTopologicallyNilpotent)
+  refine ⟨⟨_, hmem⟩, Subtype.ext ?_⟩
+  rw [halg ⟨_, hmem⟩, hsmul]
+
+/-- **The inclusion `R⁺ → R°` is an almost isomorphism** for the almost setup `(R⁺, R°°)`. -/
+theorem almostSetupPlus_isAlmostIso_algebraLinearMap
+    [Algebra Rplus (powerBoundedSubring R)] [IsScalarTower Rplus (powerBoundedSubring R) R] :
+    (almostSetupPlus p R h).IsAlmostIso (Algebra.linearMap Rplus (powerBoundedSubring R)) := by
+  have hinj : Function.Injective (Algebra.linearMap Rplus (powerBoundedSubring R)) :=
+    fun a b hab ↦ Subtype.ext <| by
+      have halg (c : Rplus) :
+          (Algebra.linearMap Rplus (powerBoundedSubring R) c : R) = (c : R) :=
+        (IsScalarTower.algebraMap_apply Rplus (powerBoundedSubring R) R c).symm
+      rw [← halg a, ← halg b, hab]
+  refine BasicSetup.isAlmostIso_iff.mpr
+    ⟨?_, almostSetupPlus_isAlmostZero_powerBounded_quotient h⟩
+  have : Subsingleton (LinearMap.ker (Algebra.linearMap Rplus (powerBoundedSubring R))) := by
+    rw [Submodule.subsingleton_iff_eq_bot]
+    exact LinearMap.ker_eq_bot.mpr hinj
+  exact BasicSetup.isAlmostZero_of_subsingleton _
 
 end Plus
 
