@@ -8,12 +8,11 @@ module
 public import Mathlib.LinearAlgebra.Matrix.GeneralLinearGroup.Defs
 
 import Mathlib.Algebra.EuclideanDomain.Int
--- `dvd_mul_mul_apply`, `dvd_diag_of_dvd_entries` and the minor divisibility of
--- `prod_castLE_mul_prod_castLE_dvd_of_mul_diagonal_mul_diagonal_mul_eq`, used only inside proofs
--- below.
+-- `dvd_mul_mul_apply` and `dvd_diag_of_dvd_entries`, used only inside proofs below.
 import TauCeti.LinearAlgebra.Matrix.Divisibility
 import TauCeti.LinearAlgebra.Matrix.GeneralLinearGroup.Equivalence
 import TauCeti.LinearAlgebra.Matrix.SmithNormalForm.Diagonal
+import TauCeti.LinearAlgebra.Matrix.SmithNormalForm.Unique
 -- `prod_eq_det_of_mul_mul_eq_diagonal`, `exists_SL_mul_mul_eq_of_mul_mul_eq` and
 -- `TauCeti.fin_two_eq_of_normalize_eq_of_dvd_of_dvd_of_mul_eq_mul`, used only inside the `2 × 2`
 -- classification below.
@@ -718,19 +717,6 @@ theorem exists_smith_normal_form_of_det_ne_zero (A : Matrix (Fin n) (Fin n) ℤ)
 The partial products `d 0 * ⋯ * d (k-1)` of a chained diagonal are determined by the
 `GL_n(ℤ)`-equivalence class, by a Cauchy–Binet expansion of the leading `k × k` minor. -/
 
-/-- One direction of the invariant-factor comparison: the case `c₂ = 1` of
-`Matrix.prod_castLE_mul_prod_castLE_dvd_of_mul_diagonal_mul_diagonal_mul_eq`. -/
-private lemma prod_take_dvd_of_mul_diagonal_mul_eq {c d : Fin n → ℤ}
-    (hc : ∀ ⦃i j : Fin n⦄, i ≤ j → c i ∣ c j) (P Q : Matrix (Fin n) (Fin n) ℤ)
-    (hcd : P * diagonal c * Q = diagonal d) (k : ℕ) (hk : k ≤ n) :
-    (∏ j : Fin k, c ⟨j.val, by omega⟩) ∣ (∏ j : Fin k, d ⟨j.val, by omega⟩) := by
-  have h := prod_castLE_mul_prod_castLE_dvd_of_mul_diagonal_mul_diagonal_mul_eq hc
-    (c₂ := fun _ ↦ 1) (d := d) (fun _ _ _ ↦ dvd_rfl) P 1 Q
-    (by rw [diagonal_one, mul_one, mul_one, hcd]) hk
-  rw [Finset.prod_const_one, mul_one] at h
-  -- `Fin.castLE hk j` is by definition the element `⟨j.val, _⟩` of `Fin n`
-  exact h
-
 /-- **Uniqueness of the Smith normal form**: two nonnegative diagonals with divisibility
 chains in the same `GL_n(ℤ)`-equivalence class are equal — including singular forms, whose
 chains vanish from the first zero on.  Together with
@@ -741,36 +727,10 @@ theorem smith_normal_form_unique {c d : Fin n → ℤ} (hc_pos : ∀ i, 0 ≤ c 
     (hd : ∀ ⦃i j : Fin n⦄, i ≤ j → d i ∣ d j) (L R : GeneralLinearGroup (Fin n) ℤ)
     (h : (L : Matrix (Fin n) (Fin n) ℤ) * diagonal c *
       (R : Matrix (Fin n) (Fin n) ℤ) = diagonal d) : c = d := by
-  have h' : (↑L⁻¹ : Matrix (Fin n) (Fin n) ℤ) * diagonal d *
-      (↑R⁻¹ : Matrix (Fin n) (Fin n) ℤ) = diagonal c :=
-    (L.inv_mul_mul_inv_eq_iff_mul_mul_eq R).2 h
-  have key : ∀ k (hk : k ≤ n),
-      ∏ j : Fin k, c ⟨j.val, by omega⟩ = ∏ j : Fin k, d ⟨j.val, by omega⟩ := fun k hk ↦
-    Int.dvd_antisymm
-      (Finset.prod_nonneg fun j _ ↦ hc_pos _)
-      (Finset.prod_nonneg fun j _ ↦ hd_pos _)
-      (prod_take_dvd_of_mul_diagonal_mul_eq hc _ _ h k hk)
-      (prod_take_dvd_of_mul_diagonal_mul_eq hd _ _ h' k hk)
-  have split_eq : ∀ (a : Fin n → ℤ) (i : Fin n),
-      ∏ j : Fin (i.val + 1), a ⟨j.val, by omega⟩ =
-      (∏ j : Fin i.val, a ⟨j.val, by omega⟩) * a i := by
-    intro a i; rw [Fin.prod_univ_castSucc]; congr 1
-  -- entries agree below the first zero by cancellation, and a chained sequence vanishes
-  -- from its first zero on; equal partial products force the same vanishing threshold
-  have chain_zero : ∀ {a : Fin n → ℤ}, (∀ ⦃i j : Fin n⦄, i ≤ j → a i ∣ a j) →
-      ∀ {i : Fin n}, (∏ j : Fin i.val, a ⟨j.val, by omega⟩) = 0 → a i = 0 := by
-    intro a ha i hpre
-    obtain ⟨l, -, hl⟩ := Finset.prod_eq_zero_iff.mp hpre
-    have := ha (show (⟨l.val, by omega⟩ : Fin n) ≤ i from by
-      simp [Fin.le_def, l.isLt.le])
-    rw [hl] at this
-    simpa using this
+  have hassoc := associated_of_mul_diagonal_mul_eq_diagonal hc hd
+    (isUnit_det_of_left_inverse L.inv_mul) (isUnit_det_of_left_inverse R.inv_mul) h
   funext i
-  have hprod₁ := key (i.val + 1) (by omega)
-  rw [split_eq c i, split_eq d i, key i.val (by omega)] at hprod₁
-  by_cases hpre : (∏ j : Fin i.val, d ⟨j.val, by omega⟩) = 0
-  · rw [chain_zero hd hpre, chain_zero hc (by rw [key i.val (by omega)]; exact hpre)]
-  · exact mul_left_cancel₀ hpre hprod₁
+  exact Int.dvd_antisymm (hc_pos i) (hd_pos i) (hassoc i).dvd (hassoc i).symm.dvd
 
 /-! ## The first entry of a chained diagonal form is the content
 
