@@ -73,6 +73,7 @@ any of its simplices followed by the orbit map; it does not depend on the chosen
   `TauCeti.closedCell_classifyingSpaceCellEquiv_symm_mk` and
   `TauCeti.cellFrontier_classifyingSpaceCellEquiv_symm_mk`: the open cells, closed cells and cell
   frontiers of the classifying space are the images of those of the countable join.
+* `TauCeti.mem_skeletonLT_one_classifyingSpaceBasepoint`: the base point lies in the `0`-skeleton.
 
 ## References
 
@@ -440,6 +441,18 @@ theorem cellFrontier_classifyingSpaceCellEquiv_symm_mk
       classifyingSpaceProj G '' {x : universalGSpace G | x.1.support ⊂ c.1.1} := by
   rw [← c.image_characteristicMap_sphere, image_image]
   exact image_congr fun x _ => map_classifyingSpaceCellEquiv_symm_mk c x
+
+/-- **The base point of Milnor's classifying space lies in its `0`-skeleton.** It is the `0`-cell
+corresponding to the `G`-orbit of the vertex `⟨0, 1⟩` of the countable join. -/
+theorem mem_skeletonLT_one_classifyingSpaceBasepoint (G : Type u) [Group G] :
+    classifyingSpaceBasepoint G ∈
+      (skeletonLT (univ : Set (classifyingSpace G)) 1 : Set (classifyingSpace G)) := by
+  let c : (indexedJoin fun _ : ℕ => G).RealizationCell 0 :=
+    ⟨⟨{⟨0, 1⟩}, (indexedJoin fun _ : ℕ => G).singleton_mem ⟨0, 1⟩⟩, Finset.card_singleton _⟩
+  refine openCell_subset_skeletonLT 0 ((classifyingSpaceCellEquiv G 0).symm (Quotient.mk'' c)) ?_
+  rw [openCell_classifyingSpaceCellEquiv_symm_mk]
+  refine ⟨universalGSpaceBasepoint G, ?_, classifyingSpaceProj_universalGSpaceBasepoint G⟩
+  simp [c, universalGSpaceBasepoint_val]
 
 end ClassifyingSpace
 

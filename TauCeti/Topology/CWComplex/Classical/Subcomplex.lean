@@ -46,6 +46,8 @@ subcomplexes.
 * `Topology.RelCWComplex.Subcomplex.le_iff_I_subset`: one subcomplex lies in another exactly when
   its cells do.
 * `Topology.RelCWComplex.Subcomplex.ofLE`: a subcomplex `F ≤ E`, as a subcomplex of `E`.
+* `Topology.RelCWComplex.Subcomplex.ofSubsetSkeletonLTOne`: any subset of the `0`-skeleton
+  containing the base is a subcomplex.
 * `Topology.RelCWComplex.coe_skeletonLT_skeletonLT`: the skeleta of a skeleton of `C` are skeleta
   of `C`.
 
@@ -357,6 +359,63 @@ lemma coe_ofLE {F E : Subcomplex C} (h : F ≤ E) : (ofLE h : Set X) = F :=
 @[simp]
 lemma ofLE_I {F E : Subcomplex C} (h : F ≤ E) (n : ℕ) :
     (ofLE h).I n = (Subtype.val : E.I n → cell C n) ⁻¹' F.I n :=
+  (rfl)
+
+/-- **Any subset of the `0`-skeleton containing the base is a subcomplex.** Because `0`-cells have
+empty boundary, every subset `A` with `D ⊆ A ⊆ skeletonLT C 1` is the union of the base `D` and the
+`0`-cells whose points lie in `A`. In particular, for an absolute CW complex (`D = ∅`), every subset
+of the `0`-skeleton is a subcomplex. -/
+def ofSubsetSkeletonLTOne {A : Set X} (hDA : D ⊆ A) (hA : A ⊆ (skeletonLT C 1 : Set X)) :
+    Subcomplex C :=
+  Subcomplex.mk' C A
+    (fun
+      | 0 => {j : cell C 0 | map (C := C) 0 j ![] ∈ A}
+      | _ + 1 => ∅)
+    (fun n j ↦ by
+      cases n with
+      | zero =>
+        rw [closedCell_zero_eq_singleton]
+        exact singleton_subset_iff.2 j.2
+      | succ n => exact j.2.elim)
+    (by
+      refine subset_antisymm (union_subset hDA (iUnion₂_subset fun n j ↦ ?_)) fun x hx ↦ ?_
+      · cases n with
+        | zero =>
+          rw [openCell_zero_eq_singleton]
+          exact singleton_subset_iff.2 j.2
+        | succ n => exact j.2.elim
+      · rcases mem_skeletonLT_iff.1 (hA hx) with hxD | ⟨m, hm, j, hxj⟩
+        · exact Or.inl hxD
+        · obtain rfl : m = 0 := by
+            have hm' : (m : ℕ∞) < (1 : ℕ) := by simpa using hm
+            exact Nat.lt_one_iff.1 (Nat.cast_lt.1 hm')
+          rw [openCell_zero_eq_singleton, mem_singleton_iff] at hxj
+          refine Or.inr (mem_iUnion₂.2 ⟨0, ⟨j, by simpa [← hxj] using hx⟩, ?_⟩)
+          rw [openCell_zero_eq_singleton, mem_singleton_iff]
+          exact hxj)
+
+/-- As a set, `ofSubsetSkeletonLTOne hDA hA` is `A`. -/
+@[simp, norm_cast]
+lemma coe_ofSubsetSkeletonLTOne {A : Set X} (hDA : D ⊆ A) (hA : A ⊆ (skeletonLT C 1 : Set X)) :
+    (ofSubsetSkeletonLTOne hDA hA : Set X) = A :=
+  (rfl)
+
+/-- Membership in `ofSubsetSkeletonLTOne hDA hA` is membership in `A`. -/
+@[simp]
+lemma mem_ofSubsetSkeletonLTOne {A : Set X} (hDA : D ⊆ A) (hA : A ⊆ (skeletonLT C 1 : Set X))
+    {x : X} : x ∈ ofSubsetSkeletonLTOne hDA hA ↔ x ∈ A :=
+  Iff.rfl
+
+/-- The `0`-cells of `ofSubsetSkeletonLTOne hDA hA` are those whose points lie in `A`. -/
+@[simp]
+lemma ofSubsetSkeletonLTOne_I_zero {A : Set X} (hDA : D ⊆ A) (hA : A ⊆ (skeletonLT C 1 : Set X)) :
+    (ofSubsetSkeletonLTOne hDA hA).I 0 = {j : cell C 0 | map (C := C) 0 j ![] ∈ A} :=
+  (rfl)
+
+/-- `ofSubsetSkeletonLTOne hDA hA` has no cells of positive dimension. -/
+@[simp]
+lemma ofSubsetSkeletonLTOne_I_succ {A : Set X} (hDA : D ⊆ A) (hA : A ⊆ (skeletonLT C 1 : Set X))
+    (n : ℕ) : (ofSubsetSkeletonLTOne hDA hA).I (n + 1) = ∅ :=
   (rfl)
 
 end

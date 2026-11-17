@@ -28,7 +28,14 @@ and homotopies can be modified on the base or on a skeleton and extended over th
 * `TauCeti.hasHomotopyExtensionProperty_base`: **the base of a relative CW complex has the
   homotopy extension property inside the complex.**
 * `Topology.RelCWComplex.Subcomplex.hasHomotopyExtensionProperty`: a subcomplex has the homotopy
-  extension property inside the complex, since the complex is a CW complex relative to it.
+  extension property inside the complex, since the complex is a CW complex relative to it; for a
+  CW structure on `univ`, `Topology.RelCWComplex.Subcomplex.hasHomotopyExtensionProperty_coe`
+  gives the property directly on `X`.
+* `TauCeti.hasHomotopyExtensionProperty_of_subset_skeletonLT_one`,
+  `TauCeti.hasHomotopyExtensionProperty_singleton_of_mem_skeletonLT_one` and
+  `TauCeti.hasHomotopyExtensionProperty_singleton_map_zero`: any subset of the `0`-skeleton
+  containing the base, and in particular every `0`-cell of an absolute CW complex, has the
+  homotopy extension property.
 * `TauCeti.hasHomotopyExtensionProperty_range_of_coe_map_eq`: the range of a map between CW
   complexes carrying every cell onto a cell, characteristic maps included, has the homotopy
   extension property, being a subcomplex.
@@ -158,6 +165,50 @@ theorem _root_.Topology.RelCWComplex.Subcomplex.hasHomotopyExtensionProperty
     (E : Subcomplex C) : HasHomotopyExtensionProperty (Subtype.val ⁻¹' (E : Set X) : Set C) :=
   @hasHomotopyExtensionProperty_base X _ _ C E E.relCWComplex
 
+/-- **A subcomplex of a CW structure on the whole space has the homotopy extension property** as a
+subset of `X`. -/
+theorem _root_.Topology.RelCWComplex.Subcomplex.hasHomotopyExtensionProperty_coe
+    {Y : Type*} [TopologicalSpace Y] [T2Space Y] {B : Set Y} [RelCWComplex (univ : Set Y) B]
+    (E : Subcomplex (univ : Set Y)) : HasHomotopyExtensionProperty (E : Set Y) := by
+  have h := E.hasHomotopyExtensionProperty.image (Homeomorph.Set.univ Y)
+  rwa [Homeomorph.Set.univ_apply, image_preimage_eq_range_inter, Subtype.range_coe, univ_inter]
+    at h
+
+/-- **Any subset of the `0`-skeleton containing the base has the homotopy extension property
+inside the complex**, since it is a subcomplex
+(`Topology.RelCWComplex.Subcomplex.ofSubsetSkeletonLTOne`). -/
+theorem hasHomotopyExtensionProperty_of_subset_skeletonLT_one {A : Set X} (hDA : D ⊆ A)
+    (hA : A ⊆ (skeletonLT C 1 : Set X)) :
+    HasHomotopyExtensionProperty (Subtype.val ⁻¹' A : Set C) := by
+  simpa only [Subcomplex.coe_ofSubsetSkeletonLTOne] using
+    (Subcomplex.ofSubsetSkeletonLTOne hDA hA).hasHomotopyExtensionProperty
+
+/-- **Any subset of the `0`-skeleton containing the base has the homotopy extension property**,
+for a relative CW structure on the whole space. -/
+theorem hasHomotopyExtensionProperty_of_subset_skeletonLT_one_univ
+    {Y : Type*} [TopologicalSpace Y] [T2Space Y] {B : Set Y} [RelCWComplex (univ : Set Y) B]
+    {A : Set Y} (hBA : B ⊆ A) (hA : A ⊆ (skeletonLT (univ : Set Y) 1 : Set Y)) :
+    HasHomotopyExtensionProperty A := by
+  simpa only [Subcomplex.coe_ofSubsetSkeletonLTOne] using
+    (Subcomplex.ofSubsetSkeletonLTOne hBA hA).hasHomotopyExtensionProperty_coe
+
+/-- **Every point of the `0`-skeleton of a Hausdorff CW complex has the homotopy extension
+property**, so a CW complex based at a `0`-cell is well-pointed. -/
+theorem hasHomotopyExtensionProperty_singleton_of_mem_skeletonLT_one
+    {Y : Type*} [TopologicalSpace Y] [T2Space Y] [CWComplex (univ : Set Y)] {y : Y}
+    (hy : y ∈ (skeletonLT (univ : Set Y) 1 : Set Y)) :
+    HasHomotopyExtensionProperty ({y} : Set Y) :=
+  hasHomotopyExtensionProperty_of_subset_skeletonLT_one_univ (empty_subset _)
+    (singleton_subset_iff.2 hy)
+
+/-- **Every `0`-cell of a Hausdorff CW complex has the homotopy extension property.** -/
+theorem hasHomotopyExtensionProperty_singleton_map_zero
+    {Y : Type*} [TopologicalSpace Y] [T2Space Y] [CWComplex (univ : Set Y)]
+    (j : cell (univ : Set Y) 0) :
+    HasHomotopyExtensionProperty ({map (C := (univ : Set Y)) 0 j ![]} : Set Y) :=
+  hasHomotopyExtensionProperty_singleton_of_mem_skeletonLT_one <|
+    closedCell_subset_skeletonLT 0 j (by simp [closedCell_zero_eq_singleton])
+
 /-- **The range of a map carrying cells onto cells has the homotopy extension property.** Let `W`
 and `Y` carry CW structures on `univ`, and let `g : W → Y` carry every `n`-cell `i` of `W` onto an
 `n`-cell `ι n i` of `Y`, in the sense that `map n (ι n i) = g ∘ map n i`. Then the range of `g`
@@ -188,8 +239,6 @@ theorem hasHomotopyExtensionProperty_range_of_coe_map_eq {W Y : Type*} [Topologi
         refine mem_iUnion₂.2 ⟨n, ⟨ι n i, i, rfl⟩, ?_⟩
         rw [openCell, himage]
         exact mem_image_of_mem g hw)
-  have h := E.hasHomotopyExtensionProperty.image (Homeomorph.Set.univ Y)
-  rwa [Homeomorph.Set.univ_apply, image_preimage_eq_range_inter, Subtype.range_coe, univ_inter]
-    at h
+  exact E.hasHomotopyExtensionProperty_coe
 
 end TauCeti
