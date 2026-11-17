@@ -95,6 +95,8 @@ is the contractible mapping cone of `𝟙 X₁`.
   quasi-isomorphisms is a quasi-isomorphism.
 * `HomologicalComplex.homotopyCofiber.quasiIso_mapArrowHom_id`: any morphism induces a
   quasi-isomorphism between the mapping cones of identities.
+* `HomologicalComplex.homotopyCofiber.quasiIso_iff_acyclic`: a morphism of complexes in an abelian
+  category is a quasi-isomorphism if and only if its mapping cone is acyclic.
 
 ## References
 
@@ -470,6 +472,35 @@ lemma quasiIso_mapArrowHom (α : Arrow.mk φ ⟶ Arrow.mk φ') [QuasiIso α.left
         congr 1
         ext <;> simp }
     (coneShortComplex_shortExact φ hc) (coneShortComplex_shortExact φ' hc) inferInstance h₃
+
+include hc in
+/-- A morphism of complexes in an abelian category is a quasi-isomorphism if and only if its
+mapping cone is acyclic, provided every index of the complex shape is the target of a relation. -/
+lemma quasiIso_iff_acyclic : QuasiIso φ ↔ (homotopyCofiber φ).Acyclic := by
+  let α : Arrow.mk (𝟙 F) ⟶ Arrow.mk φ := Arrow.homMk (𝟙 F) φ (by simp)
+  have hId : (homotopyCofiber (𝟙 F)).Acyclic := acyclic_id F hc
+  constructor
+  · intro hf
+    have : QuasiIso α.left := inferInstanceAs (QuasiIso (𝟙 F))
+    have : QuasiIso α.right := hf
+    have hCone : QuasiIso (mapArrowHom (𝟙 F) φ hc α) := quasiIso_mapArrowHom (𝟙 F) φ hc α
+    exact fun i ↦ (exactAt_iff_of_quasiIsoAt (mapArrowHom (𝟙 F) φ hc α) i).mp (hId i)
+  · intro hCone
+    have hMap : QuasiIso (mapArrowHom (𝟙 F) φ hc α) := by
+      rw [quasiIso_iff]
+      intro i
+      exact (quasiIsoAt_iff_exactAt _ i (hId i)).mpr (hCone i)
+    exact HomologySequence.quasiIso_τ₁
+      (S₁ := coneShortComplex (𝟙 F) hc) (S₂ := coneShortComplex φ hc)
+      { τ₁ := φ
+        τ₂ := mapArrowHom (𝟙 F) φ hc α
+        τ₃ := 𝟙 _
+        comm₁₂ := by simp [α]
+        comm₂₃ := by
+          simp only [comp_id, ← mapArrowHom_comp]
+          congr 1
+          ext <;> simp [α] }
+      (coneShortComplex_shortExact (𝟙 F) hc) (coneShortComplex_shortExact φ hc) hMap inferInstance
 
 end QuasiIso
 

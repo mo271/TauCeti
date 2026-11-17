@@ -33,6 +33,8 @@ This is how the coefficients of an absolute cochain act on relative chains in th
 * `SSetPair.chainComplexπ_chainComplexPairing`: it is the descent of
   `SSet.chainComplexPairing μ` along the quotient maps to relative chains.
 * `SSetPair.chainComplexPairing_naturality`: it is natural in the pair.
+* `SSetPair.isIso_chainComplexPairing`: an invertible pairing induces an isomorphism of relative
+  chains.
 -/
 
 public section
@@ -132,5 +134,31 @@ lemma chainComplexPairing_naturality {P P' : SSetPair.{w}} (f : P ⟶ P') (μ : 
   dsimp at hN hμ ⊢
   rw [← cancel_epi (M ◁ (P.chainComplexπ S).f n)]
   simp [reassoc_of% hS, reassoc_of% hμ, hN]
+
+/-- The chain map induced by an invertible coefficient pairing on relative chains is an
+isomorphism. -/
+instance isIso_chainComplexPairing (P : SSetPair.{w}) (μ : M ⊗ S ⟶ N) [IsIso μ] :
+    IsIso (P.chainComplexPairing μ) := by
+  have : ∀ n, IsIso ((P.chainComplexPairing μ).f n) := fun n ↦ by
+    have hnat : (SSet.chainComplexMap P.hom N).f n ≫ inv ((P.right.chainComplexPairing μ).f n) =
+        inv ((P.left.chainComplexPairing μ).f n) ≫ (M ◁ (SSet.chainComplexMap P.hom S).f n) := by
+      have h := congrArg (fun φ ↦ φ.f n) (SSet.chainComplexPairing_naturality P.hom μ)
+      dsimp at h
+      rw [IsIso.comp_inv_eq, Category.assoc, IsIso.eq_inv_comp, ← h]
+    have hzero : (SSet.chainComplexMap P.hom N).f n ≫
+        (inv ((P.right.chainComplexPairing μ).f n) ≫ (M ◁ (P.chainComplexπ S).f n)) = 0 := by
+      simp [reassoc_of% hnat, ← whiskerLeft_comp, chainComplex_condition_f]
+    obtain ⟨g, hg⟩ := CokernelCofork.IsColimit.desc' (chainComplexXSplitting N P n).gIsCokernel
+      (inv ((P.right.chainComplexPairing μ).f n) ≫ (M ◁ (P.chainComplexπ S).f n)) hzero
+    dsimp at hg
+    refine ⟨⟨g, ?_, ?_⟩⟩
+    · rw [← cancel_epi (M ◁ (P.chainComplexπ S).f n)]
+      dsimp
+      rw [Category.comp_id, whiskerLeft_chainComplexπ_f_chainComplexPairing_f_assoc, hg,
+        IsIso.hom_inv_id_assoc]
+    · have : Epi ((P.chainComplexπ N).f n) := (chainComplexXSplitting N P n).epi_g
+      rw [← cancel_epi ((P.chainComplexπ N).f n), Category.comp_id, reassoc_of% hg,
+        whiskerLeft_chainComplexπ_f_chainComplexPairing_f, IsIso.inv_hom_id_assoc]
+  exact HomologicalComplex.Hom.isIso_of_components _
 
 end SSetPair

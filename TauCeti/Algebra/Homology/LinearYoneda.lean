@@ -5,12 +5,14 @@ Authors: The Tau Ceti contributors
 -/
 module
 
+public import Mathlib.Algebra.Homology.Embedding.Extend
 public import Mathlib.Algebra.Homology.HomologicalComplexAbelian
 public import Mathlib.CategoryTheory.Abelian.Ext
 import Mathlib.Algebra.Category.ModuleCat.EpiMono
 import Mathlib.Algebra.Homology.ShortComplex.ModuleCat
 import Mathlib.CategoryTheory.Limits.Preserves.Opposites
 import Mathlib.CategoryTheory.Limits.Shapes.Opposites.Products
+import TauCeti.Algebra.Homology.HomotopyCofiber
 import TauCeti.CategoryTheory.Linear.Yoneda
 
 /-!
@@ -45,6 +47,13 @@ The functor `Hom(-, Y)` is only left exact, so the splitting hypothesis cannot b
 holds for the singular chains of a pair of spaces, which is how the long exact sequence in
 singular cohomology is obtained from the one of chain complexes.
 
+For an `ℕ`-indexed chain complex `K` in a `k`-linear abelian category, acyclicity of `K` is
+detected by the family of cochain complexes `Hom(K, Y)` as `Y` ranges over all objects of `C`,
+and therefore quasi-isomorphisms of `ℕ`-indexed chain complexes are detected by the family of
+functors `Hom(-, Y)`. Testing against the cokernels of the differentials turns exactness of
+`Hom(K, -)` into exactness of `K`, and passing to the mapping cone reduces quasi-isomorphisms
+to acyclicity.
+
 ## Main declarations
 
 * `TauCeti.ChainComplex.linearYonedaFunctor`: the functor `X ↦ Hom(X, Y)` from chain complexes to
@@ -65,9 +74,14 @@ singular cohomology is obtained from the one of chain complexes.
 * `TauCeti.ChainComplex.linearYonedaObjSingle₀Iso`: `Hom(-, Y)` sends the chain complex `X[0]`
   concentrated in degree zero to the cochain complex `Hom(X, Y)[0]`. It follows the unmerged Tau
   Ceti pull request https://github.com/TauCetiProject/TauCeti/pull/20882.
+* `TauCeti.ChainComplex.linearYonedaObjExtendIso`: `Hom(-, Y)` commutes with extension by zero
+  along matching embeddings of chain and cochain complex shapes.
 * `ChainComplex.exactAt_linearYonedaObj_zero_iff` and
   `ChainComplex.exactAt_linearYonedaObj_succ_iff`: exactness of `Hom(K, Y)` for a chain complex
   `K` indexed by `ℕ`, in terms of morphisms out of the terms of `K`.
+* `ChainComplex.acyclic_of_forall_acyclic_linearYonedaObj` and
+  `ChainComplex.quasiIso_of_forall_quasiIso_linearYonedaFunctor`: the family of functors
+  `Hom(-, Y)` detects acyclicity and quasi-isomorphisms of `ℕ`-indexed chain complexes.
 -/
 
 public section
@@ -476,6 +490,134 @@ lemma linearYonedaObjSingle₀Iso_hom_f_zero_apply
 
 end Single
 
+section Extend
+
+variable [Abelian C] [Linear k C] (Y : C)
+  {α' : Type*} [AddRightCancelSemigroup α'] [One α']
+
+private noncomputable def linearYonedaObjExtendXLeftIso (K : _root_.ChainComplex C α)
+    (e : (ComplexShape.down α).Embedding (ComplexShape.down α'))
+    {i : α} {i' : α'} (hi : e.f i = i') :
+    (_root_.ChainComplex.linearYonedaObj (K.extend e) k Y).X i' ≅ (K.linearYonedaObj k Y).X i :=
+  ((linearYoneda k C).obj Y).mapIso (K.extendXIso e hi).symm.op
+
+/-- `Hom(-, Y)` commutes with extension by zero along matching embeddings of chain and cochain
+complex shapes: `Hom(K.extend e, Y) ≅ Hom(K, Y).extend e'`. -/
+noncomputable def linearYonedaObjExtendIso (K : _root_.ChainComplex C α)
+    (e : (ComplexShape.down α).Embedding (ComplexShape.down α'))
+    (e' : (ComplexShape.up α).Embedding (ComplexShape.up α'))
+    (he : ∀ i, e.f i = e'.f i) :
+    _root_.ChainComplex.linearYonedaObj (K.extend e) k Y ≅ (K.linearYonedaObj k Y).extend e' := by
+  classical
+  refine HomologicalComplex.Hom.isoOfComponents
+    (fun i' ↦ if h : ∃ i, e.f i = i' then
+        linearYonedaObjExtendXLeftIso k Y K e h.choose_spec ≪≫
+          ((K.linearYonedaObj k Y).extendXIso e' ((he h.choose).symm.trans h.choose_spec)).symm
+      else
+        IsZero.iso
+          (((linearYoneda k C).obj Y).map_isZero
+            (K.isZero_extend_X e i' fun i hi ↦ h ⟨i, hi⟩).op)
+          ((K.linearYonedaObj k Y).isZero_extend_X e' i' fun i hi ↦
+            h ⟨i, (he i).trans hi⟩))
+    (fun i' j' _ ↦ ?_)
+  by_cases hi : ∃ i, e.f i = i'
+  · by_cases hj : ∃ j, e.f j = j'
+    · have hi' : e'.f hi.choose = i' := (he hi.choose).symm.trans hi.choose_spec
+      have hj' : e'.f hj.choose = j' := (he hj.choose).symm.trans hj.choose_spec
+      rw [dite_eq_left hi, dite_eq_left hj, (K.linearYonedaObj k Y).extend_d_eq e' hi' hj']
+      simp only [Iso.trans_hom, Iso.symm_hom, Category.assoc, Iso.inv_hom_id_assoc]
+      rw [← Category.assoc, ← Category.assoc, cancel_mono]
+      ext (g : (K.extend e).X i' ⟶ Y)
+      have hd₁ : (K.extendXIso e hj.choose_spec).inv ≫ (K.extend e).d j' i' =
+          K.d hj.choose hi.choose ≫ (K.extendXIso e hi.choose_spec).inv := by
+        rw [K.extend_d_eq e hj.choose_spec hi.choose_spec, Iso.inv_hom_id_assoc]
+      -- Both sides evaluate precomposition in `Hom(-, Y)`; the identity is `hd₁` applied to `g`.
+      exact (Category.assoc _ _ g).symm.trans
+        ((congrArg (· ≫ g) hd₁.symm).trans (Category.assoc _ _ g))
+    · exact ((K.linearYonedaObj k Y).isZero_extend_X e' j' fun j hfj ↦
+        hj ⟨j, (he j).trans hfj⟩).eq_of_tgt _ _
+  · exact (((linearYoneda k C).obj Y).map_isZero
+      (K.isZero_extend_X e i' fun i hfi ↦ hi ⟨i, hfi⟩).op).eq_of_src _ _
+
+/-- On a degree `i' = e.f i = e'.f i`, the inverse of `linearYonedaObjExtendIso` precomposes a
+cochain `K.X i ⟶ Y` with `(K.extendXIso e hi).hom`. -/
+lemma linearYonedaObjExtendIso_inv_f_apply (K : _root_.ChainComplex C α)
+    (e : (ComplexShape.down α).Embedding (ComplexShape.down α'))
+    (e' : (ComplexShape.up α).Embedding (ComplexShape.up α'))
+    (he : ∀ i, e.f i = e'.f i) {i : α} {i' : α'} (hi : e.f i = i')
+    (g : ((K.linearYonedaObj k Y).extend e').X i') :
+    ((linearYonedaObjExtendIso k Y K e e' he).inv.f i' g : (K.extend e).X i' ⟶ Y) =
+      (K.extendXIso e hi).hom ≫
+        ((K.linearYonedaObj k Y).extendXIso e' ((he i).symm.trans hi)).hom g := by
+  classical
+  have h : ∃ j, e.f j = i' := ⟨i, hi⟩
+  have hch : h.choose = i := e.injective_f (h.choose_spec.trans hi.symm)
+  subst hch
+  dsimp [linearYonedaObjExtendIso]
+  rw [dite_eq_left h]
+  rfl
+
+/-- On a degree `i' = e.f i = e'.f i`, `linearYonedaObjExtendIso` precomposes a cochain
+`(K.extend e).X i' ⟶ Y` with `(K.extendXIso e hi).inv`. -/
+lemma linearYonedaObjExtendIso_hom_f_apply (K : _root_.ChainComplex C α)
+    (e : (ComplexShape.down α).Embedding (ComplexShape.down α'))
+    (e' : (ComplexShape.up α).Embedding (ComplexShape.up α'))
+    (he : ∀ i, e.f i = e'.f i) {i : α} {i' : α'} (hi : e.f i = i')
+    (g : (_root_.ChainComplex.linearYonedaObj (K.extend e) k Y).X i') :
+    ((K.linearYonedaObj k Y).extendXIso e' ((he i).symm.trans hi)).hom
+        ((linearYonedaObjExtendIso k Y K e e' he).hom.f i' g) =
+      (K.extendXIso e hi).inv ≫ g := by
+  classical
+  have h : ∃ j, e.f j = i' := ⟨i, hi⟩
+  have hch : h.choose = i := e.injective_f (h.choose_spec.trans hi.symm)
+  subst hch
+  dsimp [linearYonedaObjExtendIso]
+  rw [dite_eq_left h]
+  exact ConcreteCategory.congr_hom
+    ((K.linearYonedaObj k Y).extendXIso e' ((he h.choose).symm.trans h.choose_spec)).inv_hom_id _
+
+/-- `(linearYonedaObjExtendIso k Y _ e e' he).inv` is natural in chain maps `f : K ⟶ L`. -/
+lemma linearYonedaObjExtendIso_inv_naturality {K L : _root_.ChainComplex C α} (f : K ⟶ L)
+    (e : (ComplexShape.down α).Embedding (ComplexShape.down α'))
+    (e' : (ComplexShape.up α).Embedding (ComplexShape.up α'))
+    (he : ∀ i, e.f i = e'.f i) :
+    (linearYonedaObjExtendIso k Y L e e' he).inv ≫
+        (linearYonedaFunctor k Y).map (HomologicalComplex.extendMap f e).op =
+      HomologicalComplex.extendMap ((linearYonedaFunctor k Y).map f.op) e' ≫
+        (linearYonedaObjExtendIso k Y K e e' he).inv := by
+  ext i' : 1
+  by_cases hi' : ∃ i, e.f i = i'
+  · obtain ⟨i, rfl⟩ := hi'
+    ext g
+    have hi : e.f i = e.f i := rfl
+    have he' : e'.f i = e.f i := (he i).symm
+    let φ : L.linearYonedaObj k Y ⟶ K.linearYonedaObj k Y := (linearYonedaFunctor k Y).map f.op
+    let x : L.X i ⟶ Y := ((L.linearYonedaObj k Y).extendXIso e' he').hom g
+    have hL : ((linearYonedaObjExtendIso k Y L e e' he).inv.f (e.f i) g :
+        (L.extend e).X (e.f i) ⟶ Y) = (L.extendXIso e hi).hom ≫ x :=
+      linearYonedaObjExtendIso_inv_f_apply k Y L e e' he hi g
+    have hK := linearYonedaObjExtendIso_inv_f_apply k Y K e e' he hi
+      ((HomologicalComplex.extendMap φ e').f (e.f i) g)
+    have hK' : (((K.linearYonedaObj k Y).extendXIso e' he').hom
+        ((HomologicalComplex.extendMap φ e').f (e.f i) g) : K.X i ⟶ Y) = f.f i ≫ x := by
+      have hmap := ConcreteCategory.congr_hom (HomologicalComplex.extendMap_f φ e' he') g
+      have hinv := ConcreteCategory.congr_hom
+        ((K.linearYonedaObj k Y).extendXIso e' he').inv_hom_id (φ.f i x)
+      exact (congrArg ((K.linearYonedaObj k Y).extendXIso e' he').hom hmap).trans hinv
+    change ((HomologicalComplex.extendMap f e).f (e.f i) ≫
+        (linearYonedaObjExtendIso k Y L e e' he).inv.f (e.f i) g : (K.extend e).X (e.f i) ⟶ Y) =
+      (linearYonedaObjExtendIso k Y K e e' he).inv.f (e.f i)
+        ((HomologicalComplex.extendMap φ e').f (e.f i) g)
+    refine (congrArg ((HomologicalComplex.extendMap f e).f (e.f i) ≫ ·) hL).trans ?_
+    refine (?_ : _ = (K.extendXIso e hi).hom ≫ (f.f i ≫ x)).trans ?_
+    · rw [HomologicalComplex.extendMap_f f e hi, Category.assoc, Category.assoc,
+        Iso.inv_hom_id_assoc]
+    · exact (congrArg ((K.extendXIso e hi).hom ≫ ·) hK'.symm).trans hK.symm
+  · exact ((L.linearYonedaObj k Y).isZero_extend_X e' i' fun i h ↦
+      hi' ⟨i, (he i).trans h⟩).eq_of_src _ _
+
+end Extend
+
 section Exactness
 
 variable [Abelian C] [Linear k C] (K : _root_.ChainComplex C ℕ) (Y : C)
@@ -507,6 +649,85 @@ theorem _root_.ChainComplex.exactAt_linearYonedaObj_succ_iff (n : ℕ) :
   -- The differentials of `Hom(K, Y)` are precomposition with those of `K`
   -- (`ChainComplex.linearYonedaObj_d`), so both sides are the same statement.
   rfl
+
+/-- An `ℕ`-indexed chain complex `K` in a `k`-linear abelian category is acyclic if the cochain
+complex `Hom(K, Y)` is acyclic for every object `Y`. -/
+theorem _root_.ChainComplex.acyclic_of_forall_acyclic_linearYonedaObj
+    (h : ∀ Y : C, (K.linearYonedaObj k Y).Acyclic) : K.Acyclic := by
+  intro n
+  cases n with
+  | zero =>
+    have hπ : cokernel.π (K.d 1 0) = 0 :=
+      (K.exactAt_linearYonedaObj_zero_iff k (cokernel (K.d 1 0))).mp (h _ 0)
+        _ (cokernel.condition _)
+    rw [HomologicalComplex.exactAt_iff' _ 1 0 0 (by simp) _root_.ChainComplex.next_nat_zero,
+      ShortComplex.exact_iff_kernel_ι_comp_cokernel_π_zero]
+    simp [hπ]
+  | succ i =>
+    obtain ⟨g, hg⟩ :=
+      (K.exactAt_linearYonedaObj_succ_iff k (cokernel (K.d (i + 2) (i + 1))) i).mp (h _ (i + 1))
+        (cokernel.π (K.d (i + 2) (i + 1))) (cokernel.condition _)
+    rw [HomologicalComplex.exactAt_iff' _ (i + 2) (i + 1) i (by simp)
+        (_root_.ChainComplex.next_nat_succ i),
+      ShortComplex.exact_iff_kernel_ι_comp_cokernel_π_zero]
+    dsimp only [HomologicalComplex.sc', HomologicalComplex.shortComplexFunctor'_obj_f,
+      HomologicalComplex.shortComplexFunctor'_obj_g]
+    rw [← hg, ← Category.assoc, kernel.condition, zero_comp]
+
+/-- A morphism `φ : K ⟶ L` of `ℕ`-indexed chain complexes in a `k`-linear abelian category is a
+quasi-isomorphism if the induced map `Hom(L, Y) ⟶ Hom(K, Y)` is a quasi-isomorphism for every
+object `Y`. -/
+theorem _root_.ChainComplex.quasiIso_of_forall_quasiIso_linearYonedaFunctor
+    {K L : _root_.ChainComplex C ℕ} (φ : K ⟶ L)
+    (h : ∀ Y : C, QuasiIso ((linearYonedaFunctor k Y).map φ.op)) : QuasiIso φ := by
+  have hc : ∀ j : ℕ, ∃ i, (ComplexShape.down ℕ).Rel i j := fun j ↦ ⟨j + 1, rfl⟩
+  rw [HomologicalComplex.homotopyCofiber.quasiIso_iff_acyclic φ hc]
+  refine _root_.ChainComplex.acyclic_of_forall_acyclic_linearYonedaObj k _ fun Y ↦ ?_
+  let α : Arrow.mk (𝟙 K) ⟶ Arrow.mk φ := Arrow.homMk (𝟙 K) φ (by simp)
+  have hS₁ : (HomologicalComplex.homotopyCofiber.coneShortComplex (𝟙 K) hc).ShortExact :=
+    HomologicalComplex.homotopyCofiber.coneShortComplex_shortExact (𝟙 K) hc
+  have hS₂ : (HomologicalComplex.homotopyCofiber.coneShortComplex φ hc).ShortExact :=
+    HomologicalComplex.homotopyCofiber.coneShortComplex_shortExact φ hc
+  have : ∀ i, IsSplitMono ((HomologicalComplex.homotopyCofiber.coneShortComplex (𝟙 K) hc).f.f i) :=
+    fun i ↦ IsSplitMono.mk' { retraction := HomologicalComplex.homotopyCofiber.sndX (𝟙 K) i }
+  have : ∀ i, IsSplitMono ((HomologicalComplex.homotopyCofiber.coneShortComplex φ hc).f.f i) :=
+    fun i ↦ IsSplitMono.mk' { retraction := HomologicalComplex.homotopyCofiber.sndX φ i }
+  let τ : HomologicalComplex.homotopyCofiber.coneShortComplex (𝟙 K) hc ⟶
+      HomologicalComplex.homotopyCofiber.coneShortComplex φ hc :=
+    { τ₁ := φ
+      τ₂ := HomologicalComplex.homotopyCofiber.mapArrowHom (𝟙 K) φ hc α
+      τ₃ := 𝟙 _
+      comm₁₂ := by simp [α]
+      comm₂₃ := by
+        simp only [Category.comp_id, ← HomologicalComplex.homotopyCofiber.mapArrowHom_comp]
+        congr 1
+        ext <;> simp [α] }
+  let τ' := ((linearYonedaFunctor (α := ℕ) k Y).mapShortComplex).map (ShortComplex.opMap τ)
+  have hτ₁ : QuasiIso τ'.τ₁ := by
+    have heq : τ'.τ₁ = 𝟙 _ := (linearYonedaFunctor (α := ℕ) k Y).map_id _
+    rw [heq]
+    exact quasiIso_of_isIso (𝟙 _)
+  have hτ₃ : QuasiIso τ'.τ₃ := h Y
+  have hConeMap : QuasiIso ((linearYonedaFunctor (α := ℕ) k Y).map
+      (HomologicalComplex.homotopyCofiber.mapArrowHom (𝟙 K) φ hc α).op) :=
+    HomologicalComplex.HomologySequence.quasiIso_τ₂ τ'
+      (shortExact_map_linearYonedaFunctor k Y hS₂)
+      (shortExact_map_linearYonedaFunctor k Y hS₁) hτ₁ hτ₃
+  have hIdAcyclic :
+      ((linearYonedaFunctor (α := ℕ) k Y).obj
+        (op (HomologicalComplex.homotopyCofiber (𝟙 K)))).Acyclic := by
+    have hHom : Homotopy
+        (𝟙 ((linearYonedaFunctor (α := ℕ) k Y).obj
+          (op (HomologicalComplex.homotopyCofiber (𝟙 K))))) 0 :=
+      (Homotopy.ofEq ((linearYonedaFunctor (α := ℕ) k Y).map_id _).symm).trans
+        (((HomologicalComplex.homotopyCofiber.homotopyToZeroOfId K hc).linearYonedaFunctorMap
+            k Y).trans
+          (Homotopy.ofEq (Functor.map_zero _ _ _)))
+    exact hHom.acyclic
+  intro i
+  exact (exactAt_iff_of_quasiIsoAt
+    ((linearYonedaFunctor (α := ℕ) k Y).map
+      (HomologicalComplex.homotopyCofiber.mapArrowHom (𝟙 K) φ hc α).op) i).mpr (hIdAcyclic i)
 
 end Exactness
 
