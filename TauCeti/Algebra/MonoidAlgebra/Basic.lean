@@ -38,6 +38,8 @@ none of the further theory built on it.
 * The `Finite (MonoidAlgebra R M)` instance: `R[M]` is finite when `R` and `M` are.
 * `TauCeti.MonoidAlgebra.isIntegral_of_isMulTorsion`: the monoid algebra of a commutative torsion
   monoid is integral over its coefficient ring.
+* `MonoidAlgebra.isRegular_single` and `AddMonoidAlgebra.isRegular_single`: for a cancellative
+  magma `M`, monomials with regular coefficients are regular in `R[M]`.
 * `MonoidAlgebra.single_mem_nonZeroDivisors` and `MonoidAlgebra.mrange_of_le_nonZeroDivisors`:
   for a cancellative monoid `M`, monomials with non-zero-divisor coefficients (in particular
   coefficient-one monomials) are non-zero-divisors in `R[M]`.
@@ -220,6 +222,27 @@ end TorsionFree
 instance instFinite {R M : Type*} [Semiring R] [Finite R] [Finite M] :
     Finite (MonoidAlgebra R M) :=
   .of_injective (fun x ↦ ⇑x.coeff) (DFunLike.coe_injective.comp coeff_injective)
+
+/-- In the monoid algebra of a cancellative magma, any monomial whose coefficient is regular is
+regular. -/
+@[to_additive (dont_translate := R) isRegular_single
+/-- In the additive monoid algebra of a cancellative additive magma, any monomial whose
+coefficient is regular is regular. -/]
+theorem isRegular_single {R M : Type*} [Semiring R] [Mul M] [IsCancelMul M]
+    (m : M) {r : R} (hr : IsRegular r) : IsRegular (single m r : MonoidAlgebra R M) := by
+  refine ⟨fun f g h ↦ ?_, fun f g h ↦ ?_⟩
+  · ext t
+    have hf := coeff_single_mul_eq_mul_coeff (x := f) (r := r) (m := m) (m₁ := m * t) t
+      fun _ _ ↦ mul_right_inj m
+    have hg := coeff_single_mul_eq_mul_coeff (x := g) (r := r) (m := m) (m₁ := m * t) t
+      fun _ _ ↦ mul_right_inj m
+    exact hr.left (hf.symm.trans <| (congr(($h).coeff (m * t))).trans hg)
+  · ext t
+    have hf := coeff_mul_single_eq_coeff_mul (x := f) (r := r) (m := m) (m₁ := t * m) t
+      fun _ _ ↦ mul_left_inj m
+    have hg := coeff_mul_single_eq_coeff_mul (x := g) (r := r) (m := m) (m₁ := t * m) t
+      fun _ _ ↦ mul_left_inj m
+    exact hr.right (hf.symm.trans <| (congr(($h).coeff (t * m))).trans hg)
 
 /-- In the monoid algebra of a cancellative monoid, any monomial whose coefficient is a
 non-zero-divisor of `R` is a non-zero-divisor of `R[M]`. -/

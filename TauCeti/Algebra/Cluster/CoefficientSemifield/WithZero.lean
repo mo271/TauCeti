@@ -21,10 +21,12 @@ both preserving multiplication and addition.
 
 They also identify the homomorphisms. A homomorphism of coefficient semifields extends by zero to
 a semiring map (`TauCeti.CoefficientSemifieldHom.withZeroMap`), and a semiring map restricts to
-the units (`RingHom.mapUnits`). Both operations respect identities and composition, they are
-compatible with the two comparisons, and each is a bijection on homomorphisms
-(`TauCeti.CoefficientSemifieldHom.withZeroMapEquiv` and
-`TauCeti.CoefficientSemifieldHom.mapUnitsEquiv`).
+the units (`RingHom.mapUnits`; for isomorphisms, `RingEquiv.mapUnits`). Both operations respect
+identities and composition, they are compatible with the two comparisons, and each is a bijection
+on homomorphisms (`TauCeti.CoefficientSemifieldHom.withZeroMapEquiv` and
+`TauCeti.CoefficientSemifieldHom.mapUnitsEquiv`). More generally, any multiplicative and additive
+map from a coefficient semifield `P` into a semiring `R` extends uniquely by zero to a semiring
+map `WithZero P →+* R` (`TauCeti.CoefficientSemifield.withZeroLift`).
 
 This is how semiring constructions, such as localization, produce coefficient semifields and
 their homomorphisms.
@@ -228,3 +230,70 @@ theorem mapUnits_injective : Function.Injective (RingHom.mapUnits : (S →+* T) 
   mapUnitsEquiv.injective
 
 end TauCeti.CoefficientSemifieldHom
+
+namespace TauCeti.CoefficientSemifield
+
+variable {P : Type*} [CoefficientSemifield P] {R : Type*} [NonAssocSemiring R]
+
+/-- Semiring homomorphisms out of `WithZero P` agree when they agree on `P`. -/
+theorem withZero_ringHom_ext {f g : WithZero P →+* R} (h : ∀ p : P, f p = g p) : f = g := by
+  ext a
+  induction a using WithZero.recZeroCoe with
+  | zero => simp
+  | coe p => exact h p
+
+/-- Extend a multiplicative and additive map from a coefficient semifield `P` into a non-associative
+semiring `R` to a semiring homomorphism `WithZero P →+* R` sending zero to zero. -/
+def withZeroLift (f : P →* R) (hadd : ∀ a b : P, f (a + b) = f a + f b) : WithZero P →+* R :=
+  { WithZero.lift' f with
+    map_add' a b := by
+      induction a using WithZero.recZeroCoe <;> induction b using WithZero.recZeroCoe
+      · simp
+      · simp
+      · simp
+      · simpa [← WithZero.coe_add] using hadd _ _ }
+
+@[simp]
+theorem withZeroLift_coe (f : P →* R) (hadd : ∀ a b : P, f (a + b) = f a + f b) (p : P) :
+    withZeroLift f hadd p = f p :=
+  (rfl)
+
+/-- `withZeroLift f hadd` is the unique semiring homomorphism `WithZero P →+* R` extending `f`. -/
+theorem withZeroLift_unique (f : P →* R) (hadd : ∀ a b : P, f (a + b) = f a + f b)
+    (g : WithZero P →+* R) (hg : ∀ p : P, g p = f p) : g = withZeroLift f hadd :=
+  withZero_ringHom_ext hg
+
+end TauCeti.CoefficientSemifield
+
+namespace RingEquiv
+
+open TauCeti CoefficientSemifield
+
+variable {S T : Type*} [Semifield S] [Semifield T] [Subsingleton (AddUnits S)]
+  [Subsingleton (AddUnits T)]
+
+/-- Restrict a semiring equivalence between zero-sum-free semifields to an isomorphism of their
+coefficient semifields of units. -/
+def mapUnits (e : S ≃+* T) : Sˣ ≃+* Tˣ where
+  toFun := Units.map e.toMonoidHom
+  invFun := Units.map e.symm.toMonoidHom
+  left_inv a := Units.ext (e.symm_apply_apply a)
+  right_inv a := Units.ext (e.apply_symm_apply a)
+  map_mul' a b := Units.ext (map_mul e (a : S) b)
+  map_add' a b := Units.ext (map_add e (a : S) b)
+
+@[simp]
+theorem val_mapUnits (e : S ≃+* T) (a : Sˣ) : (e.mapUnits a : T) = e (a : S) :=
+  (rfl)
+
+@[simp]
+theorem mapUnits_symm (e : S ≃+* T) : e.mapUnits.symm = e.symm.mapUnits :=
+  (rfl)
+
+@[simp]
+theorem toCoefficientSemifieldHom_mapUnits (e : S ≃+* T) :
+    e.mapUnits.toCoefficientSemifieldHom = e.toRingHom.mapUnits := by
+  ext a
+  simp
+
+end RingEquiv
