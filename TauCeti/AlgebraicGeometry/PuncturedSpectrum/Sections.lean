@@ -55,8 +55,13 @@ punctured spectrum of `A` has `B` as its ring of global functions.
 ## Main results
 
 * `TauCeti.AlgebraicGeometry.Spec.presheaf_map_leTop_bijective_of_flat`: the flat case.
+* `TauCeti.IsLocalRing.isIso_ι_appTop_puncturedSpectrum`: global sections of the punctured spectrum
+  of a Noetherian local ring of depth at least two recover the local ring.
 * `TauCeti.IsLocalRing.isPullback_puncturedSpectrum_toSpecΓ`: reconstruction of an affine
   scheme over the puncture by restricting the spectrum of its sections.
+* `TauCeti.IsLocalRing.existsUnique_hom_puncturedSpectrum_of_appTop`: morphisms between affine
+  schemes over the punctured spectrum correspond bijectively to morphisms of their rings of global
+  sections over the base ring.
 * `TauCeti.AlgebraicGeometry.Spec.presheaf_map_leTop_bijective_of_isIntegral`: the integral case,
   an affine form of Stacks, Lemma 58.20.1 (0BM8).
 * `TauCeti.AlgebraicGeometry.Spec.presheaf_map_leTop_bijective_of_isIntegrallyClosed`: the finite
@@ -152,6 +157,21 @@ open CategoryTheory.Limits
 
 variable (A : Type u) [CommRing A] [IsLocalRing A] [IsNoetherianRing A]
 
+/-- Restriction of global sections from `Spec A` to its punctured spectrum is an isomorphism when
+`A` is a Noetherian local ring of depth at least two. -/
+theorem isIso_ι_appTop_puncturedSpectrum (hdepth : 2 ≤ depth (ModuleCat.of A A)) :
+    IsIso (puncturedSpectrum A).ι.appTop := by
+  let U := puncturedSpectrum A
+  have hΓ := TauCeti.AlgebraicGeometry.Spec.presheaf_map_leTop_bijective_of_flat
+    (A := A) (B := A) hdepth (U.ι ''ᵁ ⊤) fun p hp ↦ by
+      rw [Scheme.Opens.ι_image_top]
+      apply (mem_puncturedSpectrum_iff A p).mpr
+      intro he
+      apply hp
+      simpa [Ideal.under_def, IsLocalRing.closedPoint] using congrArg PrimeSpectrum.asIdeal he
+  rw [Scheme.Opens.ι_appTop]
+  exact (ConcreteCategory.isIso_iff_bijective _).mpr hΓ
+
 /-- An affine scheme over the punctured spectrum of a local ring of depth at least two
 is the restriction of the spectrum of its global sections. The bottom map is induced by
 the canonical `A`-algebra structure on those sections. -/
@@ -165,16 +185,7 @@ theorem isPullback_puncturedSpectrum_toSpecΓ
   have : CompactSpace U.toScheme := isCompact_iff_compactSpace.mp
     (isCompact_puncturedSpectrum_of_fg_maximalIdeal A (IsNoetherian.noetherian _))
   have : U.toScheme.IsQuasiAffine := Scheme.IsQuasiAffine.of_isImmersion U.ι
-  have hΓ := TauCeti.AlgebraicGeometry.Spec.presheaf_map_leTop_bijective_of_flat
-    (A := A) (B := A) hdepth (U.ι ''ᵁ ⊤) fun p hp ↦ by
-      rw [Scheme.Opens.ι_image_top]
-      apply (mem_puncturedSpectrum_iff A p).mpr
-      intro he
-      apply hp
-      simpa [Ideal.under_def, IsLocalRing.closedPoint] using congrArg PrimeSpectrum.asIdeal he
-  have : IsIso U.ι.appTop := by
-    rw [Scheme.Opens.ι_appTop]
-    exact (ConcreteCategory.isIso_iff_bijective _).mpr hΓ
+  have : IsIso U.ι.appTop := isIso_ι_appTop_puncturedSpectrum A hdepth
   let e := asIso (Spec.map ((Scheme.ΓSpecIso (.of A)).inv ≫ U.ι.appTop))
   refine (Scheme.isPullback_toSpecΓ_toSpecΓ f).of_iso
     (.refl _) (.refl _) (.refl _) e (by simp) (by simp) ?_ ?_
@@ -182,6 +193,34 @@ theorem isPullback_puncturedSpectrum_toSpecΓ
     simp [U]
   · simp only [e, asIso_hom, Spec.map_comp, Scheme.Hom.comp_appTop,
       Iso.refl_hom, Category.id_comp, Category.assoc, U]
+
+/-- Over the punctured spectrum `U` of a Noetherian local ring `A` of depth at least two, every
+ring homomorphism `Γ(W, ⊤) ⟶ Γ(V, ⊤)` over `Γ(Spec A, ⊤)` between global sections of two affine
+schemes over `U` is induced by a unique `U`-morphism `V ⟶ W`. -/
+theorem existsUnique_hom_puncturedSpectrum_of_appTop
+    (hdepth : 2 ≤ depth (ModuleCat.of A A)) {V W : Scheme.{u}}
+    (fV : V ⟶ (puncturedSpectrum A).toScheme) (fW : W ⟶ (puncturedSpectrum A).toScheme)
+    [IsAffineHom fV] [IsAffineHom fW] (ψ : Γ(W, ⊤) ⟶ Γ(V, ⊤))
+    (hψ : (fW ≫ (puncturedSpectrum A).ι).appTop ≫ ψ =
+      (fV ≫ (puncturedSpectrum A).ι).appTop) :
+    ∃! g : V ⟶ W, g ≫ fW = fV ∧ g.appTop = ψ := by
+  have hV := isPullback_puncturedSpectrum_toSpecΓ A hdepth fV
+  have hW := isPullback_puncturedSpectrum_toSpecΓ A hdepth fW
+  have hcomm : fV ≫ (puncturedSpectrum A).ι =
+      (V.toSpecΓ ≫ Spec.map ψ) ≫
+        Spec.map ((Scheme.ΓSpecIso (.of A)).inv ≫ (fW ≫ (puncturedSpectrum A).ι).appTop) := by
+    rw [Category.assoc, ← Spec.map_comp, Category.assoc, hψ]
+    exact hV.w
+  refine ⟨hW.lift fV (V.toSpecΓ ≫ Spec.map ψ) hcomm, ⟨hW.lift_fst _ _ _, ?_⟩, ?_⟩
+  · have hnat :=
+      (Scheme.toSpecΓ_naturality (hW.lift fV (V.toSpecΓ ≫ Spec.map ψ) hcomm)).symm.trans
+        (hW.lift_snd _ _ _)
+    have happ := congrArg Scheme.Hom.appTop hnat
+    simp only [Scheme.Hom.comp_appTop, Scheme.toSpecΓ_appTop, Scheme.ΓSpecIso_naturality] at happ
+    exact (cancel_epi (Scheme.ΓSpecIso Γ(W, ⊤)).hom).mp happ
+  · rintro g ⟨hgf, hgψ⟩
+    refine hW.hom_ext (hgf.trans (hW.lift_fst _ _ _).symm) ?_
+    rw [Scheme.toSpecΓ_naturality, hgψ, hW.lift_snd]
 
 /-- Let `A` be a Noetherian integrally closed local domain of dimension at least two, and `B` a
 finite torsion-free `A`-algebra whose localizations at maximal ideals are integrally closed
