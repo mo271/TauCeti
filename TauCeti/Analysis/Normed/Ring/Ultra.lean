@@ -8,6 +8,8 @@ module
 public import Mathlib.Algebra.Group.ForwardDiff
 public import Mathlib.Analysis.Normed.Field.UnitBall
 public import Mathlib.Analysis.Normed.Ring.Ultra
+public import Mathlib.Data.Nat.Factorization.Defs
+import Mathlib.Data.Nat.Factorization.Basic
 import TauCeti.Algebra.Group.ForwardDiff
 import TauCeti.Analysis.Normed.Ring.Basic
 
@@ -30,6 +32,12 @@ of a monomial are divisible by `k!`, their norms carry the factor `‖k!‖`.
 
 * `IsUltrametricDist.exists_lt_norm_natCast_eq_one`: arbitrarily large natural numbers have norm
   one in an ultrametric seminormed ring with `‖1‖ = 1`.
+* `IsUltrametricDist.norm_natCast_eq_one_of_coprime`,
+  `IsUltrametricDist.norm_natCast_eq_pow_factorization`, and
+  `IsUltrametricDist.charZero_of_norm_prime_lt_one`: if `‖(m : R)‖ < 1` then every natural number
+  coprime to `m` has norm `1`; when a prime `p` has norm `< 1`, a multiplicative norm gives
+  `‖(n : R)‖ = ‖(p : R)‖ ^ n.factorization p` for `n ≠ 0`, and `‖(p : R)‖ ≠ 0` forces
+  characteristic zero.
 * `IsUltrametricDist.nonarchimedeanRing`: an ultrametric seminormed ring is a nonarchimedean
   ring.
 * `Subring.unitClosedBall`: the closed unit ball of an ultrametric seminormed ring with
@@ -83,6 +91,52 @@ theorem IsUltrametricDist.exists_lt_norm_natCast_eq_one (R : Type*) [SeminormedR
     norm_num
   rw [norm_neg, hsum, norm_one] at h3
   exact (h3.trans_lt (max_lt h2 h1)).false
+
+/-- In an ultrametric seminormed ring with `‖1‖ = 1`, if `‖(m : R)‖ < 1` and `m` is coprime to
+`n`, then `‖(n : R)‖ = 1`. -/
+theorem IsUltrametricDist.norm_natCast_eq_one_of_coprime {R : Type*} [SeminormedRing R]
+    [NormOneClass R] [IsUltrametricDist R] {m n : ℕ} (hcop : m.Coprime n) (hm : ‖(m : R)‖ < 1) :
+    ‖(n : R)‖ = 1 := by
+  refine le_antisymm (IsUltrametricDist.norm_natCast_le_one R n) ?_
+  have hbez : (1 : ℤ) = (m : ℤ) * Nat.gcdA m n + (n : ℤ) * Nat.gcdB m n := by
+    simpa [hcop.gcd_eq_one] using Nat.gcd_eq_gcd_ab m n
+  have h1 : (1 : R) = (m : R) * (Nat.gcdA m n : R) + (n : R) * (Nat.gcdB m n : R) := by
+    simpa using congrArg ((↑) : ℤ → R) hbez
+  have hA : ‖(m : R) * (Nat.gcdA m n : R)‖ < 1 := by
+    have hgcdA : ‖(Nat.gcdA m n : R)‖ ≤ 1 := by
+      simpa using IsUltrametricDist.norm_intCast_le_norm_one (R := R) (Nat.gcdA m n)
+    exact (norm_mul_le _ _).trans_lt ((mul_le_of_le_one_right (norm_nonneg _) hgcdA).trans_lt hm)
+  have hB : ‖(n : R) * (Nat.gcdB m n : R)‖ ≤ ‖(n : R)‖ := by
+    have hgcdB : ‖(Nat.gcdB m n : R)‖ ≤ 1 := by
+      simpa using IsUltrametricDist.norm_intCast_le_norm_one (R := R) (Nat.gcdB m n)
+    exact (norm_mul_le _ _).trans (mul_le_of_le_one_right (norm_nonneg _) hgcdB)
+  have hmax : (1 : ℝ) ≤ max ‖(m : R) * (Nat.gcdA m n : R)‖ ‖(n : R) * (Nat.gcdB m n : R)‖ := by
+    rw [← norm_one (α := R), h1]
+    exact IsUltrametricDist.norm_add_le_max _ _
+  rcases le_max_iff.mp hmax with hlt | hle
+  · exact absurd (hlt.trans_lt hA) (lt_irrefl 1)
+  · exact hle.trans hB
+
+/-- In an ultrametric seminormed ring with a multiplicative norm and `‖1‖ = 1` in which a prime `p`
+has norm `< 1`, every nonzero natural number has norm `‖(p : R)‖ ^ n.factorization p`. -/
+theorem IsUltrametricDist.norm_natCast_eq_pow_factorization {R : Type*} [SeminormedRing R]
+    [NormMulClass R] [NormOneClass R] [IsUltrametricDist R] {p n : ℕ} (hp : p.Prime)
+    (hp1 : ‖(p : R)‖ < 1) (hn : n ≠ 0) : ‖(n : R)‖ = ‖(p : R)‖ ^ (n.factorization p) := by
+  have hmul : p ^ (n.factorization p) * ordCompl[p] n = n := Nat.ordProj_mul_ordCompl_eq_self n p
+  have hcop : p.Coprime (ordCompl[p] n) := hp.coprime_iff_not_dvd.mpr (Nat.not_dvd_ordCompl hp hn)
+  conv_lhs => rw [← hmul]
+  rw [Nat.cast_mul, Nat.cast_pow, norm_mul, norm_pow,
+    IsUltrametricDist.norm_natCast_eq_one_of_coprime hcop hp1, mul_one]
+
+/-- An ultrametric seminormed ring with a multiplicative norm, `‖1‖ = 1`, and a prime `p` of norm
+strictly between `0` and `1` has characteristic zero. -/
+theorem IsUltrametricDist.charZero_of_norm_prime_lt_one {R : Type*} [SeminormedRing R]
+    [NormMulClass R] [NormOneClass R] [IsUltrametricDist R] {p : ℕ} (hp : p.Prime)
+    (hp0 : ‖(p : R)‖ ≠ 0) (hp1 : ‖(p : R)‖ < 1) : CharZero R := by
+  refine charZero_of_inj_zero fun n hn ↦ by_contra fun hn0 ↦ ?_
+  have hnorm := IsUltrametricDist.norm_natCast_eq_pow_factorization (R := R) hp hp1 hn0
+  rw [hn, norm_zero] at hnorm
+  exact pow_ne_zero _ hp0 hnorm.symm
 
 /-- **An ultrametric seminormed ring is a nonarchimedean ring.** This is the ring form of
 Mathlib's `IsUltrametricDist.nonarchimedeanAddGroup`: every neighbourhood of zero contains an open
