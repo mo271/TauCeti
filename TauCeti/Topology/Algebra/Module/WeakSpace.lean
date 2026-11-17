@@ -6,6 +6,7 @@ Authors: The Tau Ceti contributors
 module
 
 public import Mathlib.Topology.Algebra.Module.Spaces.WeakDual
+public import Mathlib.Topology.Defs.Sequences
 
 /-!
 # Convergence in the weak topology
@@ -19,11 +20,13 @@ evaluations.
 When the weak topology is Hausdorff, weak convergence implies convergence in the original topology
 for families that eventually stay in a compact set
 (`TauCeti.tendsto_of_tendsto_toWeakSpace_of_isCompact`): on a compact set the two topologies agree.
+We also record the sequence characterization of weak sequential closedness
+(`TauCeti.isSeqClosed_toWeakSpace_iff`).
 -/
 
 public section
 
-open Filter Topology
+open Filter Set Topology
 
 namespace TauCeti
 
@@ -37,6 +40,21 @@ theorem tendsto_toWeakSpace_iff_forall_eval_tendsto {α : Type*} {l : Filter α}
     Tendsto (fun n ↦ toWeakSpace 𝕜 E (u n)) l (𝓝 (toWeakSpace 𝕜 E x)) ↔
       ∀ f : StrongDual 𝕜 E, Tendsto (fun n ↦ f (u n)) l (𝓝 (f x)) :=
   (IsInducing.induced _).tendsto_nhds_iff.trans tendsto_pi_nhds
+
+/-- Weak sequential closedness of `S` expressed directly in terms of sequences in `E`. -/
+theorem isSeqClosed_toWeakSpace_iff {S : Set E} :
+    IsSeqClosed (toWeakSpace 𝕜 E '' S) ↔
+      ∀ (u : ℕ → E) (v : E), (∀ n, u n ∈ S) →
+        Tendsto (fun n ↦ toWeakSpace 𝕜 E (u n)) atTop (𝓝 (toWeakSpace 𝕜 E v)) → v ∈ S := by
+  refine ⟨fun h u v hu hlim ↦ ?_, fun h u w hu hlim ↦ ?_⟩
+  · have hv : toWeakSpace 𝕜 E v ∈ toWeakSpace 𝕜 E '' S :=
+      h (fun n ↦ mem_image_of_mem (toWeakSpace 𝕜 E) (hu n)) hlim
+    rwa [(toWeakSpace 𝕜 E).injective.mem_set_image] at hv
+  · choose v hv hw using hu
+    have hlim' : Tendsto (fun n ↦ toWeakSpace 𝕜 E (v n)) atTop
+        (𝓝 (toWeakSpace 𝕜 E ((toWeakSpace 𝕜 E).symm w))) := by
+      simpa only [hw, LinearEquiv.apply_symm_apply] using hlim
+    exact ⟨(toWeakSpace 𝕜 E).symm w, h v _ hv hlim', (toWeakSpace 𝕜 E).apply_symm_apply w⟩
 
 /-- If the weak topology is Hausdorff, a family that eventually stays in a compact set and
 converges weakly to `a` converges to `a` in the original topology. -/
