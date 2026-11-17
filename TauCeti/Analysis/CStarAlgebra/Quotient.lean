@@ -44,6 +44,9 @@ Davidson, *C*-Algebras by Example*, Theorem I.5.4 and Corollary I.5.5).
 * `NonUnitalStarAlgHom.quotientKerEquivRange`, `NonUnitalStarAlgHom.quotientKerEquivOfSurjective`,
   and `NonUnitalStarAlgHom.surjective_of_denseRange` (plus `StarAlgHom` counterparts): isometric
   first `⋆`-isomorphism theorem and surjectivity from dense range.
+* `TwoSidedIdeal.star_mul_self_mem_iff` and `TwoSidedIdeal.mul_star_self_mem_iff`: membership of
+  `x` in a closed two-sided ideal of a C⋆-algebra is equivalent to membership of `star x * x` or
+  `x * star x`.
 -/
 
 public section
@@ -366,6 +369,44 @@ theorem toNonUnitalStarAlgHom_liftUnitalStarAlgHom (f : A →⋆ₐ[ℂ] B) (hf 
 end Unital
 
 end TwoSidedIdeal.Quotient
+
+namespace TwoSidedIdeal
+
+variable {A : Type*} [NonUnitalCStarAlgebra A]
+
+/-- In a C⋆-algebra, an element `x` belongs to a closed two-sided ideal `I` if and only if
+`star x * x ∈ I`. -/
+@[simp]
+theorem star_mul_self_mem_iff (I : TwoSidedIdeal A) [IsClosed (I : Set A)] {x : A} :
+    star x * x ∈ I ↔ x ∈ I := by
+  constructor
+  · intro h
+    have hq : TwoSidedIdeal.Quotient.mkStarAlgHom I (star x * x) = 0 := by
+      rw [TwoSidedIdeal.Quotient.mkStarAlgHom_apply, TwoSidedIdeal.Quotient.eq_zero_iff_mem]
+      exact h
+    rw [map_mul, map_star, star_mul_self_eq_zero, TwoSidedIdeal.Quotient.mkStarAlgHom_apply,
+      TwoSidedIdeal.Quotient.eq_zero_iff_mem] at hq
+    exact hq
+  · intro hx
+    exact I.mul_mem_left (star x) x hx
+
+/-- In a C⋆-algebra, an element `x` belongs to a closed two-sided ideal `I` if and only if
+`x * star x ∈ I`. -/
+@[simp]
+theorem mul_star_self_mem_iff (I : TwoSidedIdeal A) [IsClosed (I : Set A)] {x : A} :
+    x * star x ∈ I ↔ x ∈ I := by
+  constructor
+  · intro h
+    have hq : TwoSidedIdeal.Quotient.mkStarAlgHom I (x * star x) = 0 := by
+      rw [TwoSidedIdeal.Quotient.mkStarAlgHom_apply, TwoSidedIdeal.Quotient.eq_zero_iff_mem]
+      exact h
+    rw [map_mul, map_star, mul_star_self_eq_zero, TwoSidedIdeal.Quotient.mkStarAlgHom_apply,
+      TwoSidedIdeal.Quotient.eq_zero_iff_mem] at hq
+    exact hq
+  · intro hx
+    exact I.mul_mem_right x (star x) hx
+
+end TwoSidedIdeal
 
 namespace NonUnitalStarAlgHom
 
