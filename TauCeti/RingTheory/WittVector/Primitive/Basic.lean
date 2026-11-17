@@ -26,23 +26,26 @@ Over a perfect ring of characteristic `p`, every Witt vector is `[ξ₀] + p u`,
 topologically nilpotent (`WittVector.isPrimitive_iff_exists_unit`); this is the usual definition
 of a primitive element of degree one.
 
-The remaining results assume that `S` has characteristic `p`, that every topologically nilpotent
-element of `S` lies in the Jacobson radical (for instance, `S` is adically complete with respect to
-an open ideal, by `topologicalNilradical_le_jacobson_bot`), and that the topology of `S` is linear.
-In characteristic `p` the first Witt coordinate of a product is `(x y)₁ = x₀ ^ p y₁ + y₀ ^ p x₁`
-(`WittVector.mul_coeff_one_charP`). Hence `p + [ϖ] α` is primitive for every topologically
+The remaining results assume that `S` has characteristic `p`. Whenever the zeroth Witt coordinate of
+`ξ` lies in the Jacobson radical of `S`, a multiple `y ξ` is distinguished if and only if `y` is a
+unit and `ξ` is distinguished (`WittVector.isDistinguished_mul_iff_of_coeff_zero_mem_jacobson`).
+When `S` carries a linear topology whose topological nilradical lies in the Jacobson radical (for
+instance, `S` is adically complete with respect to an open ideal, by
+`topologicalNilradical_le_jacobson_bot`), `p + [ϖ] α` is primitive for every topologically
 nilpotent `ϖ` and every `α`, primitivity is invariant under multiplication by units, and a multiple
 of a primitive element that is itself distinguished is a unit multiple. Over a perfect ring, every
 primitive element is moreover a unit multiple of some `p + [ϖ] α`.
 
-Over a perfect ring `S` of characteristic `p`, let `ϖ` be a nonzerodivisor and `ξ = [ξ₀] + p u` a
-distinguished element with `ξ₀` in the radical of `(ϖ)`. Modulo `[ϖ]` the relation `ξ x = 0` reads
-`p u x = -[ξ₀] x`, and raising it to a power that puts `[ξ₀]` into `([ϖ])` shows that `[ϖ]` divides
-`x`, since `p` only shifts Teichmüller coordinates. So `ξ` is a nonzerodivisor modulo `[ϖ]`, `[ϖ]`
-is a nonzerodivisor modulo `ξ`, and, if `S` is `ϖ`-adically separated, `ξ` is a nonzerodivisor of
-`𝕎 S`. For `S = R⁺` the ring of integral elements of a perfectoid Tate ring of characteristic `p`
-and `ϖ` a pseudouniformiser, this applies to every primitive `ξ`. These are the regularity
-properties used to construct the untilt `𝕎 R⁺ ⧸ (ξ)`.
+Over a reduced ring `S` of characteristic `p`, if `ξ` is distinguished and both the zeroth and
+first Witt coordinates of `ξ g` vanish, then `g₀ = 0`
+(`WittVector.IsDistinguished.coeff_zero_eq_zero_of_mul`). Using the Verschiebung–Frobenius
+projection formula inductively, every distinguished Witt vector is a nonzerodivisor of `𝕎 S` with
+no perfection, topological, or domain hypothesis (`WittVector.IsDistinguished.mem_nonZeroDivisors`).
+Moreover, over a perfect ring `S` of characteristic `p`, for a nonzerodivisor `ϖ ∈ S` and a
+distinguished `ξ = [ξ₀] + p u` with `ξ₀` in the radical of `(ϖ)`, raising `p u x = -[ξ₀] x` modulo
+`[ϖ]` to a power putting `[ξ₀]` into `([ϖ])` shows that `ξ` is a nonzerodivisor modulo every power
+of `[ϖ]` and `[ϖ]` is a nonzerodivisor modulo `ξ`. These are the regularity properties used to
+construct the untilt `𝕎 R⁺ ⧸ (ξ)`.
 
 ## Main definitions
 
@@ -57,7 +60,10 @@ properties used to construct the untilt `𝕎 R⁺ ⧸ (ξ)`.
 * `WittVector.isPrimitive_p`: `p` is primitive, and
   `WittVector.not_isDistinguished_of_mem_span_p_sq`, `WittVector.not_isDistinguished_teichmuller`:
   over a nonzero ring no element of `(p ^ 2)` and no Teichmüller representative is.
-* `WittVector.IsPrimitive.map`, `WittVector.IsPrimitive.frobenius`: functoriality and Frobenius.
+* `WittVector.IsDistinguished.frobenius`, `WittVector.IsPrimitive.map`,
+  `WittVector.IsPrimitive.frobenius`: functoriality and Frobenius.
+* `WittVector.isDistinguished_mul_iff_of_coeff_zero_mem_jacobson`: if `ξ₀` lies in the Jacobson
+  radical, `y ξ` is distinguished iff `y` is a unit and `ξ` is distinguished.
 * `WittVector.isPrimitive_p_add_teichmuller_mul`,
   `WittVector.isPrimitive_p_add_teichmuller_mul_of_isAdic`,
   `WittVector.isDistinguished_p_add_teichmuller_mul_of_isAdicComplete`: `p + [ϖ] α` is primitive
@@ -68,12 +74,14 @@ properties used to construct the untilt `𝕎 R⁺ ⧸ (ξ)`.
 * `WittVector.IsPrimitive.isUnit_of_eq_mul`: if `ξ` is primitive and `ξ' = y ξ` is distinguished,
   `y` is a unit, and `WittVector.IsPrimitive.associated_of_dvd`: a primitive element dividing a
   distinguished one is associated to it.
+* `WittVector.IsDistinguished.coeff_zero_eq_zero_of_mul`: over a reduced ring of characteristic
+  `p`, if `ξ` is distinguished and the first two Witt coordinates of `ξ g` vanish, then `g₀ = 0`.
+* `WittVector.IsDistinguished.mem_nonZeroDivisors`, `WittVector.IsPrimitive.mem_nonZeroDivisors`:
+  every distinguished (hence every primitive) Witt vector over a reduced ring of characteristic `p`
+  is a nonzerodivisor.
 * `WittVector.IsDistinguished.teichmuller_dvd_of_dvd_mul`,
   `WittVector.IsDistinguished.teichmuller_pow_dvd_of_dvd_mul`: `ξ` is a nonzerodivisor modulo
   `[ϖ]`, and modulo every power of `[ϖ]`.
-* `WittVector.IsDistinguished.mem_nonZeroDivisors`, `WittVector.IsPrimitive.mem_nonZeroDivisors`:
-  distinguished elements with `ξ₀` in the radical of `(ϖ)`, and hence primitive elements, are
-  nonzerodivisors.
 * `WittVector.IsDistinguished.mk_teichmuller_mem_nonZeroDivisors`,
   `WittVector.IsPrimitive.mk_teichmuller_mem_nonZeroDivisors`: `[ϖ]` is a nonzerodivisor in
   `𝕎 S ⧸ (ξ)`.
@@ -85,6 +93,8 @@ properties used to construct the untilt `𝕎 R⁺ ⧸ (ξ)`.
   Exercise 2.3.6.
 * P. Scholze, *Étale cohomology of diamonds*, Definition 3.15 and Lemma 3.16.
 * B. Bhatt, M. Morrow, P. Scholze, *Integral `p`-adic Hodge theory*, Lemma 3.10 and Remark 3.11.
+* B. Bhatt, M. Morrow, P. Scholze, *Topological Hochschild homology and integral `p`-adic Hodge
+  theory*, Proposition 4.19.
 -/
 
 public section
@@ -175,12 +185,33 @@ theorem not_isDistinguished_of_mem_span_p_sq [Nontrivial S] {ξ : 𝕎 S}
   rw [isDistinguished_iff, mul_comm, mul_pow_charP_coeff_zero y one_lt_two]
   exact not_isUnit_zero
 
+/-- In characteristic `p`, the Witt vector Frobenius carries distinguished elements to distinguished
+elements: it raises every Witt coordinate to the `p`-th power. -/
+theorem IsDistinguished.frobenius {ξ : 𝕎 S} (h : ξ.IsDistinguished) :
+    (frobenius ξ).IsDistinguished := by
+  rw [isDistinguished_iff, coeff_frobenius_charP]
+  exact h.pow p
+
 /-- In characteristic `p`, the Witt vector Frobenius carries primitive elements to primitive
 elements: it raises every Witt coordinate to the `p`-th power. -/
 theorem IsPrimitive.frobenius [TopologicalSpace S] {ξ : 𝕎 S} (h : ξ.IsPrimitive) :
     (frobenius ξ).IsPrimitive :=
-  ⟨by rw [coeff_frobenius_charP]; exact h.1.pow hp.out.ne_zero, by
-    rw [isDistinguished_iff, coeff_frobenius_charP]; exact h.2.pow p⟩
+  ⟨by rw [coeff_frobenius_charP]; exact h.1.pow hp.out.ne_zero, h.2.frobenius⟩
+
+/-- **Product criterion for distinguished Witt vectors.** In characteristic `p`, if the zeroth
+Witt coordinate of `ξ` lies in the Jacobson radical of `S`, then `y * ξ` is distinguished if and
+only if `y` is a unit and `ξ` is distinguished. -/
+theorem isDistinguished_mul_iff_of_coeff_zero_mem_jacobson {ξ y : 𝕎 S}
+    (hξ₀ : ξ.coeff 0 ∈ Ring.jacobson S) :
+    (y * ξ).IsDistinguished ↔ IsUnit y ∧ ξ.IsDistinguished := by
+  have := isLocalHom_of_le_jacobson (le_rfl : Ring.jacobson S ≤ Ring.jacobson S)
+  have hjac : ξ.coeff 0 ^ p * y.coeff 1 ∈ Ring.jacobson S :=
+    Ideal.mul_mem_right _ _ (Ideal.pow_mem_of_mem _ hξ₀ _ hp.out.pos)
+  rw [isDistinguished_iff, mul_coeff_one_charP,
+    ← isUnit_map_iff (Ideal.Quotient.mk (Ring.jacobson S)), map_add,
+    Ideal.Quotient.eq_zero_iff_mem.mpr hjac, add_zero,
+    isUnit_map_iff (Ideal.Quotient.mk (Ring.jacobson S)), IsUnit.mul_iff,
+    isUnit_pow_iff hp.out.ne_zero, isUnit_iff_isUnit_coeff_zero, isDistinguished_iff]
 
 section Jacobson
 
@@ -221,24 +252,19 @@ theorem isPrimitive_units_mul (u : (𝕎 S)ˣ) {ξ : 𝕎 S} :
   suffices H : ∀ (u : (𝕎 S)ˣ) {ξ : 𝕎 S}, ξ.IsPrimitive → (u * ξ : 𝕎 S).IsPrimitive from
     ⟨fun h ↦ by simpa using H u⁻¹ h, H u⟩
   intro u ξ h
-  refine ⟨by rw [mul_coeff_zero]; exact h.1.mul_left _, ?_⟩
-  rw [isDistinguished_iff, mul_coeff_one_charP]
-  exact ((h.1.pow hp.out.ne_zero).mul_right _).isUnit_add_left
-      (by simpa only [Ideal.jacobson_bot] using hS)
-    (((isUnit_iff_isUnit_coeff_zero.mp u.isUnit).pow p).mul h.2)
+  have hξ₀ : ξ.coeff 0 ∈ Ring.jacobson S :=
+    hS (IsTopologicallyNilpotent.mem_topologicalNilradical_iff.mpr h.1)
+  exact ⟨by rw [mul_coeff_zero]; exact h.1.mul_left _,
+    (isDistinguished_mul_iff_of_coeff_zero_mem_jacobson hξ₀).mpr ⟨u.isUnit, h.2⟩⟩
 
 /-- **The unit criterion.** Let `S` have characteristic `p` and a linear topology, and suppose its
 topological nilradical lies in the Jacobson radical (for instance, `S` is adically complete with
 respect to an open ideal). If `ξ` is primitive and a multiple `ξ' = y ξ` is distinguished, then `y`
 is a unit (Kedlaya, *Sheaves, stacks, and shtukas*, Remark 2.3.5). -/
 theorem IsPrimitive.isUnit_of_eq_mul {ξ ξ' y : 𝕎 S} (hξ : ξ.IsPrimitive)
-    (hξ' : ξ'.IsDistinguished) (h : ξ' = y * ξ) : IsUnit y := by
-  rw [isDistinguished_iff, h, mul_coeff_one_charP] at hξ'
-  have hy := ((hξ.1.pow hp.out.ne_zero).mul_right (-y.coeff 1)).isUnit_add_left
-      (by simpa only [Ideal.jacobson_bot] using hS) hξ'
-  rw [mul_neg, add_neg_cancel_right] at hy
-  exact isUnit_iff_isUnit_coeff_zero.mpr <|
-    (isUnit_pow_iff hp.out.ne_zero).mp (isUnit_of_mul_isUnit_left hy)
+    (hξ' : ξ'.IsDistinguished) (h : ξ' = y * ξ) : IsUnit y :=
+  ((isDistinguished_mul_iff_of_coeff_zero_mem_jacobson
+    (hS (IsTopologicallyNilpotent.mem_topologicalNilradical_iff.mpr hξ.1))).mp (h ▸ hξ')).1
 
 /-- **A primitive element dividing a distinguished element is associated to it.** Under the
 hypotheses of `WittVector.IsPrimitive.isUnit_of_eq_mul`, if a primitive `ξ` divides a
@@ -268,6 +294,58 @@ theorem isDistinguished_p_add_teichmuller_mul_of_isAdicComplete {I : Ideal S}
     ((p : 𝕎 S) + teichmuller p ϖ * α).IsDistinguished := by
   let _ : WithIdeal S := ⟨I⟩
   exact (isPrimitive_p_add_teichmuller_mul_of_isAdic (I := I) rfl hϖ α).isDistinguished
+
+/-- Over a reduced ring of characteristic `p`, if `ξ` is distinguished and both the zeroth and
+first Witt coordinates of `ξ * g` vanish, then the zeroth Witt coordinate of `g` vanishes. -/
+theorem IsDistinguished.coeff_zero_eq_zero_of_mul [IsReduced S] {ξ g : 𝕎 S}
+    (hξ : ξ.IsDistinguished) (h0 : (ξ * g).coeff 0 = 0) (h1 : (ξ * g).coeff 1 = 0) :
+    g.coeff 0 = 0 := by
+  rw [mul_coeff_zero] at h0
+  rw [mul_coeff_one_charP] at h1
+  -- Multiplying `ξ₀ ^ p * g₁ + g₀ ^ p * ξ₁ = 0` by `g₀` kills the first term since `ξ₀ * g₀ = 0`.
+  have hmul : g.coeff 0 ^ (p + 1) * ξ.coeff 1 = 0 := by
+    have hp1 : ξ.coeff 0 ^ p = ξ.coeff 0 * ξ.coeff 0 ^ (p - 1) := by
+      rw [← pow_succ', Nat.sub_add_cancel hp.out.one_le]
+    calc g.coeff 0 ^ (p + 1) * ξ.coeff 1
+      _ = g.coeff 0 * (ξ.coeff 0 ^ p * g.coeff 1 + g.coeff 0 ^ p * ξ.coeff 1) -
+            (ξ.coeff 0 * g.coeff 0) * (ξ.coeff 0 ^ (p - 1) * g.coeff 1) := by
+          rw [hp1, pow_succ']; ring
+      _ = 0 := by rw [h1, h0]; ring
+  exact IsNilpotent.eq_zero ⟨p + 1, hξ.mul_left_eq_zero.mp hmul⟩
+
+/-- **Distinguished elements are nonzerodivisors.** Over a reduced ring `S` of characteristic `p`,
+every distinguished Witt vector `ξ : 𝕎 S` is a nonzerodivisor of `𝕎 S`, with no perfection,
+topological, or domain hypothesis on `S` (compare Bhatt–Morrow–Scholze, *Integral `p`-adic Hodge
+theory*, Remark 3.11; *Topological Hochschild homology and integral `p`-adic Hodge theory*,
+Proposition 4.19). -/
+theorem IsDistinguished.mem_nonZeroDivisors [IsReduced S] {ξ : 𝕎 S} (hξ : ξ.IsDistinguished) :
+    ξ ∈ (𝕎 S)⁰ := by
+  have key (n : ℕ) : ∀ (ξ x : 𝕎 S), ξ.IsDistinguished → ξ * x = 0 → x.coeff n = 0 := by
+    induction n with
+    | zero =>
+      intro ξ x hξ hx
+      exact hξ.coeff_zero_eq_zero_of_mul (by rw [hx, zero_coeff]) (by rw [hx, zero_coeff])
+    | succ n ih =>
+      intro ξ x hξ hx
+      have hx0 : x.coeff 0 = 0 :=
+        hξ.coeff_zero_eq_zero_of_mul (by rw [hx, zero_coeff]) (by rw [hx, zero_coeff])
+      obtain ⟨y, hy⟩ := exists_eq_teichmuller_add_verschiebung x
+      rw [hx0, teichmuller_zero, zero_add] at hy
+      have hmul : WittVector.frobenius ξ * y = 0 := by
+        apply verschiebung_injective
+        rw [mul_comm, verschiebung_mul_frobenius, mul_comm, ← hy, hx, map_zero]
+      rw [hy, verschiebung_coeff_succ]
+      exact ih (WittVector.frobenius ξ) y hξ.frobenius hmul
+  refine mem_nonZeroDivisors_iff_left.mpr fun x hx ↦ ext fun n ↦ ?_
+  rw [zero_coeff]
+  exact key n ξ x hξ hx
+
+/-- **Primitive elements are nonzerodivisors.** Over a reduced topological ring `S` of
+characteristic `p`, every primitive Witt vector `ξ : 𝕎 S` is a nonzerodivisor (compare Scholze,
+*Étale cohomology of diamonds*, Lemma 3.16). -/
+theorem IsPrimitive.mem_nonZeroDivisors [TopologicalSpace S] [IsReduced S] {ξ : 𝕎 S}
+    (hξ : ξ.IsPrimitive) : ξ ∈ (𝕎 S)⁰ :=
+  hξ.isDistinguished.mem_nonZeroDivisors
 
 variable [PerfectRing S p]
 
@@ -352,30 +430,6 @@ theorem IsDistinguished.teichmuller_pow_dvd_of_dvd_mul {ξ : 𝕎 S} (hξ : ξ.I
   rw [pow_mul, ← Ideal.span_singleton_pow]
   exact Ideal.pow_mem_pow hN n
 
-/-- **Distinguished elements are nonzerodivisors.** Over a perfect ring `S` of characteristic `p`
-which is `ϖ`-adically separated for a nonzerodivisor `ϖ`, a distinguished Witt vector `ξ` whose
-zeroth Witt coordinate lies in the radical of `(ϖ)` is a nonzerodivisor of `𝕎 S`. Indeed, if
-`ξ x = 0`, then `[ϖ] ^ n` divides `x` for every `n`, so `x = 0` (Scholze, *Étale cohomology of
-diamonds*, Lemma 3.16; Bhatt–Morrow–Scholze, *Integral `p`-adic Hodge theory*, Lemma 3.10). -/
-theorem IsDistinguished.mem_nonZeroDivisors {ξ : 𝕎 S} (hξ : ξ.IsDistinguished)
-    (hξ₀ : ξ.coeff 0 ∈ (Ideal.span {ϖ}).radical) (hϖ : ϖ ∈ S⁰)
-    [IsHausdorff (Ideal.span {ϖ}) S] : ξ ∈ (𝕎 S)⁰ := by
-  have hϖ' : teichmuller p ϖ ∈ (𝕎 S)⁰ := teichmuller_mem_nonZeroDivisors_iff.mpr hϖ
-  have key (n : ℕ) : ∀ x, ξ * x = 0 → teichmuller p ϖ ^ n ∣ x := by
-    induction n with
-    | zero => exact fun x _ ↦ by simp
-    | succ n ih =>
-      intro x hx
-      obtain ⟨y, rfl⟩ := hξ.teichmuller_dvd_of_dvd_mul hξ₀ (hx ▸ dvd_zero _)
-      rw [pow_succ']
-      refine mul_dvd_mul_left _ (ih y ?_)
-      rwa [← mul_left_mem_nonZeroDivisors_eq_zero_iff hϖ', mul_left_comm]
-  refine mem_nonZeroDivisors_iff_left.mpr fun x hx ↦
-    (isHausdorff_span_p_teichmuller (p := p) ϖ).haus x fun n ↦ ?_
-  obtain ⟨y, rfl⟩ := key n x hx
-  rw [smul_eq_mul, Ideal.mul_top, SModEq.zero]
-  exact Ideal.mul_mem_right _ _ (Ideal.pow_mem_pow (Ideal.subset_span (by simp)) n)
-
 /-- **`[ϖ]` is a nonzerodivisor modulo a distinguished element.** Over a perfect ring `S` of
 characteristic `p` and for a nonzerodivisor `ϖ`, if `ξ` is distinguished with zeroth Witt
 coordinate in the radical of `(ϖ)`, then the image of `[ϖ]` in `𝕎 S ⧸ (ξ)` is a nonzerodivisor. -/
@@ -392,20 +446,9 @@ theorem IsDistinguished.mk_teichmuller_mem_nonZeroDivisors {ξ : 𝕎 S} (hξ : 
   rw [mul_left_comm, mul_cancel_left_mem_nonZeroDivisors hϖ'] at hz
   exact ⟨w, hz⟩
 
-/-- **Primitive elements are nonzerodivisors.** Let `S` be a perfect topological ring of
-characteristic `p` and `ϖ` a nonzerodivisor such that `S` is `ϖ`-adically separated and `(ϖ)` is a
-neighbourhood of `0`, for instance `S = R⁺` and `ϖ` a pseudouniformiser of a perfectoid Tate pair
-`(R, R⁺)` of characteristic `p`. Then every primitive `ξ : 𝕎 S` is a nonzerodivisor (Scholze,
-*Étale cohomology of diamonds*, Lemma 3.16). -/
-theorem IsPrimitive.mem_nonZeroDivisors [TopologicalSpace S] {ξ : 𝕎 S} (hξ : ξ.IsPrimitive)
-    (hϖ : ϖ ∈ S⁰) [IsHausdorff (Ideal.span {ϖ}) S] (hϖ₀ : (Ideal.span {ϖ} : Set S) ∈ 𝓝 0) :
-    ξ ∈ (𝕎 S)⁰ :=
-  hξ.isDistinguished.mem_nonZeroDivisors
-    (hξ.isTopologicallyNilpotent_coeff_zero.eventually_mem hϖ₀).exists hϖ
-
-/-- **`[ϖ]` is a nonzerodivisor modulo a primitive element.** Under the hypotheses of
-`WittVector.IsPrimitive.mem_nonZeroDivisors` except separatedness, the image of `[ϖ]` in
-`𝕎 S ⧸ (ξ)` is a nonzerodivisor for every primitive `ξ`. -/
+/-- **`[ϖ]` is a nonzerodivisor modulo a primitive element.** Over a perfect topological ring `S`
+of characteristic `p` and for a nonzerodivisor `ϖ` such that `(ϖ)` is a neighbourhood of `0`, the
+image of `[ϖ]` in `𝕎 S ⧸ (ξ)` is a nonzerodivisor for every primitive `ξ`. -/
 theorem IsPrimitive.mk_teichmuller_mem_nonZeroDivisors [TopologicalSpace S] {ξ : 𝕎 S}
     (hξ : ξ.IsPrimitive) (hϖ : ϖ ∈ S⁰) (hϖ₀ : (Ideal.span {ϖ} : Set S) ∈ 𝓝 0) :
     Ideal.Quotient.mk (Ideal.span {ξ}) (teichmuller p ϖ) ∈ (𝕎 S ⧸ Ideal.span {ξ})⁰ :=

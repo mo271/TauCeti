@@ -8,6 +8,7 @@ module
 public import Mathlib.RingTheory.Perfectoid.Untilt
 public import TauCeti.Algebra.Ring.NonZeroDivisors
 public import TauCeti.RingTheory.AdicCompletion.Frobenius
+public import TauCeti.RingTheory.AdicCompletion.Perfection
 public import TauCeti.RingTheory.Jacobson.Associated
 public import TauCeti.RingTheory.Perfection
 
@@ -41,6 +42,8 @@ isomorphism `PreTilt A p ⧸ (ϖ) ≃+* A ⧸ (ϖ.untilt)`.
 * `PreTilt.untilt_equivPerfection_symm`, `PreTilt.teichmuller₀_equivPerfection`,
   `PreTilt.untilt_zero`: compatibility of `PreTilt.untilt` and `Perfection.teichmuller₀` across
   `PreTilt.equivPerfection`, and `(0 : PreTilt A p).untilt = 0`.
+* `PreTilt.untilt_map`: naturality of `PreTilt.untilt` along ring homomorphisms of `p`-adically
+  complete rings with nonunit `p`.
 * `PreTilt.coeff_eq_mk_untilt_iterate`, `PreTilt.untilt_iterate_frobeniusEquiv_symm_succ_pow`:
   the `n`-th `ModP A p` coordinate of `x : PreTilt A p` is the reduction modulo `p` of
   `untilt ((frobeniusEquiv.symm^[n]) x)`, whose `p`-th powers step along the root tower.
@@ -104,6 +107,15 @@ theorem teichmuller₀_equivPerfection (x : PreTilt A p) :
 @[simp]
 theorem untilt_zero : (0 : PreTilt A p).untilt = 0 := by
   rw [← teichmuller₀_equivPerfection, map_zero, map_zero]
+
+/-- **Naturality of `PreTilt.untilt`.** For any ring homomorphism `f : A →+* B` between
+`p`-adically complete rings with nonunit `p`, `(PreTilt.map p f x).untilt = f x.untilt`. -/
+@[simp]
+theorem untilt_map {B : Type*} [CommRing B] [Fact ¬IsUnit (p : B)]
+    [IsAdicComplete (span {(p : B)}) B] (f : A →+* B) (x : PreTilt A p) :
+    (map p f x).untilt = f x.untilt := by
+  rw [← teichmuller₀_equivPerfection, ← teichmuller₀_equivPerfection, equivPerfection_map]
+  exact Perfection.map_teichmuller₀ p (by ext a; simp) (equivPerfection x)
 
 /-- **Nonzerodivisors lift along `untilt`.** If `ϖ.untilt` is a nonzerodivisor of `A`, then `ϖ`
 is a nonzerodivisor of `PreTilt A p` (the converse can fail when `A` has nilpotent elements killed

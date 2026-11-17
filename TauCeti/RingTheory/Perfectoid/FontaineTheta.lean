@@ -35,6 +35,11 @@ This file determines the kernel of Mathlib's Fontaine map `θ : W(A♭) → A`
 
 ## Main results
 
+* `WittVector.coeff_zero_mem_jacobson_of_mem_ker_fontaineTheta`: the zeroth Witt coordinate of
+  every element of `ker (fontaineTheta A p)` lies in `Ring.jacobson (PreTilt A p)`.
+* `WittVector.fontaineTheta_comp_map`, `WittVector.fontaineTheta_map`: naturality of
+  `WittVector.fontaineTheta` along ring homomorphisms of `p`-adically complete rings with nonunit
+  `p`.
 * `WittVector.fontaineTheta_eq_zero_iff`, `WittVector.ker_fontaineTheta_eq_span_p`: in a reduced
   ring of characteristic `p`, `θ x = 0 ↔ x.coeff 0 = 0` and `ker θ = (p)`.
 * `WittVector.surjective_fontaineTheta_of_frobeniusModPow_surjective`: `θ` is surjective when `A`
@@ -61,6 +66,56 @@ open Ideal
 open scoped nonZeroDivisors
 
 namespace WittVector
+
+section Naturality
+
+variable {A : Type*} [CommRing A] {p : ℕ} [Fact p.Prime] [Fact ¬IsUnit (p : A)]
+  [IsAdicComplete (span {(p : A)}) A]
+
+/-- For any `p`-adically complete ring `A` with nonunit `p`, the zeroth Witt coordinate of every
+element of `ker (fontaineTheta A p)` lies in the Jacobson radical of `PreTilt A p`. -/
+theorem coeff_zero_mem_jacobson_of_mem_ker_fontaineTheta {ξ : WittVector p (PreTilt A p)}
+    (hξ : ξ ∈ RingHom.ker (fontaineTheta A p)) :
+    ξ.coeff 0 ∈ Ring.jacobson (PreTilt A p) := by
+  have h0 : PreTilt.coeff 0 (ξ.coeff 0) = 0 := by
+    rw [← mk_fontaineTheta, RingHom.mem_ker.mp hξ, map_zero]
+  have : IsAdicComplete (span {ξ.coeff 0}) (PreTilt A p) :=
+    PreTilt.isAdicComplete_span_singleton_of_coeff_zero_eq_zero h0
+  exact IsAdicComplete.le_jacobson (span {ξ.coeff 0}) (mem_span_singleton_self _)
+
+/-- **Naturality of Fontaine's `θ`.** For any ring homomorphism `f : A →+* B` between `p`-adically
+complete rings with nonunit `p`, `θ_B ∘ W(PreTilt.map p f) = f ∘ θ_A`. -/
+theorem fontaineTheta_comp_map {B : Type*} [CommRing B] [Fact ¬IsUnit (p : B)]
+    [IsAdicComplete (span {(p : B)}) B] (f : A →+* B) :
+    (fontaineTheta B p).comp (WittVector.map (PreTilt.map p f)) = f.comp (fontaineTheta A p) := by
+  ext w
+  refine (IsHausdorff.eq_iff_smodEq (I := span {(p : B)})).mpr fun n ↦ ?_
+  simp only [smul_eq_mul, mul_top]
+  cases n with
+  | zero => simp
+  | succ n =>
+    rw [SModEq.idealQuotientMk]
+    have hmod :
+        (Ideal.Quotient.mk (span {(p : B)} ^ (n + 1))).comp
+          ((fontaineTheta B p).comp (WittVector.map (PreTilt.map p f))) =
+        (Ideal.Quotient.mk (span {(p : B)} ^ (n + 1))).comp
+          (f.comp (fontaineTheta A p)) := by
+      refine eq_of_apply_teichmuller_eq _ _ ⟨n + 1, ?_⟩ fun x ↦ ?_
+      · rw [← map_natCast (Ideal.Quotient.mk (span {(p : B)} ^ (n + 1))), ← map_pow,
+          Ideal.Quotient.eq_zero_iff_mem]
+        exact Ideal.pow_mem_pow (mem_span_singleton_self _) _
+      · simp only [RingHom.comp_apply, map_teichmuller, fontaineTheta_teichmuller,
+          PreTilt.untilt_map]
+    exact RingHom.congr_fun hmod w
+
+/-- Elementwise naturality of `WittVector.fontaineTheta`. -/
+@[simp]
+theorem fontaineTheta_map {B : Type*} [CommRing B] [Fact ¬IsUnit (p : B)]
+    [IsAdicComplete (span {(p : B)}) B] (f : A →+* B) (w : WittVector p (PreTilt A p)) :
+    fontaineTheta B p (WittVector.map (PreTilt.map p f) w) = f (fontaineTheta A p w) :=
+  RingHom.congr_fun (fontaineTheta_comp_map f) w
+
+end Naturality
 
 section CharP
 
@@ -203,10 +258,8 @@ theorem exists_ker_fontaineTheta_eq_span_p_add_teichmuller_mul {ϖ : A♭}
   have hξ₀_dvd : ϖ ∣ ((p : WittVector p A♭) + teichmuller p ϖ * α).coeff 0 :=
     mem_span_p_teichmuller_iff.mp
       (add_mem (subset_span (by simp)) (mul_mem_right _ _ (subset_span (by simp))))
-  have hξ_reg : (p : WittVector p A♭) + teichmuller p ϖ * α ∈ (WittVector p A♭)⁰ :=
-    hξ.mem_nonZeroDivisors (Ideal.le_radical (mem_span_singleton.mpr hξ₀_dvd))
-      (PreTilt.mem_nonZeroDivisors_of_untilt hreg)
-  refine ⟨α, hξ, hξ_reg, le_antisymm (ker_fontaineTheta_le_span hreg hbij.1 hξ hξ₀_dvd hker) ?_⟩
+  refine ⟨α, hξ, hξ.mem_nonZeroDivisors,
+    le_antisymm (ker_fontaineTheta_le_span hreg hbij.1 hξ hξ₀_dvd hker) ?_⟩
   exact span_le.mpr (Set.singleton_subset_iff.mpr hker)
 
 /-- Transport `(π)`-adic completeness, regularity, and bijectivity of relative Frobenius along an

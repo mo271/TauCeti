@@ -20,15 +20,21 @@ instance to the multiplicative monoid of an algebraically closed field of any ch
 ## Main definitions
 
 * `PreTilt.equivPerfection`: the ring isomorphism `PreTilt O p ≃+* Perfection (ModP O p) p`.
+* `PreTilt.mapOfModP`, `PreTilt.map`: functoriality of `PreTilt` along ring homomorphisms
+  `ModP O p →+* ModP O' p` and `O →+* O'`.
 
 ## Main results
 
 * `Perfection.coeffMonoidHom_surjective`: if `x ↦ x ^ p` is surjective on `M`, so is every
   coordinate map `Perfection.coeffMonoidHom M p n`.
+* `Perfection.isReduced`, `PreTilt.isReduced`: `Perfection R p` and `PreTilt O p` are reduced.
 * `Perfection.coeff_eq_zero_iff`: in the perfection of a reduced ring of characteristic `p`, an
   element vanishes as soon as one of its coordinates does.
 * `PreTilt.ext`, `PreTilt.coeff_equivPerfection`, `PreTilt.coeff_equivPerfection_symm`: coordinate
   extensionality and coordinate formulas for `PreTilt.equivPerfection`.
+* `PreTilt.coeff_mapOfModP`, `PreTilt.coeff_map`, `PreTilt.equivPerfection_mapOfModP`,
+  `PreTilt.equivPerfection_map`, `PreTilt.map_eq_mapOfModP`, `PreTilt.map_id`, `PreTilt.map_comp`:
+  coordinate and functoriality identities for `PreTilt.mapOfModP` and `PreTilt.map`.
 * `PreTilt.coeff_eq_zero_iff`: in `PreTilt O p`, each coordinate detects zero when `O ⧸ p` is
   reduced.
 * `TauCeti.dvd_of_compatible_roots`: in a compatible root sequence, later roots divide earlier ones.
@@ -54,6 +60,18 @@ theorem coeffMonoidHom_surjective (h : Function.Surjective fun x : M ↦ x ^ p) 
   have hf := coeffMonoidHom_pow_p_pow f 0 n
   rw [zero_add] at hf
   exact hf.trans (coeffMonoidHom_mk _ _ 0)
+
+/-- The perfection of any commutative semiring of prime characteristic `p` is reduced. -/
+instance isReduced {R : Type*} [CommSemiring R] [hp : Fact p.Prime] [CharP R p] :
+    IsReduced (Perfection R p) where
+  eq_zero f := fun ⟨n, hn⟩ ↦ by
+    have hpow : f ^ p ^ n = 0 := by
+      obtain ⟨k, hk⟩ := Nat.exists_eq_add_of_le (Nat.lt_pow_self hp.out.one_lt (n := n)).le
+      rw [hk, pow_add, hn, zero_mul]
+    ext m
+    have hcoeff : coeff R p (m + n) (f ^ p ^ n) = coeff R p m f :=
+      coeffMonoidHom_pow_p_pow f m n
+    rw [map_zero, ← hcoeff, hpow, map_zero]
 
 section Reduced
 
@@ -103,6 +121,10 @@ theorem coeff_equivPerfection_symm (x : Perfection (ModP O p) p) (n : ℕ) :
   rw [equivPerfection, coeff_def]
   rfl
 
+/-- `PreTilt O p` is reduced. -/
+instance isReduced : IsReduced (PreTilt O p) :=
+  isReduced_of_injective equivPerfection equivPerfection.injective
+
 /-- **If `O ⧸ p` is reduced, each coordinate of the tilt detects zero.** For `f` in
 `PreTilt O p`, `coeff n f = 0` if and only if `f = 0`. -/
 @[simp]
@@ -110,6 +132,103 @@ theorem coeff_eq_zero_iff [IsReduced (ModP O p)] (n : ℕ) {f : PreTilt O p} :
     coeff n f = 0 ↔ f = 0 :=
   -- `PreTilt O p` is by definition `Perfection (ModP O p) p`, with `coeff` its coordinate maps
   Perfection.coeff_eq_zero_iff (R := ModP O p) n
+
+/-- Functoriality of `PreTilt` along a ring homomorphism `ModP O p →+* ModP O' p`. -/
+def mapOfModP {O' : Type*} [CommRing O'] [Fact ¬IsUnit (p : O')]
+    (g : ModP O p →+* ModP O' p) : PreTilt O p →+* PreTilt O' p :=
+  equivPerfection.symm.toRingHom.comp ((Perfection.map p g).comp equivPerfection.toRingHom)
+
+/-- `PreTilt.mapOfModP g` applies `g` to every `ModP` coordinate. -/
+@[simp]
+theorem coeff_mapOfModP {O' : Type*} [CommRing O'] [Fact ¬IsUnit (p : O')]
+    (g : ModP O p →+* ModP O' p) (x : PreTilt O p) (n : ℕ) :
+    coeff n (mapOfModP g x) = g (coeff n x) := by
+  simp [mapOfModP]
+
+/-- Across `PreTilt.equivPerfection`, `PreTilt.mapOfModP g` is `Perfection.map p g`. -/
+@[simp]
+theorem equivPerfection_mapOfModP {O' : Type*} [CommRing O'] [Fact ¬IsUnit (p : O')]
+    (g : ModP O p →+* ModP O' p) (x : PreTilt O p) :
+    equivPerfection (mapOfModP g x) = Perfection.map p g (equivPerfection x) := by
+  simp [mapOfModP]
+
+@[simp]
+theorem mapOfModP_id :
+    mapOfModP (RingHom.id (ModP O p)) = RingHom.id (PreTilt O p) := by
+  ext x n
+  simp
+
+theorem mapOfModP_comp {O' O'' : Type*} [CommRing O'] [CommRing O'']
+    [Fact ¬IsUnit (p : O')] [Fact ¬IsUnit (p : O'')]
+    (h : ModP O' p →+* ModP O'' p) (g : ModP O p →+* ModP O' p) :
+    mapOfModP (h.comp g) = (mapOfModP h).comp (mapOfModP g) := by
+  ext x n
+  simp
+
+@[simp]
+theorem mapOfModP_comp_apply {O' O'' : Type*} [CommRing O'] [CommRing O'']
+    [Fact ¬IsUnit (p : O')] [Fact ¬IsUnit (p : O'')]
+    (h : ModP O' p →+* ModP O'' p) (g : ModP O p →+* ModP O' p) (x : PreTilt O p) :
+    mapOfModP (h.comp g) x = mapOfModP h (mapOfModP g x) := by
+  rw [mapOfModP_comp, RingHom.comp_apply]
+
+/-- Functoriality of `PreTilt` along a ring homomorphism `f : O →+* O'`, obtained by reducing `f`
+modulo `p` and applying `Perfection.map`. -/
+def map (p : ℕ) [Fact p.Prime] {O O' : Type*} [CommRing O] [CommRing O']
+    [Fact ¬IsUnit (p : O)] [Fact ¬IsUnit (p : O')] (f : O →+* O') :
+    PreTilt O p →+* PreTilt O' p :=
+  mapOfModP (Ideal.quotientMap (Ideal.span {(p : O')}) f (by rw [Ideal.span_le]; simp))
+
+/-- Any ring homomorphism `g : ModP O p →+* ModP O' p` commuting with the quotient maps from
+`f : O →+* O'` induces the same map on `PreTilt` as `PreTilt.map p f`. -/
+theorem map_eq_mapOfModP {O' : Type*} [CommRing O'] [Fact ¬IsUnit (p : O')]
+    {f : O →+* O'} {g : ModP O p →+* ModP O' p}
+    (hg : g.comp (Ideal.Quotient.mk (Ideal.span {(p : O)})) =
+      (Ideal.Quotient.mk (Ideal.span {(p : O')})).comp f) :
+    map p f = mapOfModP g := by
+  ext x n
+  simp only [map, coeff_mapOfModP]
+  obtain ⟨a, ha⟩ := Ideal.Quotient.mk_surjective (coeff n x)
+  rw [← ha, Ideal.quotientMap_mk]
+  exact (RingHom.congr_fun hg a).symm
+
+/-- `PreTilt.map p f` reduces each `ModP` coordinate via `Ideal.quotientMap`. -/
+@[simp]
+theorem coeff_map {O' : Type*} [CommRing O'] [Fact ¬IsUnit (p : O')]
+    (f : O →+* O') (x : PreTilt O p) (n : ℕ) :
+    coeff n (map p f x) =
+      Ideal.quotientMap (Ideal.span {(p : O')}) f (by rw [Ideal.span_le]; simp) (coeff n x) :=
+  coeff_mapOfModP _ x n
+
+/-- Across `PreTilt.equivPerfection`, `PreTilt.map p f` is `Perfection.map` of
+`Ideal.quotientMap`. -/
+@[simp]
+theorem equivPerfection_map {O' : Type*} [CommRing O'] [Fact ¬IsUnit (p : O')]
+    (f : O →+* O') (x : PreTilt O p) :
+    equivPerfection (map p f x) =
+      Perfection.map p (Ideal.quotientMap (Ideal.span {(p : O')}) f (by rw [Ideal.span_le]; simp))
+        (equivPerfection x) :=
+  equivPerfection_mapOfModP _ x
+
+@[simp]
+theorem map_id : map p (RingHom.id O) = RingHom.id (PreTilt O p) := by
+  rw [map_eq_mapOfModP (g := RingHom.id (ModP O p)) rfl, mapOfModP_id]
+
+theorem map_comp {O' O'' : Type*} [CommRing O'] [CommRing O'']
+    [Fact ¬IsUnit (p : O')] [Fact ¬IsUnit (p : O'')]
+    (g : O' →+* O'') (f : O →+* O') :
+    map p (g.comp f) = (map p g).comp (map p f) := by
+  ext x n
+  simp only [RingHom.comp_apply, coeff_map]
+  obtain ⟨a, ha⟩ := Ideal.Quotient.mk_surjective (coeff n x)
+  rw [← ha, Ideal.quotientMap_mk, Ideal.quotientMap_mk, Ideal.quotientMap_mk, RingHom.comp_apply]
+
+@[simp]
+theorem map_comp_apply {O' O'' : Type*} [CommRing O'] [CommRing O'']
+    [Fact ¬IsUnit (p : O')] [Fact ¬IsUnit (p : O'')]
+    (g : O' →+* O'') (f : O →+* O') (x : PreTilt O p) :
+    map p (g.comp f) x = map p g (map p f x) := by
+  rw [map_comp, RingHom.comp_apply]
 
 end PreTilt
 

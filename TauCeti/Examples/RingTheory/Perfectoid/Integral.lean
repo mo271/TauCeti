@@ -13,9 +13,11 @@ import TauCeti.RingTheory.Perfectoid.Integral
 # Checks for integral perfectoid rings
 
 * `𝔽_p`, and the non-domain `𝔽_p × 𝔽_p`, are integral perfectoid, with adic element `0`; over
-  `𝔽_p` the kernel of Fontaine's map is computed to be `(p)`, and Frobenius `A ⧸ π → A ⧸ π ^ p`
-  is surjective for the adic element `π = 0`.
-* The zero ring is integral perfectoid, although `p` is a unit there.
+  `𝔽_p` the kernel of Fontaine's map is computed to be `(p)`, Frobenius `A ⧸ π → A ⧸ π ^ p` is
+  surjective for `π = 0`, the projection `𝔽_p × 𝔽_p → 𝔽_p` carries a generator of `ker θ` to a
+  generator of `ker θ`, and all `p`-power torsion is killed by `p`.
+* The zero ring is integral perfectoid, although `p` is a unit there, and satisfies both the
+  normalized characterisation and the `p`-torsion bound.
 * `ℤ_p` is not integral perfectoid, although Frobenius on `ℤ_p ⧸ p = 𝔽_p` is bijective: `π ^ p ∣ p`
   forces `π` to be a unit, and `ℤ_p` is not complete for a unit. So the adic element cannot be
   dropped.
@@ -48,12 +50,52 @@ example : letI : Fact ¬IsUnit (p : ZMod p) := ⟨IsIntegralPerfectoid.not_isUni
 example (h : (0 : ZMod p) ^ p ∣ (p : ZMod p)) : Function.Surjective (frobeniusModPow p h) :=
   IsIntegralPerfectoid.frobeniusModPow_surjective h
 
+-- Projection `𝔽_p × 𝔽_p → 𝔽_p` preserves generators of `ker θ`.
+example :
+    letI : Fact ¬IsUnit (p : ZMod p × ZMod p) := ⟨IsIntegralPerfectoid.not_isUnit_natCast⟩
+    letI : Fact ¬IsUnit (p : ZMod p) := ⟨IsIntegralPerfectoid.not_isUnit_natCast⟩
+    RingHom.ker (WittVector.fontaineTheta (ZMod p) p) =
+      span {(WittVector.map (PreTilt.map p (RingHom.fst (ZMod p) (ZMod p)))
+        (p : WittVector p (PreTilt (ZMod p × ZMod p) p)))} := by
+  let : Fact ¬IsUnit (p : ZMod p × ZMod p) := ⟨IsIntegralPerfectoid.not_isUnit_natCast⟩
+  let : Fact ¬IsUnit (p : ZMod p) := ⟨IsIntegralPerfectoid.not_isUnit_natCast⟩
+  have : CharP (ZMod p × ZMod p) p := Prod.charP _ _ p
+  have : IsReduced (ZMod p × ZMod p) := isReduced_of_perfectRing (ZMod p × ZMod p) p
+  exact IsIntegralPerfectoid.ker_fontaineTheta_eq_span_map (RingHom.fst (ZMod p) (ZMod p))
+    WittVector.ker_fontaineTheta_eq_span_p
+
+-- All `p`-power torsion in `𝔽_p × 𝔽_p` is killed by `p`.
+example (n : ℕ) (a : ZMod p × ZMod p) (ha : (p : ZMod p × ZMod p) ^ n * a = 0) :
+    (p : ZMod p × ZMod p) * a = 0 :=
+  IsIntegralPerfectoid.p_mul_eq_zero_of_pow_mul_eq_zero n ha
+
+-- Every nonzero integral perfectoid ring has a normal-form generator of `ker θ`.
+example :
+    letI : Fact ¬IsUnit (p : ZMod p) := ⟨IsIntegralPerfectoid.not_isUnit_natCast⟩
+    ∃ (ϖ : PreTilt (ZMod p) p) (x : (WittVector p (PreTilt (ZMod p) p))ˣ),
+      RingHom.ker (WittVector.fontaineTheta (ZMod p) p) =
+        span {(p : WittVector p (PreTilt (ZMod p) p)) + WittVector.teichmuller p ϖ ^ p * x} ∧
+      Associated (ϖ.untilt ^ p) (p : ZMod p) ∧
+      IsAdicComplete (span {ϖ.untilt}) (ZMod p) :=
+  letI : Fact ¬IsUnit (p : ZMod p) := ⟨IsIntegralPerfectoid.not_isUnit_natCast⟩
+  IsIntegralPerfectoid.exists_ker_fontaineTheta_eq_span_p_add_teichmuller_pow_mul
+
 /-! ### The zero ring -/
 
 example : IsIntegralPerfectoid p PUnit := .of_subsingleton p PUnit
 
 -- In the zero ring `p` is a unit, so Mathlib's Fontaine map is not available there.
 example : IsUnit (p : PUnit) := isUnit_of_subsingleton _
+
+-- The normalized characterisation and `p`-torsion bound both apply to the zero ring.
+example (n : ℕ) (a : PUnit) (ha : (p : PUnit) ^ n * a = 0) :
+    (p : PUnit) * a = 0 :=
+  letI : IsIntegralPerfectoid p PUnit := .of_subsingleton p PUnit
+  IsIntegralPerfectoid.p_mul_eq_zero_of_pow_mul_eq_zero n ha
+
+example : ∃ (π : PUnit) (u : PUnitˣ), π ^ p = (p : PUnit) * u ∧ IsAdicComplete (span {π}) PUnit :=
+  letI : IsIntegralPerfectoid p PUnit := .of_subsingleton p PUnit
+  IsIntegralPerfectoid.exists_normalized_adic_element
 
 /-! ### Non-examples -/
 

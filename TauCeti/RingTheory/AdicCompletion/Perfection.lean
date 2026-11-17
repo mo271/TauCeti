@@ -34,8 +34,11 @@ is `ϖ♭`-adically complete.
 
 ## Main results
 
-* `Perfection.isAdicComplete_span_singleton_of_coeff_zero_eq_zero`: `Perfection R p` is
-  `(w)`-adically complete whenever `coeff R p 0 w = 0`.
+* `Perfection.isAdicComplete_span_singleton_of_coeff_zero_eq_zero`,
+  `PreTilt.isAdicComplete_span_singleton_of_coeff_zero_eq_zero`: `Perfection R p` and `PreTilt A p`
+  are `(w)`-adically complete whenever the zeroth coordinate of `w` vanishes.
+* `Perfection.map_teichmuller₀`: naturality of `Perfection.teichmuller₀` along ring homomorphisms
+  of adically complete rings.
 * `PreTilt.isAdicComplete_span_singleton`,
   `PreTilt.isAdicComplete_span_singleton_of_pow_dvd`: `PreTilt A p` is `(ϖ♭)`-adically complete when
   `ϖ♭.untilt ∣ p` (or `ϖ♭.untilt ^ k ∣ p` for `k ≠ 0`) and `A` is `(ϖ♭.untilt)`-adically complete.
@@ -180,12 +183,56 @@ theorem teichmuller₀_quotientRingEquiv (hIJ : I ≤ J) (x : Perfection (A ⧸ 
 
 end QuotientRingEquiv
 
+/-- **Naturality of `Perfection.teichmuller₀`.** Let `f : R →+* S` be a ring homomorphism between
+adically complete rings `(R, I)` and `(S, J)` whose quotients have characteristic `p`, and let
+`g : R ⧸ I →+* S ⧸ J` commute with the quotient maps. Then
+`teichmuller₀ p J (Perfection.map p g x) = f (teichmuller₀ p I x)`. -/
+theorem map_teichmuller₀ (p : ℕ) [Fact p.Prime] {R S : Type*} [CommRing R] [CommRing S]
+    {I : Ideal R} {J : Ideal S} [CharP (R ⧸ I) p] [CharP (S ⧸ J) p]
+    [IsAdicComplete I R] [IsAdicComplete J S]
+    {f : R →+* S} {g : R ⧸ I →+* S ⧸ J}
+    (hg : g.comp (Ideal.Quotient.mk I) = (Ideal.Quotient.mk J).comp f)
+    (x : Perfection (R ⧸ I) p) :
+    teichmuller₀ p J (map p g x) = f (teichmuller₀ p I x) := by
+  have hIJ : I ≤ J.comap f := fun a ha ↦ by
+    rw [Ideal.mem_comap, ← Ideal.Quotient.eq_zero_iff_mem]
+    have hfa := RingHom.congr_fun hg a
+    simp only [RingHom.comp_apply, Ideal.Quotient.eq_zero_iff_mem.mpr ha, map_zero] at hfa
+    exact hfa.symm
+  refine teichmuller₀_spec fun n ↦ ?_
+  obtain ⟨y, hy⟩ := Ideal.Quotient.mk_surjective (coeff (R ⧸ I) p n x)
+  refine ⟨f y, ?_, ?_⟩
+  · have hfy := RingHom.congr_fun hg y
+    simp only [RingHom.comp_apply, hy] at hfy
+    rw [← hfy, coeff_map]
+  · have hmod := teichmuller₀_sModEq (p := p) (I := I) (x := x) (y := y) (n := n) hy
+    rw [SModEq.sub_mem] at hmod ⊢
+    have hle : I ^ (n + 1) ≤ (J ^ (n + 1)).comap f :=
+      (Ideal.pow_right_mono hIJ (n + 1)).trans (Ideal.le_comap_pow f (n + 1))
+    have hmem : f (y ^ p ^ n - teichmuller₀ p I x) ∈ J ^ (n + 1) :=
+      hle (neg_sub (teichmuller₀ p I x) (y ^ p ^ n) ▸ neg_mem hmod)
+    simpa only [map_sub, map_pow] using hmem
+
 end Perfection
 
 namespace PreTilt
 
 variable {A : Type*} [CommRing A] {p : ℕ} [hp : Fact p.Prime] [hpu : Fact ¬IsUnit (p : A)]
-  [IsAdicComplete (span {(p : A)}) A]
+
+/-- **`PreTilt A p` is `(w)`-adically complete whenever `coeff 0 w = 0`.** No completeness
+hypothesis on `A` is required. -/
+theorem isAdicComplete_span_singleton_of_coeff_zero_eq_zero {w : PreTilt A p}
+    (hw : coeff 0 w = 0) : IsAdicComplete (span {w}) (PreTilt A p) := by
+  have hc : IsAdicComplete (span {equivPerfection w}) (Perfection (ModP A p) p) :=
+    Perfection.isAdicComplete_span_singleton_of_coeff_zero_eq_zero
+      (by simpa [coeff_equivPerfection] using hw)
+  have hmap : (span {w}).map (equivPerfection (O := A) (p := p)).toRingHom =
+      span {equivPerfection w} := by
+    rw [Ideal.map_span, Set.image_singleton]
+    rfl
+  exact (IsAdicComplete.congr_ringEquiv (span {w}) equivPerfection).mp (hmap.symm ▸ hc)
+
+variable [IsAdicComplete (span {(p : A)}) A]
 
 /-- **`PreTilt A p` is `(ϖ)`-adically complete.** If `ϖ : PreTilt A p` has `ϖ.untilt ∣ p` and
 `A` is `(ϖ.untilt)`-adically complete, then `PreTilt A p` is `(ϖ)`-adically complete and
