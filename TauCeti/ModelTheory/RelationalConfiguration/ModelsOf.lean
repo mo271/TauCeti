@@ -6,6 +6,7 @@ Authors: The Tau Ceti contributors
 module
 
 public import TauCeti.ModelTheory.Infinitary.Infinite
+public import TauCeti.ModelTheory.RelationalConfiguration.Isomorphism
 public import TauCeti.ModelTheory.RelationalConfiguration.Structure
 public import TauCeti.ModelTheory.RelationalConfiguration.Topology
 import TauCeti.ModelTheory.Syntax
@@ -48,6 +49,8 @@ Descriptive Set Theory*, and Kechris, *Classical Descriptive Set Theory*.
 * `TauCeti.RelationalConfiguration.measurableSet_modelsOf`: model classes of such sentences are
   measurable, and `TauCeti.RelationalConfiguration.standardBorelSpace_modelsOf` makes them
   standard Borel.
+* `TauCeti.RelationalConfiguration.isomorphismInvariant_modelsOf`: model classes are
+  isomorphism-invariant on every carrier and for every branching type.
 * `FirstOrder.Language.Equiv.mem_modelsOf_iff`: model classes are invariant under isomorphism of
   the decoded structures.
 -/
@@ -190,6 +193,14 @@ carrier is a standard Borel space. -/
 instance standardBorelSpace_modelsOf [∀ n, Countable (L.Relations n)] [Countable ι] [Countable V]
     (φ : L.SentenceInf ι) : StandardBorelSpace (modelsOf (V := V) φ) :=
   (measurableSet_modelsOf φ).standardBorel
+
+/-- Model classes of infinitary sentences are isomorphism invariant, on every carrier and for
+every branching type `ι`. -/
+theorem isomorphismInvariant_modelsOf (φ : L.SentenceInf ι) :
+    IsomorphismInvariant (modelsOf (V := V) φ) :=
+  isomorphismInvariant_iff.2 fun c d h hc => by
+    obtain ⟨e⟩ := isoSetoid_apply.1 h
+    exact (@StrongHomClass.realize_sentenceInf L ι V V c.toStructure d.toStructure _ _ _ e φ).1 hc
 
 end TauCeti.RelationalConfiguration
 

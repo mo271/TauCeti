@@ -53,6 +53,8 @@ configuration by deciding its relations (`ofStructure`).
 * `TauCeti.RelationalConfiguration.measurable_restrict` — restriction is measurable;
 * `TauCeti.RelationalConfiguration.restrict_id` and
   `TauCeti.RelationalConfiguration.restrict_comp` — restriction is functorial;
+* `FirstOrder.Language.LHom.Injective.onAtom_injective` — injective language maps act injectively
+  on atoms;
 * `TauCeti.RelationalConfiguration.instMeasurableConstSMulPerm` and
   `TauCeti.RelationalConfiguration.instMeasurableConstSMulFinitaryPerm` — each relabelling is
   measurable.
@@ -83,6 +85,10 @@ variable {L : Language} {V W X : Type*}
 
 /-- The atom with relation symbol `R` and argument tuple `x`. -/
 def atom {n : ℕ} (R : L.Relations n) (x : Fin n → V) : Atom L V := ⟨n, R, x⟩
+
+/-- Unfolding `atom` as the dependent triple `⟨n, R, x⟩`. -/
+theorem atom_def {n : ℕ} (R : L.Relations n) (x : Fin n → V) :
+    atom R x = ⟨n, R, x⟩ := (rfl)
 
 /-- Every atom is `atom R x` for its relation symbol and tuple. -/
 @[elab_as_elim]
@@ -124,6 +130,16 @@ theorem _root_.FirstOrder.Language.LHom.id_onAtom (a : Atom L V) :
 
 theorem _root_.FirstOrder.Language.LHom.comp_onAtom {L' L'' : Language} (g : L' →ᴸ L'')
     (f : L →ᴸ L') (a : Atom L V) : (g.comp f).onAtom a = g.onAtom (f.onAtom a) := (rfl)
+
+/-- Renaming atoms along an injective language map is injective. -/
+theorem _root_.FirstOrder.Language.LHom.Injective.onAtom_injective {L' : Language}
+    {g : L →ᴸ L'} (hg : g.Injective) : Function.Injective (g.onAtom (V := V)) := by
+  rintro ⟨n, R, x⟩ ⟨m, S, y⟩ h
+  obtain ⟨rfl, h⟩ := Sigma.mk.inj_iff.1 h
+  obtain ⟨hRS, hxy⟩ := Prod.mk.inj (eq_of_heq h)
+  cases hg.onRelation hRS
+  cases hxy
+  rfl
 
 /-- The atoms relabelled from `Fin m` are relabelled from `Fin n` for every `n ≥ m`. -/
 private theorem Atom.exists_map_val_of_le {m n : ℕ} (hmn : m ≤ n) {a : Atom L ℕ}

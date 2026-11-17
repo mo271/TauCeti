@@ -48,12 +48,20 @@ at `z*`.
 * `Descriptive.Tree.ChildRel`: immediate one-element extension on the nodes of a descriptive tree.
 * `Descriptive.Tree.IsWellFounded`: well-foundedness of `ChildRel` on a descriptive tree.
 * `Descriptive.Tree.rank`: ordinal rank of a descriptive tree (`0` on `⊥` and on ill-founded trees).
+* `Descriptive.Tree.initialSegment`: the finite initial segment of length `n` of a sequence `ℕ → A`.
+* `Descriptive.Tree.body`: the set of infinite branches of a descriptive tree.
+* `Descriptive.Tree.ofSet`: the tree of all finite initial segments of sequences in
+  `s : Set (ℕ → A)`.
 
 ## Main results
 
-* `Descriptive.Tree.isWellFounded_iff_forall_exists_notMem` and
-  `Descriptive.Tree.not_isWellFounded_iff`: a tree is well-founded iff every `f : ℕ → A` has a
-  finite prefix outside `T`.
+* `Descriptive.Tree.isWellFounded_iff_forall_exists_notMem`,
+  `Descriptive.Tree.not_isWellFounded_iff`, and `Descriptive.Tree.isWellFounded_iff_body_eq_empty`:
+  a tree is well-founded iff every `f : ℕ → A` has a finite prefix outside `T`, iff `body T = ∅`.
+* `Descriptive.Tree.isClosed_body`, `Descriptive.Tree.body_ofSet_subset_closure`,
+  `Descriptive.Tree.body_ofSet_eq_of_isClosed`, and `Descriptive.Tree.body_ofSet_eq_closure`:
+  bodies of trees over discrete alphabets are closed, and the body of `ofSet s` recovers every
+  closed subset `s` of `ℕ → A` (and `closure s` when `A` is discrete).
 * `Descriptive.Tree.IsWellFounded.rank_eq_succ_iSup` and
   `Descriptive.Tree.IsWellFounded.rank_subAt_eq_succ_iSup`: the subtree recursion for `rank`.
 * `Descriptive.Tree.IsWellFounded.rank_lt_omega_one`: on a countable alphabet, every well-founded
@@ -63,12 +71,15 @@ at `z*`.
 * `MeasureTheory.AnalyticSet.exists_treeRank_lt_omega_one` and
   `MeasureTheory.AnalyticSet.exists_treeRank_lt_omega_one_of_isClosed`: boundedness below `ω₁` for
   analytic families of well-founded trees.
+* `MeasureTheory.AnalyticSet.exists_tree_eq`: tree representation of analytic subsets of `ℕ → A`
+  for any `T1Space A` as projections of bodies of trees on `A × ℕ`.
 
 ## References
 
 * Alexander S. Kechris, *Classical Descriptive Set Theory*, Graduate Texts in Mathematics 156,
-  Springer, 1995, Sections 2.B and 2.E (well-founded trees and their ranks) and Theorem 31.1
-  (boundedness for analytic sets of well-founded trees).
+  Springer, 1995, Sections 2.B and 2.E (well-founded trees and their ranks), Section 25.A (trees
+  and projections of bodies representing analytic sets), and Theorem 31.1 (boundedness for analytic
+  sets of well-founded trees).
 * The Baire-cylinder descent for analytic families of well-founded trees also appears in Cameron
   Freer's `cameronfreer/infinitary-logic` (checkpoint `518a366cba97b1ae8c4dc64a297a396939bc3e0b`,
   Apache-2.0), `InfinitaryLogic/Descriptive/BFSeparation.lean`; here it is proved as a general
@@ -492,6 +503,166 @@ theorem exists_rank_lt_omega_one_of_nat_nat [Countable A] (F : (ℕ → ℕ) →
   obtain ⟨n, hn⟩ := (hwf zStar).exists_notMem branch
   exact hn (hall n)
 
+/-! ### Initial segments, bodies, and initial-segment trees -/
+
+/-- The initial segment of length `n` of a sequence `x : ℕ → A`. -/
+def initialSegment (x : ℕ → A) (n : ℕ) : List A :=
+  List.ofFn fun i : Fin n => x i
+
+/-- Unfolding lemma for `initialSegment`. -/
+theorem initialSegment_def (x : ℕ → A) (n : ℕ) :
+    initialSegment x n = List.ofFn fun i : Fin n => x i := (rfl)
+
+/-- The initial segment of length `0` is the empty list. -/
+@[simp]
+theorem initialSegment_zero (x : ℕ → A) : initialSegment x 0 = [] := by
+  simp [initialSegment]
+
+/-- Extending an initial segment by one step appends `x n`. -/
+@[simp]
+theorem initialSegment_succ (x : ℕ → A) (n : ℕ) :
+    initialSegment x (n + 1) = initialSegment x n ++ [x n] := by
+  rw [initialSegment, initialSegment, List.ofFn_succ', List.concat_eq_append]
+  rfl
+
+/-- The initial segment of length `n` has length `n`. -/
+@[simp]
+theorem length_initialSegment (x : ℕ → A) (n : ℕ) : (initialSegment x n).length = n := by
+  simp [initialSegment]
+
+/-- The `i`-th entry of `initialSegment x n` is `x i`. -/
+@[simp]
+theorem getElem_initialSegment (x : ℕ → A) {n i : ℕ} (hi : i < (initialSegment x n).length) :
+    (initialSegment x n)[i] = x i := by
+  simp [initialSegment]
+
+/-- Taking the first `m` entries of `initialSegment x n` for `m ≤ n` gives `initialSegment x m`. -/
+theorem take_initialSegment_of_le (x : ℕ → A) {m n : ℕ} (h : m ≤ n) :
+    (initialSegment x n).take m = initialSegment x m := by
+  refine List.ext_getElem (by simp [h]) fun i _ _ => ?_
+  simp [List.getElem_take, initialSegment]
+
+/-- The **body** of a descriptive tree `T`: the set of infinite branches `x : ℕ → A` all of whose
+finite initial segments lie in `T`. -/
+def body (T : tree A) : Set (ℕ → A) :=
+  {x | ∀ n, initialSegment x n ∈ T}
+
+/-- A sequence lies in `body T` iff every finite initial segment lies in `T`. -/
+@[simp]
+theorem mem_body {x : ℕ → A} : x ∈ body T ↔ ∀ n, initialSegment x n ∈ T :=
+  Iff.rfl
+
+/-- Taking the body is monotone in the tree. -/
+@[gcongr]
+theorem body_mono (h : S ≤ T) : body S ⊆ body T :=
+  fun _ hx n => h (hx n)
+
+/-- The empty tree has empty body. -/
+@[simp]
+theorem body_bot : body (⊥ : tree A) = ∅ := by
+  ext x
+  simp only [mem_body, Set.mem_empty_iff_false, iff_false]
+  intro h
+  exact h 0
+
+/-- The full tree has every sequence in its body. -/
+@[simp]
+theorem body_top : body (⊤ : tree A) = Set.univ := by
+  ext x
+  simp
+
+/-- A descriptive tree is well-founded precisely when its body is empty. -/
+theorem isWellFounded_iff_body_eq_empty : IsWellFounded T ↔ body T = ∅ := by
+  rw [isWellFounded_iff_forall_exists_notMem, Set.eq_empty_iff_forall_notMem]
+  refine forall_congr' fun f => ?_
+  simp [body, initialSegment]
+
+/-- A descriptive tree is ill-founded precisely when its body is nonempty. -/
+theorem not_isWellFounded_iff_body_nonempty : ¬ IsWellFounded T ↔ (body T).Nonempty := by
+  rw [isWellFounded_iff_body_eq_empty, Set.nonempty_iff_ne_empty]
+
+/-- Over a discrete alphabet, the body of every descriptive tree is closed in `ℕ → A`. -/
+theorem isClosed_body [TopologicalSpace A] [DiscreteTopology A] (T : tree A) :
+    IsClosed (body T) := by
+  rw [← isOpen_compl_iff, isOpen_iff_mem_nhds]
+  intro x hx
+  simp only [mem_compl_iff, mem_body, not_forall] at hx
+  obtain ⟨n, hn⟩ := hx
+  let U : Set (ℕ → A) := ⋂ i : Fin n, (fun y : ℕ → A => y i) ⁻¹' {x i}
+  have hU_open : IsOpen U := isOpen_iInter_of_finite fun i =>
+    (isOpen_discrete ({x i} : Set A)).preimage (continuous_apply i.1)
+  have hxU : x ∈ U := mem_iInter.2 fun _ => rfl
+  have hU_sub : U ⊆ (body T)ᶜ := fun y hy hby => by
+    have heq : initialSegment y n = initialSegment x n := by
+      refine List.ext_getElem (by simp) fun i hi₁ _ => ?_
+      have hi : i < n := by simpa using hi₁
+      have hyi : y i = x i := mem_iInter.1 hy ⟨i, hi⟩
+      simpa [initialSegment] using hyi
+    exact hn (heq ▸ hby n)
+  exact Filter.mem_of_superset (hU_open.mem_nhds hxU) hU_sub
+
+/-- The **initial-segment tree** of a set `s : Set (ℕ → A)`: the finite sequences occurring as
+initial segments of sequences in `s`. -/
+def ofSet (s : Set (ℕ → A)) : tree A where
+  val := {u : List A | ∃ x ∈ s, initialSegment x u.length = u}
+  property := by
+    rintro u a ⟨x, hx, h⟩
+    refine ⟨x, hx, ?_⟩
+    have htake := congrArg (List.take u.length) h
+    have hle : u.length ≤ (u ++ [a]).length := by simp
+    simpa [take_initialSegment_of_le x hle, List.take_left] using htake
+
+/-- A finite sequence lies in `ofSet s` iff it is an initial segment of some sequence in `s`. -/
+@[simp]
+theorem mem_ofSet {s : Set (ℕ → A)} {u : List A} :
+    u ∈ ofSet s ↔ ∃ x ∈ s, initialSegment x u.length = u :=
+  Iff.rfl
+
+/-- Forming the initial-segment tree is monotone in the set. -/
+@[gcongr]
+theorem ofSet_mono {s t : Set (ℕ → A)} (h : s ⊆ t) : ofSet s ≤ ofSet t :=
+  fun _ ⟨x, hx, hseg⟩ => ⟨x, h hx, hseg⟩
+
+/-- The initial-segment tree of the empty set is the empty tree. -/
+@[simp]
+theorem ofSet_empty : ofSet (∅ : Set (ℕ → A)) = ⊥ := by
+  ext u
+  simp
+
+/-- Every sequence in `s` is a branch of `ofSet s`. -/
+theorem subset_body_ofSet (s : Set (ℕ → A)) : s ⊆ body (ofSet s) :=
+  fun x hx n => ⟨x, hx, by simp⟩
+
+/-- In any topology on `A`, every branch of `ofSet s` lies in the closure of `s` in `ℕ → A`:
+the sequences witnessing longer and longer initial segments are eventually constant in each
+coordinate. -/
+theorem body_ofSet_subset_closure [TopologicalSpace A] (s : Set (ℕ → A)) :
+    body (ofSet s) ⊆ closure s := by
+  intro x hx
+  have hwit : ∀ n : ℕ, ∃ y ∈ s, initialSegment y n = initialSegment x n := fun n => by
+    obtain ⟨y, hy, hseg⟩ := hx n
+    exact ⟨y, hy, by simpa using hseg⟩
+  choose y hy hseg using hwit
+  have htend : Tendsto y atTop (𝓝 x) :=
+    tendsto_pi_nhds.2 fun i => tendsto_atTop_of_eventually_const (i₀ := i + 1) fun n hn => by
+      have := congrArg (fun l : List A => l[i]?) (hseg n)
+      have hi : i < n := by omega
+      simpa [initialSegment, hi] using this
+  exact mem_closure_of_tendsto htend (Filter.Eventually.of_forall hy)
+
+/-- Every closed subset of `ℕ → A` is the body of its initial-segment tree, for any topology on
+`A`. -/
+theorem body_ofSet_eq_of_isClosed [TopologicalSpace A] {s : Set (ℕ → A)} (hs : IsClosed s) :
+    body (ofSet s) = s :=
+  Set.Subset.antisymm ((body_ofSet_subset_closure s).trans hs.closure_eq.subset)
+    (subset_body_ofSet s)
+
+/-- Over a discrete alphabet, the body of `ofSet s` is the closure of `s`. -/
+theorem body_ofSet_eq_closure [TopologicalSpace A] [DiscreteTopology A] (s : Set (ℕ → A)) :
+    body (ofSet s) = closure s :=
+  Set.Subset.antisymm (body_ofSet_subset_closure s)
+    (closure_minimal (subset_body_ofSet s) (isClosed_body _))
+
 end Descriptive.Tree
 
 namespace MeasureTheory
@@ -534,5 +705,51 @@ theorem AnalyticSet.exists_treeRank_lt_omega_one_of_isClosed {X : Type*} [Topolo
     (hcl : ∀ u : List A, IsClosed {x : X | u ∈ F x}) :
     ∃ β : Ordinal.{u}, β < ω₁ ∧ ∀ x ∈ s, rank (F x) < β :=
   hs.exists_treeRank_lt_omega_one F hwf fun u => (hcl u).preimage continuous_subtype_val
+
+/-- **Tree representation of analytic sets.** Every analytic subset `s` of `ℕ → A`, for any `T₁`
+space `A`, is the projection `{x | ∃ y : ℕ → ℕ, (fun n => (x n, y n)) ∈ body T}` of the body of a
+descriptive tree `T` on `A × ℕ`. In particular, this applies to Cantor space (`A = Bool`) and
+Baire space (`A = ℕ`). -/
+theorem AnalyticSet.exists_tree_eq {A : Type u} [TopologicalSpace A] [T1Space A]
+    {s : Set (ℕ → A)} (hs : AnalyticSet s) :
+    ∃ T : tree (A × ℕ), s = {x | ∃ y : ℕ → ℕ, (fun n => (x n, y n)) ∈ body T} := by
+  obtain ⟨Y, _, _, f, hf, rfl⟩ := analyticSet_iff_exists_polishSpace_range.mp hs
+  rcases isEmpty_or_nonempty Y with hY | hY
+  · refine ⟨⊥, ?_⟩
+    ext x
+    simp
+  · obtain ⟨g, hg, hsurj⟩ := PolishSpace.exists_nat_nat_continuous_surjective Y
+    let h : (ℕ → ℕ) → (ℕ → A) := f ∘ g
+    have hh : Continuous h := hf.comp hg
+    have hrange : range h = range f := hsurj.range_comp f
+    let G : Set (ℕ → A × ℕ) := {z | h (Prod.snd ∘ z) = Prod.fst ∘ z}
+    refine ⟨ofSet G, ?_⟩
+    ext x
+    rw [← hrange]
+    constructor
+    · rintro ⟨y, rfl⟩
+      exact ⟨y, subset_body_ofSet G rfl⟩
+    · rintro ⟨y, hy⟩
+      have hwit : ∀ n : ℕ, ∃ z ∈ G, initialSegment z n =
+          initialSegment (fun k => (x k, y k)) n := fun n => by
+        obtain ⟨z, hz, hseg⟩ := hy n
+        exact ⟨z, hz, by simpa using hseg⟩
+      choose z hzG hzseg using hwit
+      have hAgree : ∀ n i, i < n → z n i = (x i, y i) := fun n i hi => by
+        have := congrArg (fun l : List (A × ℕ) => l[i]?) (hzseg n)
+        simpa [initialSegment, hi] using this
+      have htend_y : Tendsto (fun n => Prod.snd ∘ z n) atTop (𝓝 y) :=
+        tendsto_pi_nhds.2 fun i => tendsto_atTop_of_eventually_const (i₀ := i + 1) fun n hn =>
+          congrArg Prod.snd (hAgree n i (by omega))
+      have htend_h : Tendsto (fun n => h (Prod.snd ∘ z n)) atTop (𝓝 (h y)) :=
+        (hh.tendsto y).comp htend_y
+      refine ⟨y, funext fun k => ?_⟩
+      have htend_k : Tendsto (fun n => (h (Prod.snd ∘ z n)) k) atTop (𝓝 (h y k)) :=
+        ((continuous_apply k).tendsto _).comp htend_h
+      have heq_const : Tendsto (fun _ : ℕ => x k) atTop (𝓝 (h y k)) :=
+        htend_k.congr' ((eventually_ge_atTop (k + 1)).mono fun n hn => by
+          rw [hzG n]
+          exact congrArg Prod.fst (hAgree n k (by omega)))
+      exact (tendsto_const_nhds_iff.1 heq_const).symm
 
 end MeasureTheory

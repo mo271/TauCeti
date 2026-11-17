@@ -54,10 +54,11 @@ itself (Mathlib's `MulAction.IsInvariantBlock` for the logic action), or it equa
   of isomorphism is closed and Borel;
 * `TauCeti.RelationalConfiguration.analyticSet_setOf_isoSetoid` — on a countable carrier the graph
   of isomorphism is analytic;
-* `TauCeti.RelationalConfiguration.isomorphismInvariant_iff_isInvariantBlock` and
+* `TauCeti.RelationalConfiguration.isomorphismInvariant_iff_isInvariantBlock`,
+  `TauCeti.RelationalConfiguration.isomorphismInvariant_iff_isFixedBlock`, and
   `TauCeti.RelationalConfiguration.isomorphismInvariant_iff_preimage_image_quotientMk` —
-  isomorphism invariance is invariance under the logic action, and is equality with the
-  saturation;
+  isomorphism invariance is invariance (or being a fixed block) under the logic action, and is
+  equality with the saturation;
 * `TauCeti.RelationalConfiguration.analyticSet_iUnion_smul` — on a countable carrier the
   saturation of an analytic set under the logic action is analytic.
 
@@ -248,6 +249,12 @@ theorem isomorphismInvariant_iff_isInvariantBlock :
     exact hA (isoSetoid_perm_smul σ c) hc
   · obtain ⟨σ, rfl⟩ := isoSetoid_iff_exists_perm_smul_eq.1 h
     exact hA σ (smul_mem_smul_set hc)
+
+/-- **Isomorphism invariance as a fixed block**: a set of configurations is isomorphism invariant
+exactly when every permutation of the carrier fixes it setwise (`σ • A = A`). -/
+theorem isomorphismInvariant_iff_isFixedBlock :
+    IsomorphismInvariant A ↔ MulAction.IsFixedBlock (Equiv.Perm V) A :=
+  isomorphismInvariant_iff_isInvariantBlock.trans MulAction.isInvariantBlock_iff_isFixedBlock
 
 /-- The saturation of a set under isomorphism is the union of its images under the logic
 action. -/
