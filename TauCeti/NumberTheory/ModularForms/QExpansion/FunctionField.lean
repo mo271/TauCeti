@@ -55,6 +55,8 @@ fields `F_N`.
 * `Subgroup.CompactifiedQuotient.coeffSubfield`, `Subgroup.CompactifiedQuotient.mem_coeffSubfield`
   and `Subgroup.CompactifiedQuotient.mem_coeffSubfield_iff_exists_mapRingHom_eq`: the subfield of
   functions with coefficients in a subfield of `ℂ`.
+* `Subgroup.CompactifiedQuotient.laurentQExpansionRestrict`: the Laurent `q`-expansion restricted
+  to `coeffSubfield D K`, with values in `K⸨q⸩`.
 * `Subgroup.CompactifiedQuotient.laurentQExpansion_compactifiedQuotientComap` and
   `Subgroup.CompactifiedQuotient.compactifiedQuotientComap_mem_coeffSubfield_iff`: the expansion
   and the coefficients of a pullback along the map induced by an inclusion of subgroups.
@@ -261,6 +263,50 @@ theorem coeffSubfield_mono {K L : Subfield ℂ} (h : K ≤ L) : coeffSubfield D 
 @[simp]
 theorem coeffSubfield_top : coeffSubfield D (⊤ : Subfield ℂ) = ⊤ :=
   eq_top_iff.mpr fun _ _ ↦ (mem_coeffSubfield D).mpr fun _ ↦ Subfield.mem_top _
+
+/-- **The Laurent `q`-expansion on `coeffSubfield D K`, with values in `K⸨q⸩`.** This is the
+restriction of `laurentQExpansion D` to functions whose expansion has all coefficients in `K`,
+corestricted along the injective map `K⸨q⸩ →+* ℂ⸨q⸩`. -/
+def laurentQExpansionRestrict (K : Subfield ℂ) : coeffSubfield D K →+* LaurentSeries K :=
+  (HahnSeries.mapRingHom K.subtype :
+      LaurentSeries K →+* LaurentSeries ℂ).rangeRestrictFieldEquiv.symm.toRingHom.comp
+    ((laurentQExpansion D).toRingHom.restrict (coeffSubfield D K)
+      (HahnSeries.mapRingHom K.subtype : LaurentSeries K →+* LaurentSeries ℂ).fieldRange
+      fun _ hF ↦ hF)
+
+/-- Viewing `laurentQExpansionRestrict D K F` as a complex Laurent series recovers
+`laurentQExpansion D F`. -/
+@[simp]
+theorem mapRingHom_subtype_laurentQExpansionRestrict (K : Subfield ℂ) (F : coeffSubfield D K) :
+    HahnSeries.mapRingHom K.subtype (laurentQExpansionRestrict D K F) = laurentQExpansion D F :=
+  (HahnSeries.mapRingHom K.subtype :
+    LaurentSeries K →+* LaurentSeries ℂ).rangeRestrictFieldEquiv_apply_symm_apply _
+
+/-- The coefficients of `laurentQExpansionRestrict D K F`, coerced to `ℂ`, are the coefficients of
+`laurentQExpansion D F`. -/
+@[simp]
+theorem coe_coeff_laurentQExpansionRestrict (K : Subfield ℂ) (F : coeffSubfield D K) (n : ℤ) :
+    ((laurentQExpansionRestrict D K F).coeff n : ℂ) = (laurentQExpansion D F).coeff n := by
+  simpa only [HahnSeries.coeff_mapRingHom, Subfield.coe_subtype] using
+    congrArg (fun ℓ ↦ ℓ.coeff n) (mapRingHom_subtype_laurentQExpansionRestrict D K F)
+
+/-- The `q`-expansion principle on `coeffSubfield D K`: `laurentQExpansionRestrict D K` is
+injective. -/
+theorem laurentQExpansionRestrict_injective (K : Subfield ℂ) :
+    Injective (laurentQExpansionRestrict D K) :=
+  (laurentQExpansionRestrict D K).injective
+
+/-- The restricted Laurent `q`-expansion of a constant in `K` is the constant Laurent series. -/
+@[simp]
+theorem laurentQExpansionRestrict_algebraMap (K : Subfield ℂ) (c : K) :
+    laurentQExpansionRestrict D K
+        ⟨algebraMap ℂ (MeromorphicFunction Γ.CompactifiedQuotient) c,
+          (algebraMap_mem_coeffSubfield D).mpr c.2⟩ =
+      HahnSeries.C c := by
+  apply HahnSeries.mapRingHom_injective K.subtype_injective
+  rw [mapRingHom_subtype_laurentQExpansionRestrict, AlgHom.commutes, LaurentSeries.algebraMap_apply,
+    HahnSeries.mapRingHom_apply, HahnSeries.map_C]
+  rfl
 
 /-! ### Pullback along maps of compactified quotients -/
 

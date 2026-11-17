@@ -145,6 +145,13 @@ theorem weightedG2_single_apply (a : Fin 2 → ZMod N) (z : ℍ) :
   classical
   simp [weightedG2_def, Pi.single_apply]
 
+/-- The single-residue weight-two series at the zero residue vanishes identically. -/
+@[simp]
+theorem weightedG2_single_zero :
+    weightedG2 (Pi.single (0 : Fin 2 → ZMod N) (1 : ℂ)) = 0 := by
+  ext z
+  simp [weightedG2_single_apply, PeriodPair.weierstrassP_zero]
+
 /-- The series is linear in the weight: the zero weight. -/
 lemma weightedG2_zero : weightedG2 (0 : (Fin 2 → ZMod N) → ℂ) = 0 := by
   ext z
@@ -645,7 +652,7 @@ private lemma hasSum_zpow_val_sub (r : ZMod N) :
 
 /-- The sum of a weight along the row `x₀ = 0`, grouped by residue classes modulo `N`:
 `∑_{n ∈ ℤ} W(0, n) n⁻² = N⁻² ∑_{r mod N} W(0, r) P(r / N)`. -/
-private lemma tsum_row_zero_eq (W : (Fin 2 → ZMod N) → ℂ) :
+theorem tsum_weight_mul_zpow_neg_two_eq_sum_rowSum (W : (Fin 2 → ZMod N) → ℂ) :
     ∑' n : ℤ, W ((↑) ∘ ![0, n]) * (n : ℂ) ^ (-2 : ℤ) =
       ((N : ℂ) ^ 2)⁻¹ * ∑ r : ZMod N, W ![0, r] * rowSum (r.val / N) := by
   have hS : Summable fun n : ℤ ↦ W ((↑) ∘ ![0, n]) * (n : ℂ) ^ (-2 : ℤ) := by
@@ -686,7 +693,7 @@ theorem tendsto_weightedG2_atImInfty (W : (Fin 2 → ZMod N) → ℂ) :
       Fintype.sum_eq_single 0 fun x hx ↦ by simp [ZMod.val_eq_zero, hx]]
     simp only [he, Matrix.cons_val_zero, Matrix.cons_val_one, ZMod.val_zero, ↓reduceIte]
   simp only [mul_sub, Finset.sum_sub_distrib, ← Finset.sum_mul, hrow, rowSum_zero,
-    tsum_row_zero_eq]
+    tsum_weight_mul_zpow_neg_two_eq_sum_rowSum]
   ring
 
 /-- The value at `i∞` of the weighted weight-two series:
@@ -741,6 +748,12 @@ lemma coe_weightedG2MF (W : (Fin 2 → ZMod N) → ℂ) : ⇑(weightedG2MF W) = 
 lemma weightedG2MF_zero : weightedG2MF (0 : (Fin 2 → ZMod N) → ℂ) = 0 := by
   ext z
   exact congrFun weightedG2_zero z
+
+@[simp]
+lemma weightedG2MF_single_zero :
+    weightedG2MF (Pi.single (0 : Fin 2 → ZMod N) (1 : ℂ)) = 0 := by
+  ext z
+  exact congrFun weightedG2_single_zero z
 
 @[simp]
 lemma weightedG2MF_add (W W' : (Fin 2 → ZMod N) → ℂ) :
